@@ -15,6 +15,26 @@ export default function LifeDashboard() {
   const [showNewNoteForm, setShowNewNoteForm] = useState(false);
   const [showNewEventForm, setShowNewEventForm] = useState(false);
   const [selectedDate, setSelectedDate] = useState(null);
+  const [highlightedItemId, setHighlightedItemId] = useState(null);
+  const [currentTime, setCurrentTime] = useState(new Date());
+
+  // Update clock every second
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentTime(new Date());
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  // Clear highlight after 3 seconds
+  useEffect(() => {
+    if (highlightedItemId) {
+      const timer = setTimeout(() => {
+        setHighlightedItemId(null);
+      }, 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [highlightedItemId]);
 
   useEffect(() => {
     try {
@@ -234,7 +254,27 @@ export default function LifeDashboard() {
     return null;
   };
 
-  // Get all existing tags from all notes
+  const navigateToLinkedItem = (linkedItem) => {
+    if (linkedItem.type === 'link') {
+      setActiveView('links');
+      setHighlightedItemId(linkedItem.id);
+    } else if (linkedItem.type === 'note') {
+      setActiveView('notes');
+      setHighlightedItemId(linkedItem.id);
+    } else if (linkedItem.type === 'task') {
+      setActiveView('tasks');
+      setHighlightedItemId(linkedItem.id);
+    }
+
+    // Scroll to item after view changes
+    setTimeout(() => {
+      const element = document.getElementById(`item-${linkedItem.id}`);
+      if (element) {
+        element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    }, 100);
+  };
+
   const existingTags = [...new Set(notes.flatMap(n => n.tags || []))];
 
   return (
@@ -265,6 +305,11 @@ export default function LifeDashboard() {
           from { opacity: 0; }
           to { opacity: 1; }
         }
+
+        @keyframes highlight {
+          0% { background-color: rgba(20, 184, 166, 0.2); }
+          100% { background-color: transparent; }
+        }
         
         .animate-slideUp {
           animation: slideUp 0.3s ease-out forwards;
@@ -272,6 +317,10 @@ export default function LifeDashboard() {
         
         .animate-fadeIn {
           animation: fadeIn 0.2s ease-out forwards;
+        }
+
+        .animate-highlight {
+          animation: highlight 2s ease-out;
         }
         
         .task-card {
@@ -376,78 +425,97 @@ export default function LifeDashboard() {
               {darkMode ? <Sun size={18} /> : <Moon size={18} />}
               <span className="text-sm">{darkMode ? 'Light Mode' : 'Dark Mode'}</span>
             </button>
-            <p className={`text-xs ${darkMode ? 'text-slate-600' : 'text-slate-500'}`}>
-              {new Date().toLocaleDateString('en-US', { 
-                weekday: 'long', 
-                year: 'numeric', 
-                month: 'long', 
-                day: 'numeric' 
-              })}
-            </p>
           </div>
         </aside>
 
-        <main className="flex-1 p-12 overflow-y-auto">
-          {activeView === 'tasks' && (
-            <TasksView 
-              tasks={tasks}
-              addTask={addTask}
-              updateTask={updateTask}
-              deleteTask={deleteTask}
-              clearCompletedTasks={clearCompletedTasks}
-              showNewTaskForm={showNewTaskForm}
-              setShowNewTaskForm={setShowNewTaskForm}
-              links={links}
-              notes={notes}
-              toggleLinkToTask={toggleLinkToTask}
-              getLinkedItem={getLinkedItem}
-              darkMode={darkMode}
-            />
-          )}
-          
-          {activeView === 'calendar' && (
-            <CalendarView 
-              events={events}
-              addEvent={addEvent}
-              updateEvent={updateEvent}
-              deleteEvent={deleteEvent}
-              showNewEventForm={showNewEventForm}
-              setShowNewEventForm={setShowNewEventForm}
-              selectedDate={selectedDate}
-              setSelectedDate={setSelectedDate}
-              tasks={tasks}
-              links={links}
-              notes={notes}
-              toggleLinkToEvent={toggleLinkToEvent}
-              getLinkedItem={getLinkedItem}
-              darkMode={darkMode}
-            />
-          )}
-          
-          {activeView === 'links' && (
-            <LinksView 
-              links={links}
-              addLink={addLink}
-              updateLink={updateLink}
-              deleteLink={deleteLink}
-              showNewLinkForm={showNewLinkForm}
-              setShowNewLinkForm={setShowNewLinkForm}
-              darkMode={darkMode}
-            />
-          )}
-          
-          {activeView === 'notes' && (
-            <NotesView 
-              notes={notes}
-              addNote={addNote}
-              updateNote={updateNote}
-              deleteNote={deleteNote}
-              showNewNoteForm={showNewNoteForm}
-              setShowNewNoteForm={setShowNewNoteForm}
-              darkMode={darkMode}
-              existingTags={existingTags}
-            />
-          )}
+        <main className="flex-1 flex flex-col overflow-hidden">
+          {/* Clock/Date Header */}
+          <div className={`${darkMode ? 'bg-slate-800/50 border-slate-700' : 'bg-white/50 border-slate-200'} backdrop-blur-sm border-b px-12 py-4`}>
+            <div className="flex items-center justify-center">
+              <div className="text-center">
+                <div className={`text-3xl font-bold ${darkMode ? 'text-white' : 'text-slate-800'} accent-font`}>
+                  {currentTime.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}
+                </div>
+                <div className={`text-sm ${darkMode ? 'text-slate-400' : 'text-slate-600'} mt-1`}>
+                  {currentTime.toLocaleDateString('en-US', { 
+                    weekday: 'long', 
+                    year: 'numeric', 
+                    month: 'long', 
+                    day: 'numeric' 
+                  })}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Main Content Area */}
+          <div className="flex-1 p-12 overflow-y-auto">
+            {activeView === 'tasks' && (
+              <TasksView 
+                tasks={tasks}
+                addTask={addTask}
+                updateTask={updateTask}
+                deleteTask={deleteTask}
+                clearCompletedTasks={clearCompletedTasks}
+                showNewTaskForm={showNewTaskForm}
+                setShowNewTaskForm={setShowNewTaskForm}
+                links={links}
+                notes={notes}
+                toggleLinkToTask={toggleLinkToTask}
+                getLinkedItem={getLinkedItem}
+                navigateToLinkedItem={navigateToLinkedItem}
+                highlightedItemId={highlightedItemId}
+                darkMode={darkMode}
+              />
+            )}
+            
+            {activeView === 'calendar' && (
+              <CalendarView 
+                events={events}
+                addEvent={addEvent}
+                updateEvent={updateEvent}
+                deleteEvent={deleteEvent}
+                showNewEventForm={showNewEventForm}
+                setShowNewEventForm={setShowNewEventForm}
+                selectedDate={selectedDate}
+                setSelectedDate={setSelectedDate}
+                tasks={tasks}
+                links={links}
+                notes={notes}
+                toggleLinkToEvent={toggleLinkToEvent}
+                getLinkedItem={getLinkedItem}
+                navigateToLinkedItem={navigateToLinkedItem}
+                darkMode={darkMode}
+              />
+            )}
+            
+            {activeView === 'links' && (
+              <LinksView 
+                links={links}
+                addLink={addLink}
+                updateLink={updateLink}
+                deleteLink={deleteLink}
+                showNewLinkForm={showNewLinkForm}
+                setShowNewLinkForm={setShowNewLinkForm}
+                highlightedItemId={highlightedItemId}
+                darkMode={darkMode}
+              />
+            )}
+            
+            {activeView === 'notes' && (
+              <NotesView 
+                notes={notes}
+                addNote={addNote}
+                updateNote={updateNote}
+                deleteNote={deleteNote}
+                showNewNoteForm={showNewNoteForm}
+                setShowNewNoteForm={setShowNewNoteForm}
+                highlightedItemId={highlightedItemId}
+                darkMode={darkMode}
+                existingTags={existingTags}
+              />
+            )}
+          </div>
         </main>
       </div>
     </div>
@@ -552,6 +620,164 @@ function RichTextEditor({ value, onChange, placeholder, darkMode, rows = 10 }) {
   );
 }
 
+// Link Items Modal Component
+function LinkItemsModal({ isOpen, onClose, items, onToggleLink, linkedItems, darkMode }) {
+  useEffect(() => {
+    const handleEscape = (e) => {
+      if (e.key === 'Escape') onClose();
+    };
+    if (isOpen) {
+      document.addEventListener('keydown', handleEscape);
+      return () => document.removeEventListener('keydown', handleEscape);
+    }
+  }, [isOpen, onClose]);
+
+  if (!isOpen) return null;
+
+  const { tasks, links, notes } = items;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={onClose}>
+      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
+      <div 
+        className={`relative w-full max-w-2xl max-h-[80vh] ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'} rounded-xl shadow-2xl border overflow-hidden`}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className={`p-4 border-b ${darkMode ? 'border-slate-700' : 'border-slate-200'} flex items-center justify-between sticky top-0 ${darkMode ? 'bg-slate-800' : 'bg-white'} z-10`}>
+          <h3 className={`text-lg font-semibold ${darkMode ? 'text-white' : 'text-slate-800'}`}>Link Items</h3>
+          <button
+            onClick={onClose}
+            className={`p-2 rounded-lg ${darkMode ? 'hover:bg-slate-700 text-slate-400' : 'hover:bg-slate-100 text-slate-600'} transition-colors`}
+          >
+            <X size={20} />
+          </button>
+        </div>
+
+        <div className="overflow-y-auto max-h-[calc(80vh-80px)] p-4">
+          {tasks && tasks.length > 0 && (
+            <div className="mb-6">
+              <h4 className={`text-sm font-medium ${darkMode ? 'text-slate-300' : 'text-slate-700'} mb-3 flex items-center gap-2`}>
+                <List size={16} />
+                Tasks
+              </h4>
+              <div className="space-y-2">
+                {tasks.map(task => {
+                  const isLinked = linkedItems?.some(i => i.id === task.id);
+                  return (
+                    <button
+                      key={task.id}
+                      onClick={() => onToggleLink(task, 'task')}
+                      className={`w-full text-left px-4 py-3 rounded-lg border transition-all ${
+                        isLinked 
+                          ? 'bg-teal-50 border-teal-200 text-teal-900'
+                          : darkMode 
+                            ? 'bg-slate-700 border-slate-600 text-slate-200 hover:bg-slate-600'
+                            : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
+                      }`}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center ${
+                          isLinked ? 'border-teal-600 bg-teal-600' : darkMode ? 'border-slate-500' : 'border-slate-300'
+                        }`}>
+                          {isLinked && <Check size={14} className="text-white" />}
+                        </div>
+                        <span className="font-medium">{task.title}</span>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {links && links.length > 0 && (
+            <div className="mb-6">
+              <h4 className={`text-sm font-medium ${darkMode ? 'text-slate-300' : 'text-slate-700'} mb-3 flex items-center gap-2`}>
+                <Link2 size={16} />
+                Links
+              </h4>
+              <div className="space-y-2">
+                {links.map(link => {
+                  const isLinked = linkedItems?.some(i => i.id === link.id);
+                  return (
+                    <button
+                      key={link.id}
+                      onClick={() => onToggleLink(link, 'link')}
+                      className={`w-full text-left px-4 py-3 rounded-lg border transition-all ${
+                        isLinked 
+                          ? 'bg-teal-50 border-teal-200 text-teal-900'
+                          : darkMode 
+                            ? 'bg-slate-700 border-slate-600 text-slate-200 hover:bg-slate-600'
+                            : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
+                      }`}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center ${
+                          isLinked ? 'border-teal-600 bg-teal-600' : darkMode ? 'border-slate-500' : 'border-slate-300'
+                        }`}>
+                          {isLinked && <Check size={14} className="text-white" />}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="font-medium truncate">{link.title || link.url}</div>
+                          {link.title && <div className="text-xs opacity-60 truncate">{link.url}</div>}
+                        </div>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {notes && notes.length > 0 && (
+            <div>
+              <h4 className={`text-sm font-medium ${darkMode ? 'text-slate-300' : 'text-slate-700'} mb-3 flex items-center gap-2`}>
+                <StickyNote size={16} />
+                Notes
+              </h4>
+              <div className="space-y-2">
+                {notes.map(note => {
+                  const isLinked = linkedItems?.some(i => i.id === note.id);
+                  return (
+                    <button
+                      key={note.id}
+                      onClick={() => onToggleLink(note, 'note')}
+                      className={`w-full text-left px-4 py-3 rounded-lg border transition-all ${
+                        isLinked 
+                          ? 'bg-teal-50 border-teal-200 text-teal-900'
+                          : darkMode 
+                            ? 'bg-slate-700 border-slate-600 text-slate-200 hover:bg-slate-600'
+                            : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
+                      }`}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center ${
+                          isLinked ? 'border-teal-600 bg-teal-600' : darkMode ? 'border-slate-500' : 'border-slate-300'
+                        }`}>
+                          {isLinked && <Check size={14} className="text-white" />}
+                        </div>
+                        <span className="font-medium">{note.title || 'Untitled Note'}</span>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {tasks?.length === 0 && links?.length === 0 && notes?.length === 0 && (
+            <div className={`text-center py-12 ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+              <StickyNote size={48} className="mx-auto mb-4 opacity-30" />
+              <p>No items available to link yet.</p>
+              <p className="text-sm mt-2">Create some tasks, links, or notes first!</p>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 
 function CalendarView({ 
   events, 
@@ -567,9 +793,12 @@ function CalendarView({
   notes,
   toggleLinkToEvent,
   getLinkedItem,
+  navigateToLinkedItem,
   darkMode
 }) {
   const [currentMonth, setCurrentMonth] = useState(new Date());
+  const [showLinkModal, setShowLinkModal] = useState(false);
+  const [linkingEventId, setLinkingEventId] = useState(null);
   
   const monthStart = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1);
   const monthEnd = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 0);
@@ -595,7 +824,6 @@ function CalendarView({
 
   const getEventsForDate = (date) => {
     return events.filter(event => {
-      // event.date is stored as YYYY-MM-DD string
       const eventDateStr = event.date;
       const checkDateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
       return eventDateStr === checkDateStr;
@@ -606,6 +834,19 @@ function CalendarView({
     setSelectedDate(date);
     setShowNewEventForm(true);
   };
+
+  const openLinkModal = (eventId) => {
+    setLinkingEventId(eventId);
+    setShowLinkModal(true);
+  };
+
+  const handleToggleLink = (item, type) => {
+    if (linkingEventId) {
+      toggleLinkToEvent(linkingEventId, item, type);
+    }
+  };
+
+  const currentEvent = events.find(e => e.id === linkingEventId);
 
   return (
     <div className="max-w-7xl animate-fadeIn">
@@ -723,10 +964,8 @@ function CalendarView({
         <h3 className={`text-xl font-semibold ${darkMode ? 'text-slate-200' : 'text-slate-700'}`}>All Events</h3>
         {events
           .sort((a, b) => {
-            // Sort by date string
             if (a.date < b.date) return -1;
             if (a.date > b.date) return 1;
-            // If same date, sort by start time
             if (a.startTime && b.startTime) {
               return a.startTime.localeCompare(b.startTime);
             }
@@ -738,11 +977,9 @@ function CalendarView({
               event={event}
               updateEvent={updateEvent}
               deleteEvent={deleteEvent}
-              tasks={tasks}
-              links={links}
-              notes={notes}
-              toggleLinkToEvent={toggleLinkToEvent}
               getLinkedItem={getLinkedItem}
+              navigateToLinkedItem={navigateToLinkedItem}
+              onOpenLinkModal={() => openLinkModal(event.id)}
               darkMode={darkMode}
               style={{ animationDelay: `${index * 0.05}s` }}
             />
@@ -754,13 +991,21 @@ function CalendarView({
           </div>
         )}
       </div>
+
+      <LinkItemsModal
+        isOpen={showLinkModal}
+        onClose={() => setShowLinkModal(false)}
+        items={{ tasks, links, notes }}
+        onToggleLink={handleToggleLink}
+        linkedItems={currentEvent?.linkedItems || []}
+        darkMode={darkMode}
+      />
     </div>
   );
 }
 
 function NewEventForm({ onSave, onCancel, initialDate, darkMode }) {
   const [title, setTitle] = useState('');
-  // Store date as YYYY-MM-DD string to avoid timezone issues
   const formatDateForInput = (date) => {
     if (!date) date = new Date();
     const year = date.getFullYear();
@@ -785,7 +1030,6 @@ function NewEventForm({ onSave, onCancel, initialDate, darkMode }) {
   const handleSubmit = (e) => {
     e.preventDefault();
     if (title.trim() && date) {
-      // Save date as-is (YYYY-MM-DD string, no conversion)
       onSave({ title, date, startTime, endTime, description, color });
       setTitle('');
       setDate(formatDateForInput(new Date()));
@@ -883,12 +1127,10 @@ function NewEventForm({ onSave, onCancel, initialDate, darkMode }) {
   );
 }
 
-function EventCard({ event, updateEvent, deleteEvent, tasks, links, notes, toggleLinkToEvent, getLinkedItem, darkMode, style }) {
-  const [showLinkMenu, setShowLinkMenu] = useState(false);
+function EventCard({ event, updateEvent, deleteEvent, getLinkedItem, navigateToLinkedItem, onOpenLinkModal, darkMode, style }) {
   const [isEditing, setIsEditing] = useState(false);
   const [editedEvent, setEditedEvent] = useState(event);
 
-  // Format the date for display
   const formatDisplayDate = (dateStr) => {
     const [year, month, day] = dateStr.split('-');
     const date = new Date(year, month - 1, day);
@@ -1018,119 +1260,32 @@ function EventCard({ event, updateEvent, deleteEvent, tasks, links, notes, toggl
               if (!item) return null;
               
               return (
-                <div 
+                <button
                   key={linkedItem.id}
-                  className="flex items-center gap-1 px-2 py-1 bg-teal-50 text-teal-700 rounded text-xs border border-teal-200"
+                  onClick={() => navigateToLinkedItem(linkedItem)}
+                  className="flex items-center gap-1 px-3 py-1.5 bg-teal-50 text-teal-700 rounded-lg text-sm border border-teal-200 hover:bg-teal-100 transition-colors"
                 >
-                  {linkedItem.type === 'link' ? <Link2 size={12} /> : 
-                   linkedItem.type === 'note' ? <StickyNote size={12} /> : 
-                   <List size={12} />}
+                  {linkedItem.type === 'link' ? <Link2 size={14} /> : 
+                   linkedItem.type === 'note' ? <StickyNote size={14} /> : 
+                   <List size={14} />}
                   <span className="truncate max-w-[150px]">{linkedItem.title}</span>
-                </div>
+                  <ExternalLink size={12} />
+                </button>
               );
             })}
           </div>
         </div>
       )}
 
-      <div className="relative">
-        <button
-          onClick={() => setShowLinkMenu(!showLinkMenu)}
-          className="flex items-center gap-2 px-3 py-1.5 text-sm text-teal-600 hover:bg-teal-50 rounded-lg transition-colors"
-        >
-          <Link2 size={16} />
-          Link Items
-        </button>
-
-        {showLinkMenu && (
-          <div className={`absolute left-0 top-full mt-2 w-80 ${darkMode ? 'bg-slate-700 border-slate-600' : 'bg-white border-slate-200'} rounded-lg shadow-xl border z-50 max-h-96 overflow-y-auto`}>
-            <div className={`p-3 border-b ${darkMode ? 'border-slate-600' : 'border-slate-200'} flex items-center justify-between`}>
-              <h4 className={`font-medium text-sm ${darkMode ? 'text-slate-200' : 'text-slate-700'}`}>Link to this event</h4>
-              <button 
-                onClick={() => setShowLinkMenu(false)}
-                className={`${darkMode ? 'text-slate-400 hover:text-slate-200' : 'text-slate-400 hover:text-slate-600'}`}
-              >
-                <X size={16} />
-              </button>
-            </div>
-            
-            {tasks.length > 0 && (
-              <div className={`p-3 border-b ${darkMode ? 'border-slate-600' : 'border-slate-200'}`}>
-                <p className={`text-xs ${darkMode ? 'text-slate-400' : 'text-slate-500'} mb-2`}>Tasks</p>
-                {tasks.map(task => {
-                  const isLinked = event.linkedItems?.some(i => i.id === task.id);
-                  return (
-                    <button
-                      key={task.id}
-                      onClick={() => toggleLinkToEvent(event.id, task, 'task')}
-                      className={`w-full text-left px-3 py-2 rounded ${darkMode ? 'hover:bg-slate-600' : 'hover:bg-slate-50'} mb-1 text-sm ${
-                        isLinked ? 'bg-teal-50 text-teal-700' : darkMode ? 'text-slate-200' : 'text-slate-700'
-                      }`}
-                    >
-                      <div className="flex items-center gap-2">
-                        {isLinked && <Check size={14} />}
-                        <span className="truncate">{task.title}</span>
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
-            )}
-
-            {links.length > 0 && (
-              <div className={`p-3 border-b ${darkMode ? 'border-slate-600' : 'border-slate-200'}`}>
-                <p className={`text-xs ${darkMode ? 'text-slate-400' : 'text-slate-500'} mb-2`}>Links</p>
-                {links.map(link => {
-                  const isLinked = event.linkedItems?.some(i => i.id === link.id);
-                  return (
-                    <button
-                      key={link.id}
-                      onClick={() => toggleLinkToEvent(event.id, link, 'link')}
-                      className={`w-full text-left px-3 py-2 rounded ${darkMode ? 'hover:bg-slate-600' : 'hover:bg-slate-50'} mb-1 text-sm ${
-                        isLinked ? 'bg-teal-50 text-teal-700' : darkMode ? 'text-slate-200' : 'text-slate-700'
-                      }`}
-                    >
-                      <div className="flex items-center gap-2">
-                        {isLinked && <Check size={14} />}
-                        <span className="truncate">{link.title || link.url}</span>
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
-            )}
-            
-            {notes.length > 0 && (
-              <div className="p-3">
-                <p className={`text-xs ${darkMode ? 'text-slate-400' : 'text-slate-500'} mb-2`}>Notes</p>
-                {notes.map(note => {
-                  const isLinked = event.linkedItems?.some(i => i.id === note.id);
-                  return (
-                    <button
-                      key={note.id}
-                      onClick={() => toggleLinkToEvent(event.id, note, 'note')}
-                      className={`w-full text-left px-3 py-2 rounded ${darkMode ? 'hover:bg-slate-600' : 'hover:bg-slate-50'} mb-1 text-sm ${
-                        isLinked ? 'bg-teal-50 text-teal-700' : darkMode ? 'text-slate-200' : 'text-slate-700'
-                      }`}
-                    >
-                      <div className="flex items-center gap-2">
-                        {isLinked && <Check size={14} />}
-                        <span className="truncate">{note.title}</span>
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
-            )}
-            
-            {tasks.length === 0 && links.length === 0 && notes.length === 0 && (
-              <div className={`p-4 text-center text-sm ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>
-                No items to connect yet
-              </div>
-            )}
-          </div>
-        )}
-      </div>
+      <button
+        onClick={onOpenLinkModal}
+        className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
+          darkMode ? 'bg-slate-700 text-teal-400 hover:bg-slate-600' : 'bg-teal-50 text-teal-700 hover:bg-teal-100'
+        }`}
+      >
+        <Link2 size={16} />
+        <span className="text-sm font-medium">Link Items</span>
+      </button>
     </div>
   );
 }
@@ -1148,10 +1303,27 @@ function TasksView({
   notes,
   toggleLinkToTask,
   getLinkedItem,
+  navigateToLinkedItem,
+  highlightedItemId,
   darkMode
 }) {
   const activeTasks = tasks.filter(t => t.status !== 'completed');
-  const completedTasks = tasks.filter(t => t.status === 'completed');
+  const completedTasks = tasks.filter(t => t.status !== 'completed');
+  const [showLinkModal, setShowLinkModal] = useState(false);
+  const [linkingTaskId, setLinkingTaskId] = useState(null);
+
+  const openLinkModal = (taskId) => {
+    setLinkingTaskId(taskId);
+    setShowLinkModal(true);
+  };
+
+  const handleToggleLink = (item, type) => {
+    if (linkingTaskId) {
+      toggleLinkToTask(linkingTaskId, item, type);
+    }
+  };
+
+  const currentTask = tasks.find(t => t.id === linkingTaskId);
 
   return (
     <div className="max-w-6xl animate-fadeIn">
@@ -1184,13 +1356,11 @@ function TasksView({
             task={task} 
             updateTask={updateTask}
             deleteTask={deleteTask}
-            links={links}
-            notes={notes}
-            toggleLinkToTask={toggleLinkToTask}
             getLinkedItem={getLinkedItem}
+            navigateToLinkedItem={navigateToLinkedItem}
+            onOpenLinkModal={() => openLinkModal(task.id)}
+            isHighlighted={highlightedItemId === task.id}
             darkMode={darkMode}
-            index={index}
-            totalTasks={activeTasks.length}
             style={{ animationDelay: `${index * 0.05}s` }}
           />
         ))}
@@ -1226,6 +1396,15 @@ function TasksView({
           </div>
         </div>
       )}
+
+      <LinkItemsModal
+        isOpen={showLinkModal}
+        onClose={() => setShowLinkModal(false)}
+        items={{ tasks: null, links, notes }}
+        onToggleLink={handleToggleLink}
+        linkedItems={currentTask?.linkedItems || []}
+        darkMode={darkMode}
+      />
     </div>
   );
 }
@@ -1280,11 +1459,9 @@ function NewTaskForm({ onSave, onCancel, darkMode }) {
   );
 }
 
-function TaskCard({ task, updateTask, deleteTask, links, notes, toggleLinkToTask, getLinkedItem, darkMode, index, totalTasks, style }) {
-  const [showLinkMenu, setShowLinkMenu] = useState(false);
+function TaskCard({ task, updateTask, deleteTask, getLinkedItem, navigateToLinkedItem, onOpenLinkModal, isHighlighted, darkMode, style }) {
   const [showSubtasks, setShowSubtasks] = useState(true);
   const [newSubtask, setNewSubtask] = useState('');
-  const linkButtonRef = useRef(null);
 
   const statusConfig = {
     new: { label: 'New', color: 'bg-blue-100 text-blue-700 border-blue-200', icon: Circle },
@@ -1327,11 +1504,12 @@ function TaskCard({ task, updateTask, deleteTask, links, notes, toggleLinkToTask
     });
   };
 
-  // Determine if dropdown should open upward (if this is not one of the last tasks)
-  const shouldOpenUpward = index > totalTasks - 3;
-
   return (
-    <div className={`task-card p-6 ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'} rounded-xl shadow-md border animate-slideUp relative`} style={style}>
+    <div 
+      id={`item-${task.id}`}
+      className={`task-card p-6 ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'} rounded-xl shadow-md border animate-slideUp ${isHighlighted ? 'animate-highlight ring-2 ring-teal-500' : ''}`} 
+      style={style}
+    >
       <div className="flex items-start justify-between mb-4">
         <div className="flex-1">
           <h3 className={`text-xl font-semibold ${darkMode ? 'text-white' : 'text-slate-800'} mb-2`}>{task.title}</h3>
@@ -1383,7 +1561,6 @@ function TaskCard({ task, updateTask, deleteTask, links, notes, toggleLinkToTask
         </div>
       </div>
 
-      {/* Subtasks */}
       <div className={`mb-4 pb-4 border-b ${darkMode ? 'border-slate-700' : 'border-slate-100'}`}>
         <button
           onClick={() => setShowSubtasks(!showSubtasks)}
@@ -1451,110 +1628,36 @@ function TaskCard({ task, updateTask, deleteTask, links, notes, toggleLinkToTask
               if (!item) return null;
               
               return (
-                <div 
+                <button
                   key={linkedItem.id}
-                  className="flex items-center gap-1 px-2 py-1 bg-teal-50 text-teal-700 rounded text-xs border border-teal-200"
+                  onClick={() => navigateToLinkedItem(linkedItem)}
+                  className="flex items-center gap-1 px-3 py-1.5 bg-teal-50 text-teal-700 rounded-lg text-sm border border-teal-200 hover:bg-teal-100 transition-colors"
                 >
-                  {linkedItem.type === 'link' ? <Link2 size={12} /> : <StickyNote size={12} />}
+                  {linkedItem.type === 'link' ? <Link2 size={14} /> : <StickyNote size={14} />}
                   <span className="truncate max-w-[150px]">{linkedItem.title}</span>
-                </div>
+                  <ExternalLink size={12} />
+                </button>
               );
             })}
           </div>
         </div>
       )}
 
-      <div className="relative">
-        <button
-          ref={linkButtonRef}
-          onClick={() => setShowLinkMenu(!showLinkMenu)}
-          className="flex items-center gap-2 px-3 py-1.5 text-sm text-teal-600 hover:bg-teal-50 rounded-lg transition-colors"
-        >
-          <Link2 size={16} />
-          Link Items
-        </button>
-
-        {showLinkMenu && (
-          <div 
-            className={`fixed w-80 ${darkMode ? 'bg-slate-700 border-slate-600' : 'bg-white border-slate-200'} rounded-lg shadow-xl border z-50 max-h-96 overflow-y-auto`}
-            style={{
-              ...(shouldOpenUpward 
-                ? { bottom: `${window.innerHeight - (linkButtonRef.current?.getBoundingClientRect().top || 0) + 8}px` }
-                : { top: `${(linkButtonRef.current?.getBoundingClientRect().bottom || 0) + 8}px` }
-              ),
-              left: `${linkButtonRef.current?.getBoundingClientRect().left || 0}px`
-            }}
-          >
-            <div className={`p-3 border-b ${darkMode ? 'border-slate-600' : 'border-slate-200'} flex items-center justify-between`}>
-              <h4 className={`font-medium text-sm ${darkMode ? 'text-slate-200' : 'text-slate-700'}`}>Link to this task</h4>
-              <button 
-                onClick={() => setShowLinkMenu(false)}
-                className={`${darkMode ? 'text-slate-400 hover:text-slate-200' : 'text-slate-400 hover:text-slate-600'}`}
-              >
-                <X size={16} />
-              </button>
-            </div>
-            
-            {links.length > 0 && (
-              <div className={`p-3 border-b ${darkMode ? 'border-slate-600' : 'border-slate-200'}`}>
-                <p className={`text-xs ${darkMode ? 'text-slate-400' : 'text-slate-500'} mb-2`}>Links</p>
-                {links.map(link => {
-                  const isLinked = task.linkedItems?.some(i => i.id === link.id);
-                  return (
-                    <button
-                      key={link.id}
-                      onClick={() => toggleLinkToTask(task.id, link, 'link')}
-                      className={`w-full text-left px-3 py-2 rounded ${darkMode ? 'hover:bg-slate-600' : 'hover:bg-slate-50'} mb-1 text-sm ${
-                        isLinked ? 'bg-teal-50 text-teal-700' : darkMode ? 'text-slate-200' : 'text-slate-700'
-                      }`}
-                    >
-                      <div className="flex items-center gap-2">
-                        {isLinked && <Check size={14} />}
-                        <span className="truncate">{link.title || link.url}</span>
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
-            )}
-            
-            {notes.length > 0 && (
-              <div className="p-3">
-                <p className={`text-xs ${darkMode ? 'text-slate-400' : 'text-slate-500'} mb-2`}>Notes</p>
-                {notes.map(note => {
-                  const isLinked = task.linkedItems?.some(i => i.id === note.id);
-                  return (
-                    <button
-                      key={note.id}
-                      onClick={() => toggleLinkToTask(task.id, note, 'note')}
-                      className={`w-full text-left px-3 py-2 rounded ${darkMode ? 'hover:bg-slate-600' : 'hover:bg-slate-50'} mb-1 text-sm ${
-                        isLinked ? 'bg-teal-50 text-teal-700' : darkMode ? 'text-slate-200' : 'text-slate-700'
-                      }`}
-                    >
-                      <div className="flex items-center gap-2">
-                        {isLinked && <Check size={14} />}
-                        <span className="truncate">{note.title}</span>
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
-            )}
-            
-            {links.length === 0 && notes.length === 0 && (
-              <div className={`p-4 text-center text-sm ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>
-                No links or notes to connect yet
-              </div>
-            )}
-          </div>
-        )}
-      </div>
+      <button
+        onClick={onOpenLinkModal}
+        className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
+          darkMode ? 'bg-slate-700 text-teal-400 hover:bg-slate-600' : 'bg-teal-50 text-teal-700 hover:bg-teal-100'
+        }`}
+      >
+        <Link2 size={16} />
+        <span className="text-sm font-medium">Link Items</span>
+      </button>
     </div>
   );
 }
 
 
-function LinksView({ links, addLink, updateLink, deleteLink, showNewLinkForm, setShowNewLinkForm, darkMode }) {
+function LinksView({ links, addLink, updateLink, deleteLink, showNewLinkForm, setShowNewLinkForm, highlightedItemId, darkMode }) {
   const categories = [...new Set(links.map(l => l.category).filter(Boolean))];
   const [filterCategory, setFilterCategory] = useState('all');
 
@@ -1622,6 +1725,7 @@ function LinksView({ links, addLink, updateLink, deleteLink, showNewLinkForm, se
             link={link} 
             updateLink={updateLink}
             deleteLink={deleteLink}
+            isHighlighted={highlightedItemId === link.id}
             darkMode={darkMode}
             style={{ animationDelay: `${index * 0.05}s` }}
           />
@@ -1716,7 +1820,7 @@ function NewLinkForm({ onSave, onCancel, existingCategories, darkMode }) {
   );
 }
 
-function LinkCard({ link, updateLink, deleteLink, darkMode, style }) {
+function LinkCard({ link, updateLink, deleteLink, isHighlighted, darkMode, style }) {
   const [isEditing, setIsEditing] = useState(false);
   const [editedLink, setEditedLink] = useState(link);
 
@@ -1772,7 +1876,11 @@ function LinkCard({ link, updateLink, deleteLink, darkMode, style }) {
   }
 
   return (
-    <div className={`task-card p-6 ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'} rounded-xl shadow-md border animate-slideUp`} style={style}>
+    <div 
+      id={`item-${link.id}`}
+      className={`task-card p-6 ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'} rounded-xl shadow-md border animate-slideUp ${isHighlighted ? 'animate-highlight ring-2 ring-teal-500' : ''}`} 
+      style={style}
+    >
       <div className="flex items-start justify-between mb-3">
         <div className="flex-1">
           {link.title && (
@@ -1817,7 +1925,7 @@ function LinkCard({ link, updateLink, deleteLink, darkMode, style }) {
   );
 }
 
-function NotesView({ notes, addNote, updateNote, deleteNote, showNewNoteForm, setShowNewNoteForm, darkMode, existingTags }) {
+function NotesView({ notes, addNote, updateNote, deleteNote, showNewNoteForm, setShowNewNoteForm, highlightedItemId, darkMode, existingTags }) {
   const [sortBy, setSortBy] = useState('date');
   const [filterTag, setFilterTag] = useState('all');
   
@@ -1895,6 +2003,7 @@ function NotesView({ notes, addNote, updateNote, deleteNote, showNewNoteForm, se
             note={note} 
             updateNote={updateNote}
             deleteNote={deleteNote}
+            isHighlighted={highlightedItemId === note.id}
             darkMode={darkMode}
             existingTags={existingTags}
             style={{ animationDelay: `${index * 0.05}s` }}
@@ -2056,7 +2165,7 @@ function NewNoteForm({ onSave, onCancel, darkMode, existingTags }) {
   );
 }
 
-function NoteCard({ note, updateNote, deleteNote, darkMode, existingTags, style }) {
+function NoteCard({ note, updateNote, deleteNote, isHighlighted, darkMode, existingTags, style }) {
   const [isEditing, setIsEditing] = useState(false);
   const [editedNote, setEditedNote] = useState(note);
   const [tagInput, setTagInput] = useState('');
@@ -2179,7 +2288,8 @@ function NoteCard({ note, updateNote, deleteNote, darkMode, existingTags, style 
 
   return (
     <div 
-      className={`task-card p-6 rounded-xl shadow-md border-2 ${colors[note.color || 'yellow']} animate-slideUp cursor-pointer relative group`}
+      id={`item-${note.id}`}
+      className={`task-card p-6 rounded-xl shadow-md border-2 ${colors[note.color || 'yellow']} animate-slideUp cursor-pointer relative group ${isHighlighted ? 'animate-highlight ring-2 ring-teal-500' : ''}`}
       style={style}
       onClick={() => setIsEditing(true)}
     >
