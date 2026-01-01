@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { Plus, Check, Circle, Pause, AlertCircle, Trash2, Link2, StickyNote, List, ExternalLink, X, Edit2, Save, Calendar, ChevronLeft, ChevronRight, Clock, Copy, Moon, Sun, Tag, ChevronDown, ChevronUp } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { Plus, Check, Circle, Pause, AlertCircle, Trash2, Link2, StickyNote, List, ExternalLink, X, Edit2, Save, Calendar, ChevronLeft, ChevronRight, Clock, Copy, Moon, Sun, Tag, ChevronDown, ChevronUp, Bold, Italic, ListOrdered } from 'lucide-react';
 
 const generateId = () => Date.now().toString(36) + Math.random().toString(36).substr(2);
 
@@ -234,6 +234,9 @@ export default function LifeDashboard() {
     return null;
   };
 
+  // Get all existing tags from all notes
+  const existingTags = [...new Set(notes.flatMap(n => n.tags || []))];
+
   return (
     <div className={`min-h-screen ${darkMode ? 'bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900' : 'bg-gradient-to-br from-slate-50 via-stone-50 to-neutral-100'}`}>
       <style>{`
@@ -286,6 +289,36 @@ export default function LifeDashboard() {
         
         .status-badge:hover {
           transform: scale(1.05);
+        }
+
+        .rich-text-editor {
+          min-height: 200px;
+        }
+
+        .rich-text-editor ul {
+          list-style-type: disc;
+          margin-left: 1.5em;
+          margin-top: 0.5em;
+          margin-bottom: 0.5em;
+        }
+
+        .rich-text-editor ol {
+          list-style-type: decimal;
+          margin-left: 1.5em;
+          margin-top: 0.5em;
+          margin-bottom: 0.5em;
+        }
+
+        .rich-text-editor li {
+          margin-bottom: 0.25em;
+        }
+
+        .rich-text-editor strong {
+          font-weight: 600;
+        }
+
+        .rich-text-editor em {
+          font-style: italic;
         }
       `}</style>
 
@@ -412,6 +445,7 @@ export default function LifeDashboard() {
               showNewNoteForm={showNewNoteForm}
               setShowNewNoteForm={setShowNewNoteForm}
               darkMode={darkMode}
+              existingTags={existingTags}
             />
           )}
         </main>
@@ -446,6 +480,78 @@ function NavButton({ active, onClick, icon, label, count, darkMode }) {
     </button>
   );
 }
+
+// Rich Text Editor Component
+function RichTextEditor({ value, onChange, placeholder, darkMode, rows = 10 }) {
+  const editorRef = useRef(null);
+
+  const applyFormat = (command, value = null) => {
+    document.execCommand(command, false, value);
+    editorRef.current?.focus();
+  };
+
+  const handleInput = () => {
+    if (onChange && editorRef.current) {
+      onChange(editorRef.current.innerHTML);
+    }
+  };
+
+  useEffect(() => {
+    if (editorRef.current && value !== editorRef.current.innerHTML) {
+      editorRef.current.innerHTML = value || '';
+    }
+  }, [value]);
+
+  return (
+    <div className={`border ${darkMode ? 'border-slate-600' : 'border-slate-300'} rounded-lg overflow-hidden`}>
+      <div className={`flex gap-1 p-2 border-b ${darkMode ? 'border-slate-600 bg-slate-700' : 'border-slate-300 bg-slate-50'}`}>
+        <button
+          type="button"
+          onClick={() => applyFormat('bold')}
+          className={`p-2 rounded hover:bg-slate-200 ${darkMode ? 'hover:bg-slate-600' : 'hover:bg-slate-200'}`}
+          title="Bold"
+        >
+          <Bold size={16} className={darkMode ? 'text-slate-300' : 'text-slate-600'} />
+        </button>
+        <button
+          type="button"
+          onClick={() => applyFormat('italic')}
+          className={`p-2 rounded ${darkMode ? 'hover:bg-slate-600' : 'hover:bg-slate-200'}`}
+          title="Italic"
+        >
+          <Italic size={16} className={darkMode ? 'text-slate-300' : 'text-slate-600'} />
+        </button>
+        <button
+          type="button"
+          onClick={() => applyFormat('insertUnorderedList')}
+          className={`p-2 rounded ${darkMode ? 'hover:bg-slate-600' : 'hover:bg-slate-200'}`}
+          title="Bullet List"
+        >
+          <List size={16} className={darkMode ? 'text-slate-300' : 'text-slate-600'} />
+        </button>
+        <button
+          type="button"
+          onClick={() => applyFormat('insertOrderedList')}
+          className={`p-2 rounded ${darkMode ? 'hover:bg-slate-600' : 'hover:bg-slate-200'}`}
+          title="Numbered List"
+        >
+          <ListOrdered size={16} className={darkMode ? 'text-slate-300' : 'text-slate-600'} />
+        </button>
+      </div>
+      <div
+        ref={editorRef}
+        contentEditable
+        onInput={handleInput}
+        className={`rich-text-editor p-3 focus:outline-none ${
+          darkMode ? 'bg-slate-700 text-white' : 'bg-white text-slate-900'
+        }`}
+        style={{ minHeight: `${rows * 1.5}em` }}
+        data-placeholder={placeholder}
+      />
+    </div>
+  );
+}
+
 
 function CalendarView({ 
   events, 
@@ -489,8 +595,10 @@ function CalendarView({
 
   const getEventsForDate = (date) => {
     return events.filter(event => {
-      const eventDate = new Date(event.date);
-      return eventDate.toDateString() === date.toDateString();
+      // event.date is stored as YYYY-MM-DD string
+      const eventDateStr = event.date;
+      const checkDateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+      return eventDateStr === checkDateStr;
     });
   };
 
@@ -612,11 +720,18 @@ function CalendarView({
       </div>
 
       <div className="space-y-4">
-        <h3 className={`text-xl font-semibold ${darkMode ? 'text-slate-200' : 'text-slate-700'}`}>Upcoming Events</h3>
+        <h3 className={`text-xl font-semibold ${darkMode ? 'text-slate-200' : 'text-slate-700'}`}>All Events</h3>
         {events
-          .filter(e => new Date(e.date) >= new Date())
-          .sort((a, b) => new Date(a.date) - new Date(b.date))
-          .slice(0, 5)
+          .sort((a, b) => {
+            // Sort by date string
+            if (a.date < b.date) return -1;
+            if (a.date > b.date) return 1;
+            // If same date, sort by start time
+            if (a.startTime && b.startTime) {
+              return a.startTime.localeCompare(b.startTime);
+            }
+            return 0;
+          })
           .map((event, index) => (
             <EventCard
               key={event.id}
@@ -632,6 +747,12 @@ function CalendarView({
               style={{ animationDelay: `${index * 0.05}s` }}
             />
           ))}
+        {events.length === 0 && (
+          <div className={`text-center py-16 ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+            <Calendar size={48} className="mx-auto mb-4 opacity-30" />
+            <p>No events yet. Click a date to add one!</p>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -639,16 +760,15 @@ function CalendarView({
 
 function NewEventForm({ onSave, onCancel, initialDate, darkMode }) {
   const [title, setTitle] = useState('');
+  // Store date as YYYY-MM-DD string to avoid timezone issues
   const formatDateForInput = (date) => {
-    const d = new Date(date);
-    const year = d.getFullYear();
-    const month = String(d.getMonth() + 1).padStart(2, '0');
-    const day = String(d.getDate()).padStart(2, '0');
+    if (!date) date = new Date();
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
     return `${year}-${month}-${day}`;
   };
-  const [date, setDate] = useState(
-    initialDate ? formatDateForInput(initialDate) : formatDateForInput(new Date())
-  );
+  const [date, setDate] = useState(formatDateForInput(initialDate));
   const [startTime, setStartTime] = useState('09:00');
   const [endTime, setEndTime] = useState('10:00');
   const [description, setDescription] = useState('');
@@ -665,6 +785,7 @@ function NewEventForm({ onSave, onCancel, initialDate, darkMode }) {
   const handleSubmit = (e) => {
     e.preventDefault();
     if (title.trim() && date) {
+      // Save date as-is (YYYY-MM-DD string, no conversion)
       onSave({ title, date, startTime, endTime, description, color });
       setTitle('');
       setDate(formatDateForInput(new Date()));
@@ -767,20 +888,16 @@ function EventCard({ event, updateEvent, deleteEvent, tasks, links, notes, toggl
   const [isEditing, setIsEditing] = useState(false);
   const [editedEvent, setEditedEvent] = useState(event);
 
-  const eventDate = new Date(event.date);
-  const formattedDate = eventDate.toLocaleDateString('en-US', { 
-    weekday: 'long', 
-    year: 'numeric', 
-    month: 'long', 
-    day: 'numeric' 
-  });
-
-  const formatDateForInput = (dateStr) => {
-    const d = new Date(dateStr);
-    const year = d.getFullYear();
-    const month = String(d.getMonth() + 1).padStart(2, '0');
-    const day = String(d.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
+  // Format the date for display
+  const formatDisplayDate = (dateStr) => {
+    const [year, month, day] = dateStr.split('-');
+    const date = new Date(year, month - 1, day);
+    return date.toLocaleDateString('en-US', { 
+      weekday: 'long', 
+      year: 'numeric', 
+      month: 'long', 
+      day: 'numeric' 
+    });
   };
 
   const handleSave = () => {
@@ -803,7 +920,7 @@ function EventCard({ event, updateEvent, deleteEvent, tasks, links, notes, toggl
             <label className={`block text-sm ${darkMode ? 'text-slate-300' : 'text-slate-600'} mb-1`}>Date</label>
             <input
               type="date"
-              value={formatDateForInput(editedEvent.date)}
+              value={editedEvent.date}
               onChange={(e) => setEditedEvent({ ...editedEvent, date: e.target.value })}
               className={`w-full px-3 py-2 border ${darkMode ? 'bg-slate-700 border-slate-600 text-white' : 'border-slate-300'} rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500`}
             />
@@ -864,7 +981,7 @@ function EventCard({ event, updateEvent, deleteEvent, tasks, links, notes, toggl
             event.color === 'red' ? 'bg-red-100 text-red-700' :
             'bg-teal-100 text-teal-700'
           }`}>
-            {formattedDate}
+            {formatDisplayDate(event.date)}
           </div>
           <h3 className={`text-xl font-semibold ${darkMode ? 'text-white' : 'text-slate-800'} mb-2`}>{event.title}</h3>
           {(event.startTime || event.endTime) && (
@@ -1018,8 +1135,6 @@ function EventCard({ event, updateEvent, deleteEvent, tasks, links, notes, toggl
   );
 }
 
-// Due to length limits, I'll continue in the next response with Tasks, Links, and Notes components with all the new features
-
 
 function TasksView({ 
   tasks, 
@@ -1074,6 +1189,8 @@ function TasksView({
             toggleLinkToTask={toggleLinkToTask}
             getLinkedItem={getLinkedItem}
             darkMode={darkMode}
+            index={index}
+            totalTasks={activeTasks.length}
             style={{ animationDelay: `${index * 0.05}s` }}
           />
         ))}
@@ -1136,12 +1253,12 @@ function NewTaskForm({ onSave, onCancel, darkMode }) {
         className={`w-full text-lg font-medium mb-3 px-3 py-2 border ${darkMode ? 'bg-slate-700 border-slate-600 text-white placeholder-slate-400' : 'border-slate-300'} rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500`}
         autoFocus
       />
-      <textarea
+      <RichTextEditor
         value={description}
-        onChange={(e) => setDescription(e.target.value)}
-        placeholder="Description (optional)"
-        className={`w-full px-3 py-2 border ${darkMode ? 'bg-slate-700 border-slate-600 text-white placeholder-slate-400' : 'border-slate-300'} rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 resize-none`}
-        rows={3}
+        onChange={setDescription}
+        placeholder="Description (optional) - Use toolbar for formatting"
+        darkMode={darkMode}
+        rows={6}
       />
       <div className="flex gap-2 mt-4">
         <button
@@ -1163,10 +1280,11 @@ function NewTaskForm({ onSave, onCancel, darkMode }) {
   );
 }
 
-function TaskCard({ task, updateTask, deleteTask, links, notes, toggleLinkToTask, getLinkedItem, darkMode, style }) {
+function TaskCard({ task, updateTask, deleteTask, links, notes, toggleLinkToTask, getLinkedItem, darkMode, index, totalTasks, style }) {
   const [showLinkMenu, setShowLinkMenu] = useState(false);
   const [showSubtasks, setShowSubtasks] = useState(true);
   const [newSubtask, setNewSubtask] = useState('');
+  const linkButtonRef = useRef(null);
 
   const statusConfig = {
     new: { label: 'New', color: 'bg-blue-100 text-blue-700 border-blue-200', icon: Circle },
@@ -1209,16 +1327,19 @@ function TaskCard({ task, updateTask, deleteTask, links, notes, toggleLinkToTask
     });
   };
 
-  const currentStatus = statusConfig[task.status];
-  const currentPriority = priorityConfig[task.priority];
+  // Determine if dropdown should open upward (if this is not one of the last tasks)
+  const shouldOpenUpward = index > totalTasks - 3;
 
   return (
-    <div className={`task-card p-6 ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'} rounded-xl shadow-md border animate-slideUp`} style={style}>
+    <div className={`task-card p-6 ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'} rounded-xl shadow-md border animate-slideUp relative`} style={style}>
       <div className="flex items-start justify-between mb-4">
         <div className="flex-1">
           <h3 className={`text-xl font-semibold ${darkMode ? 'text-white' : 'text-slate-800'} mb-2`}>{task.title}</h3>
           {task.description && (
-            <p className={`${darkMode ? 'text-slate-300' : 'text-slate-600'} text-sm mb-3`}>{task.description}</p>
+            <div 
+              className={`${darkMode ? 'text-slate-300' : 'text-slate-600'} text-sm mb-3 rich-text-editor`}
+              dangerouslySetInnerHTML={{ __html: task.description }}
+            />
           )}
         </div>
         <button
@@ -1345,6 +1466,7 @@ function TaskCard({ task, updateTask, deleteTask, links, notes, toggleLinkToTask
 
       <div className="relative">
         <button
+          ref={linkButtonRef}
           onClick={() => setShowLinkMenu(!showLinkMenu)}
           className="flex items-center gap-2 px-3 py-1.5 text-sm text-teal-600 hover:bg-teal-50 rounded-lg transition-colors"
         >
@@ -1353,7 +1475,16 @@ function TaskCard({ task, updateTask, deleteTask, links, notes, toggleLinkToTask
         </button>
 
         {showLinkMenu && (
-          <div className={`absolute left-0 top-full mt-2 w-80 ${darkMode ? 'bg-slate-700 border-slate-600' : 'bg-white border-slate-200'} rounded-lg shadow-xl border z-50 max-h-96 overflow-y-auto`}>
+          <div 
+            className={`fixed w-80 ${darkMode ? 'bg-slate-700 border-slate-600' : 'bg-white border-slate-200'} rounded-lg shadow-xl border z-50 max-h-96 overflow-y-auto`}
+            style={{
+              ...(shouldOpenUpward 
+                ? { bottom: `${window.innerHeight - (linkButtonRef.current?.getBoundingClientRect().top || 0) + 8}px` }
+                : { top: `${(linkButtonRef.current?.getBoundingClientRect().bottom || 0) + 8}px` }
+              ),
+              left: `${linkButtonRef.current?.getBoundingClientRect().left || 0}px`
+            }}
+          >
             <div className={`p-3 border-b ${darkMode ? 'border-slate-600' : 'border-slate-200'} flex items-center justify-between`}>
               <h4 className={`font-medium text-sm ${darkMode ? 'text-slate-200' : 'text-slate-700'}`}>Link to this task</h4>
               <button 
@@ -1421,6 +1552,7 @@ function TaskCard({ task, updateTask, deleteTask, links, notes, toggleLinkToTask
     </div>
   );
 }
+
 
 function LinksView({ links, addLink, updateLink, deleteLink, showNewLinkForm, setShowNewLinkForm, darkMode }) {
   const categories = [...new Set(links.map(l => l.category).filter(Boolean))];
@@ -1515,7 +1647,6 @@ function NewLinkForm({ onSave, onCancel, existingCategories, darkMode }) {
   const handleSubmit = (e) => {
     e.preventDefault();
     if (url.trim()) {
-      // Auto-add https:// if no protocol specified
       let finalUrl = url.trim();
       if (!finalUrl.match(/^https?:\/\//i)) {
         finalUrl = 'https://' + finalUrl;
@@ -1686,8 +1817,8 @@ function LinkCard({ link, updateLink, deleteLink, darkMode, style }) {
   );
 }
 
-function NotesView({ notes, addNote, updateNote, deleteNote, showNewNoteForm, setShowNewNoteForm, darkMode }) {
-  const [sortBy, setSortBy] = useState('date'); // 'date' or 'tag'
+function NotesView({ notes, addNote, updateNote, deleteNote, showNewNoteForm, setShowNewNoteForm, darkMode, existingTags }) {
+  const [sortBy, setSortBy] = useState('date');
   const [filterTag, setFilterTag] = useState('all');
   
   const allTags = [...new Set(notes.flatMap(n => n.tags || []))];
@@ -1724,6 +1855,7 @@ function NotesView({ notes, addNote, updateNote, deleteNote, showNewNoteForm, se
           onSave={addNote} 
           onCancel={() => setShowNewNoteForm(false)}
           darkMode={darkMode}
+          existingTags={existingTags}
         />
       )}
 
@@ -1764,6 +1896,7 @@ function NotesView({ notes, addNote, updateNote, deleteNote, showNewNoteForm, se
             updateNote={updateNote}
             deleteNote={deleteNote}
             darkMode={darkMode}
+            existingTags={existingTags}
             style={{ animationDelay: `${index * 0.05}s` }}
           />
         ))}
@@ -1779,11 +1912,12 @@ function NotesView({ notes, addNote, updateNote, deleteNote, showNewNoteForm, se
   );
 }
 
-function NewNoteForm({ onSave, onCancel, darkMode }) {
+function NewNoteForm({ onSave, onCancel, darkMode, existingTags }) {
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
   const [color, setColor] = useState('yellow');
-  const [tags, setTags] = useState('');
+  const [tagInput, setTagInput] = useState('');
+  const [selectedTags, setSelectedTags] = useState([]);
 
   const colors = {
     yellow: 'bg-yellow-100 border-yellow-300',
@@ -1796,13 +1930,25 @@ function NewNoteForm({ onSave, onCancel, darkMode }) {
   const handleSubmit = (e) => {
     e.preventDefault();
     if (title.trim() || content.trim()) {
-      const tagArray = tags.split(',').map(t => t.trim()).filter(Boolean);
-      onSave({ title, content, color, tags: tagArray });
+      onSave({ title, content, color, tags: selectedTags });
       setTitle('');
       setContent('');
       setColor('yellow');
-      setTags('');
+      setTagInput('');
+      setSelectedTags([]);
     }
+  };
+
+  const addTag = (tag) => {
+    const trimmedTag = tag.trim();
+    if (trimmedTag && !selectedTags.includes(trimmedTag)) {
+      setSelectedTags([...selectedTags, trimmedTag]);
+    }
+    setTagInput('');
+  };
+
+  const removeTag = (tagToRemove) => {
+    setSelectedTags(selectedTags.filter(t => t !== tagToRemove));
   };
 
   return (
@@ -1815,23 +1961,68 @@ function NewNoteForm({ onSave, onCancel, darkMode }) {
         className={`w-full text-lg font-medium mb-3 px-3 py-2 border ${darkMode ? 'bg-slate-700 border-slate-600 text-white placeholder-slate-400' : 'border-slate-300'} rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500`}
         autoFocus
       />
-      <textarea
+      
+      <RichTextEditor
         value={content}
-        onChange={(e) => setContent(e.target.value)}
-        placeholder="Your thoughts..."
-        className={`w-full px-3 py-2 border ${darkMode ? 'bg-slate-700 border-slate-600 text-white placeholder-slate-400' : 'border-slate-300'} rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 resize-none`}
-        rows={6}
+        onChange={setContent}
+        placeholder="Your thoughts... Use toolbar for formatting"
+        darkMode={darkMode}
+        rows={15}
       />
       
-      <input
-        type="text"
-        value={tags}
-        onChange={(e) => setTags(e.target.value)}
-        placeholder="Tags (comma-separated)"
-        className={`w-full mt-3 px-3 py-2 border ${darkMode ? 'bg-slate-700 border-slate-600 text-white placeholder-slate-400' : 'border-slate-300'} rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500`}
-      />
+      <div className="mt-4 mb-4">
+        <label className={`block text-sm ${darkMode ? 'text-slate-300' : 'text-slate-600'} mb-2`}>Tags</label>
+        <div className="flex flex-wrap gap-2 mb-2">
+          {selectedTags.map(tag => (
+            <span key={tag} className="inline-flex items-center gap-1 px-3 py-1 bg-teal-100 text-teal-700 rounded-full text-sm">
+              <Tag size={12} />
+              {tag}
+              <button
+                type="button"
+                onClick={() => removeTag(tag)}
+                className="hover:text-teal-900"
+              >
+                <X size={14} />
+              </button>
+            </span>
+          ))}
+        </div>
+        <div className="flex gap-2">
+          <input
+            type="text"
+            value={tagInput}
+            onChange={(e) => setTagInput(e.target.value)}
+            onKeyPress={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault();
+                addTag(tagInput);
+              }
+            }}
+            placeholder="Add tag and press Enter..."
+            list="existing-tags"
+            className={`flex-1 px-3 py-2 border ${darkMode ? 'bg-slate-700 border-slate-600 text-white placeholder-slate-400' : 'border-slate-300'} rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500`}
+          />
+          <datalist id="existing-tags">
+            {existingTags.filter(t => !selectedTags.includes(t)).map(tag => (
+              <option key={tag} value={tag} />
+            ))}
+          </datalist>
+          <button
+            type="button"
+            onClick={() => addTag(tagInput)}
+            className="px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700"
+          >
+            <Plus size={16} />
+          </button>
+        </div>
+        {existingTags.length > 0 && (
+          <div className="mt-2 text-xs text-slate-500">
+            Existing tags: {existingTags.slice(0, 5).join(', ')}{existingTags.length > 5 ? '...' : ''}
+          </div>
+        )}
+      </div>
       
-      <div className="flex items-center gap-2 mt-4 mb-4">
+      <div className="flex items-center gap-2 mb-4">
         <span className={`text-sm ${darkMode ? 'text-slate-300' : 'text-slate-600'}`}>Color:</span>
         {Object.entries(colors).map(([colorName, colorClass]) => (
           <button
@@ -1865,10 +2056,11 @@ function NewNoteForm({ onSave, onCancel, darkMode }) {
   );
 }
 
-function NoteCard({ note, updateNote, deleteNote, darkMode, style }) {
+function NoteCard({ note, updateNote, deleteNote, darkMode, existingTags, style }) {
   const [isEditing, setIsEditing] = useState(false);
   const [editedNote, setEditedNote] = useState(note);
-  const [editedTags, setEditedTags] = useState((note.tags || []).join(', '));
+  const [tagInput, setTagInput] = useState('');
+  const [selectedTags, setSelectedTags] = useState(note.tags || []);
 
   const colors = {
     yellow: 'bg-yellow-100 border-yellow-300 hover:shadow-yellow-200',
@@ -1879,16 +2071,29 @@ function NoteCard({ note, updateNote, deleteNote, darkMode, style }) {
   };
 
   const handleSave = () => {
-    const tagArray = editedTags.split(',').map(t => t.trim()).filter(Boolean);
-    updateNote(note.id, { ...editedNote, tags: tagArray });
+    updateNote(note.id, { ...editedNote, tags: selectedTags });
     setIsEditing(false);
   };
 
   const copyToClipboard = () => {
-    const text = `${note.title}\n\n${note.content}`;
+    const tempDiv = document.createElement('div');
+    tempDiv.innerHTML = note.content;
+    const text = `${note.title}\n\n${tempDiv.textContent || tempDiv.innerText}`;
     navigator.clipboard.writeText(text).then(() => {
       alert('Note copied to clipboard!');
     });
+  };
+
+  const addTag = (tag) => {
+    const trimmedTag = tag.trim();
+    if (trimmedTag && !selectedTags.includes(trimmedTag)) {
+      setSelectedTags([...selectedTags, trimmedTag]);
+    }
+    setTagInput('');
+  };
+
+  const removeTag = (tagToRemove) => {
+    setSelectedTags(selectedTags.filter(t => t !== tagToRemove));
   };
 
   if (isEditing) {
@@ -1901,20 +2106,58 @@ function NoteCard({ note, updateNote, deleteNote, darkMode, style }) {
           placeholder="Title"
           className="w-full mb-2 px-2 py-1 bg-white/50 border border-slate-300 rounded focus:outline-none focus:ring-2 focus:ring-teal-500"
         />
-        <textarea
+        <RichTextEditor
           value={editedNote.content || ''}
-          onChange={(e) => setEditedNote({ ...editedNote, content: e.target.value })}
+          onChange={(content) => setEditedNote({ ...editedNote, content })}
           placeholder="Content"
-          className="w-full mb-2 px-2 py-1 bg-white/50 border border-slate-300 rounded focus:outline-none focus:ring-2 focus:ring-teal-500 resize-none"
-          rows={10}
+          darkMode={false}
+          rows={15}
         />
-        <input
-          type="text"
-          value={editedTags}
-          onChange={(e) => setEditedTags(e.target.value)}
-          placeholder="Tags (comma-separated)"
-          className="w-full mb-2 px-2 py-1 bg-white/50 border border-slate-300 rounded focus:outline-none focus:ring-2 focus:ring-teal-500"
-        />
+        <div className="mt-4 mb-4">
+          <div className="flex flex-wrap gap-2 mb-2">
+            {selectedTags.map(tag => (
+              <span key={tag} className="inline-flex items-center gap-1 px-2 py-1 bg-white/70 rounded-full text-xs">
+                <Tag size={10} />
+                {tag}
+                <button
+                  type="button"
+                  onClick={() => removeTag(tag)}
+                  className="hover:text-red-600"
+                >
+                  <X size={12} />
+                </button>
+              </span>
+            ))}
+          </div>
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={tagInput}
+              onChange={(e) => setTagInput(e.target.value)}
+              onKeyPress={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  addTag(tagInput);
+                }
+              }}
+              placeholder="Add tag..."
+              list="existing-tags-edit"
+              className="flex-1 px-2 py-1 bg-white/50 border border-slate-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+            />
+            <datalist id="existing-tags-edit">
+              {existingTags.filter(t => !selectedTags.includes(t)).map(tag => (
+                <option key={tag} value={tag} />
+              ))}
+            </datalist>
+            <button
+              type="button"
+              onClick={() => addTag(tagInput)}
+              className="px-2 py-1 bg-teal-600 text-white rounded text-sm hover:bg-teal-700"
+            >
+              <Plus size={14} />
+            </button>
+          </div>
+        </div>
         <div className="flex gap-2 mt-4">
           <button
             onClick={handleSave}
@@ -1964,7 +2207,10 @@ function NoteCard({ note, updateNote, deleteNote, darkMode, style }) {
           </button>
         </div>
       </div>
-      <p className="text-slate-700 text-sm whitespace-pre-wrap mb-3">{note.content}</p>
+      <div 
+        className="text-slate-700 text-sm mb-3 rich-text-editor"
+        dangerouslySetInnerHTML={{ __html: note.content }}
+      />
       {note.tags && note.tags.length > 0 && (
         <div className="flex flex-wrap gap-1">
           {note.tags.map(tag => (
