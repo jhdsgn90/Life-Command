@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Plus, Check, Circle, Pause, AlertCircle, Trash2, Link2, StickyNote, List, ExternalLink, X, Edit2, Save, Calendar, ChevronLeft, ChevronRight, Clock, Copy, Moon, Sun, Tag, ChevronDown, ChevronUp, Bold, Italic, ListOrdered, Grid, LayoutList, User, Camera } from 'lucide-react';
+import { Plus, Check, Circle, Pause, AlertCircle, Trash2, Link2, StickyNote, List, ExternalLink, X, Edit2, Save, Calendar, ChevronLeft, ChevronRight, Clock, Copy, Moon, Sun, Tag, ChevronDown, ChevronUp, Bold, Italic, ListOrdered, Grid, LayoutList, User, Camera, Filter } from 'lucide-react';
 
 const generateId = () => Date.now().toString(36) + Math.random().toString(36).substr(2);
 
@@ -23,7 +23,8 @@ export default function LifeDashboard() {
     tasks: 'list',
     calendar: 'calendar',
     links: 'grid',
-    notes: 'grid'
+    notes: 'grid',
+    tags: 'grid'
   });
 
   // Update clock every second
@@ -114,7 +115,7 @@ export default function LifeDashboard() {
     try {
       localStorage.setItem('lifeDashboard_darkMode', JSON.stringify(darkMode));
     } catch (error) {
-      console.error('Error saving dark mode:', error);
+      console.error('Error saving darkMode:', error);
     }
   }, [darkMode]);
 
@@ -130,7 +131,7 @@ export default function LifeDashboard() {
     try {
       localStorage.setItem('lifeDashboard_viewModes', JSON.stringify(viewModes));
     } catch (error) {
-      console.error('Error saving view modes:', error);
+      console.error('Error saving viewModes:', error);
     }
   }, [viewModes]);
 
@@ -138,18 +139,18 @@ export default function LifeDashboard() {
     setViewModes(prev => ({ ...prev, [view]: mode }));
   };
 
+  // Task CRUD
   const addTask = (taskData) => {
     const newTask = {
       id: generateId(),
       ...taskData,
       status: 'new',
       priority: 'medium',
-      linkedItems: [],
       subtasks: [],
-      tags: taskData.tags || [],
-      createdAt: new Date().toISOString(),
+      linkedItems: [],
+      createdAt: new Date().toISOString()
     };
-    setTasks([newTask, ...tasks]);
+    setTasks([...tasks, newTask]);
     setShowNewTaskForm(false);
   };
 
@@ -158,25 +159,25 @@ export default function LifeDashboard() {
   };
 
   const deleteTask = (id) => {
-    if (window.confirm('Delete this task?')) {
-      setTasks(tasks.filter(task => task.id !== id));
-    }
+    setTasks(tasks.filter(task => task.id !== id));
   };
 
   const clearCompletedTasks = () => {
-    if (window.confirm('Clear all completed tasks?')) {
-      setTasks(tasks.filter(task => task.status !== 'completed'));
-    }
+    setTasks(tasks.filter(task => task.status !== 'completed'));
   };
 
+  const reorderTasks = (newOrder) => {
+    setTasks(newOrder);
+  };
+
+  // Link CRUD
   const addLink = (linkData) => {
     const newLink = {
       id: generateId(),
       ...linkData,
-      tags: linkData.tags || [],
-      createdAt: new Date().toISOString(),
+      createdAt: new Date().toISOString()
     };
-    setLinks([newLink, ...links]);
+    setLinks([...links, newLink]);
     setShowNewLinkForm(false);
   };
 
@@ -185,27 +186,21 @@ export default function LifeDashboard() {
   };
 
   const deleteLink = (id) => {
-    if (window.confirm('Delete this link?')) {
-      setLinks(links.filter(link => link.id !== id));
-      setTasks(tasks.map(task => ({
-        ...task,
-        linkedItems: task.linkedItems.filter(item => item.id !== id)
-      })));
-      setEvents(events.map(event => ({
-        ...event,
-        linkedItems: event.linkedItems?.filter(item => item.id !== id) || []
-      })));
-    }
+    setLinks(links.filter(link => link.id !== id));
   };
 
+  const reorderLinks = (newOrder) => {
+    setLinks(newOrder);
+  };
+
+  // Note CRUD
   const addNote = (noteData) => {
     const newNote = {
       id: generateId(),
       ...noteData,
-      tags: noteData.tags || [],
-      createdAt: new Date().toISOString(),
+      createdAt: new Date().toISOString()
     };
-    setNotes([newNote, ...notes]);
+    setNotes([...notes, newNote]);
     setShowNewNoteForm(false);
   };
 
@@ -214,26 +209,20 @@ export default function LifeDashboard() {
   };
 
   const deleteNote = (id) => {
-    if (window.confirm('Delete this note?')) {
-      setNotes(notes.filter(note => note.id !== id));
-      setTasks(tasks.map(task => ({
-        ...task,
-        linkedItems: task.linkedItems.filter(item => item.id !== id)
-      })));
-      setEvents(events.map(event => ({
-        ...event,
-        linkedItems: event.linkedItems?.filter(item => item.id !== id) || []
-      })));
-    }
+    setNotes(notes.filter(note => note.id !== id));
   };
 
+  const reorderNotes = (newOrder) => {
+    setNotes(newOrder);
+  };
+
+  // Event CRUD
   const addEvent = (eventData) => {
     const newEvent = {
       id: generateId(),
       ...eventData,
       linkedItems: [],
-      tags: eventData.tags || [],
-      createdAt: new Date().toISOString(),
+      createdAt: new Date().toISOString()
     };
     setEvents([...events, newEvent]);
     setShowNewEventForm(false);
@@ -245,49 +234,44 @@ export default function LifeDashboard() {
   };
 
   const deleteEvent = (id) => {
-    if (window.confirm('Delete this event?')) {
-      setEvents(events.filter(event => event.id !== id));
+    setEvents(events.filter(event => event.id !== id));
+  };
+
+  // Linking functions
+  const toggleLinkToTask = (taskId, item, type) => {
+    const task = tasks.find(t => t.id === taskId);
+    if (!task) return;
+
+    const linkedItems = task.linkedItems || [];
+    const existingIndex = linkedItems.findIndex(li => li.id === item.id && li.type === type);
+
+    if (existingIndex > -1) {
+      updateTask(taskId, {
+        linkedItems: linkedItems.filter((_, i) => i !== existingIndex)
+      });
+    } else {
+      updateTask(taskId, {
+        linkedItems: [...linkedItems, { id: item.id, type, title: item.title || item.url }]
+      });
     }
   };
 
-  const toggleLinkToTask = (taskId, item, type) => {
-    setTasks(tasks.map(task => {
-      if (task.id !== taskId) return task;
-      
-      const existingIndex = task.linkedItems.findIndex(i => i.id === item.id);
-      if (existingIndex >= 0) {
-        return {
-          ...task,
-          linkedItems: task.linkedItems.filter(i => i.id !== item.id)
-        };
-      } else {
-        return {
-          ...task,
-          linkedItems: [...task.linkedItems, { id: item.id, type, title: item.title || item.url }]
-        };
-      }
-    }));
-  };
-
   const toggleLinkToEvent = (eventId, item, type) => {
-    setEvents(events.map(event => {
-      if (event.id !== eventId) return event;
-      
-      const linkedItems = event.linkedItems || [];
-      const existingIndex = linkedItems.findIndex(i => i.id === item.id);
-      
-      if (existingIndex >= 0) {
-        return {
-          ...event,
-          linkedItems: linkedItems.filter(i => i.id !== item.id)
-        };
-      } else {
-        return {
-          ...event,
-          linkedItems: [...linkedItems, { id: item.id, type, title: item.title || item.url }]
-        };
-      }
-    }));
+    const event = events.find(e => e.id === eventId);
+    if (!event) return;
+
+    const linkedItems = event.linkedItems || [];
+    const existingIndex = linkedItems.findIndex(li => li.id === item.id && li.type === type);
+
+    if (existingIndex > -1) {
+      updateEvent(eventId, {
+        linkedItems: linkedItems.filter((_, i) => i !== existingIndex)
+      });
+    } else {
+      updateEvent(eventId, {
+        linkedItems: [...linkedItems, { id: item.id, type, title: item.title || item.url }]
+      });
+    }
   };
 
   const getLinkedItem = (linkedItem) => {
@@ -304,16 +288,14 @@ export default function LifeDashboard() {
   const navigateToLinkedItem = (linkedItem) => {
     if (linkedItem.type === 'link') {
       setActiveView('links');
-      setHighlightedItemId(linkedItem.id);
     } else if (linkedItem.type === 'note') {
       setActiveView('notes');
-      setHighlightedItemId(linkedItem.id);
     } else if (linkedItem.type === 'task') {
       setActiveView('tasks');
-      setHighlightedItemId(linkedItem.id);
     }
-
+    
     setTimeout(() => {
+      setHighlightedItemId(linkedItem.id);
       const element = document.getElementById(`item-${linkedItem.id}`);
       if (element) {
         element.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -321,7 +303,6 @@ export default function LifeDashboard() {
     }, 100);
   };
 
-  // Get all tags from all items
   const allTags = [...new Set([
     ...tasks.flatMap(t => t.tags || []),
     ...events.flatMap(e => e.tags || []),
@@ -330,18 +311,8 @@ export default function LifeDashboard() {
   ])];
 
   return (
-    <div className={`min-h-screen ${darkMode ? 'bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900' : 'bg-gradient-to-br from-slate-50 via-stone-50 to-neutral-100'}`}>
+    <div className={`min-h-screen ${darkMode ? 'dark bg-slate-900' : 'bg-gradient-to-br from-slate-50 to-slate-100'} transition-colors duration-300`}>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=Crimson+Text:wght@600;700&display=swap');
-        
-        * {
-          font-family: 'DM Sans', sans-serif;
-        }
-        
-        .accent-font {
-          font-family: 'Crimson Text', serif;
-        }
-        
         @keyframes slideUp {
           from {
             opacity: 0;
@@ -358,11 +329,6 @@ export default function LifeDashboard() {
           to { opacity: 1; }
         }
 
-        @keyframes highlight {
-          0% { background-color: rgba(20, 184, 166, 0.2); }
-          100% { background-color: transparent; }
-        }
-
         @keyframes scaleIn {
           from {
             opacity: 0;
@@ -373,60 +339,50 @@ export default function LifeDashboard() {
             transform: scale(1);
           }
         }
-        
+
+        @keyframes highlight {
+          0%, 100% { background-color: transparent; }
+          50% { background-color: rgba(20, 184, 166, 0.1); }
+        }
+
         .animate-slideUp {
           animation: slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
         }
-        
+
         .animate-fadeIn {
           animation: fadeIn 0.3s ease-out forwards;
-        }
-
-        .animate-highlight {
-          animation: highlight 2s ease-out;
         }
 
         .animate-scaleIn {
           animation: scaleIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
         }
-        
+
+        .animate-highlight {
+          animation: highlight 2s ease-in-out;
+        }
+
         .task-card {
-          transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+          transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
         }
-        
+
         .task-card:hover {
-          transform: translateY(-2px);
-          box-shadow: 0 12px 28px rgba(0,0,0,0.12);
+          box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);
         }
-        
+
         .status-badge {
           transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
         }
-        
+
         .status-badge:hover {
           transform: scale(1.05);
         }
 
+        .accent-font {
+          font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        }
+
         .rich-text-editor {
-          min-height: 200px;
-        }
-
-        .rich-text-editor ul {
-          list-style-type: disc;
-          margin-left: 1.5em;
-          margin-top: 0.5em;
-          margin-bottom: 0.5em;
-        }
-
-        .rich-text-editor ol {
-          list-style-type: decimal;
-          margin-left: 1.5em;
-          margin-top: 0.5em;
-          margin-bottom: 0.5em;
-        }
-
-        .rich-text-editor li {
-          margin-bottom: 0.25em;
+          line-height: 1.6;
         }
 
         .rich-text-editor strong {
@@ -437,125 +393,131 @@ export default function LifeDashboard() {
           font-style: italic;
         }
 
-        .sticky-nav {
-          position: sticky;
-          top: 0;
-          max-height: 100vh;
-          overflow-y: auto;
+        .rich-text-editor ol {
+          list-style-type: decimal;
+          padding-left: 1.5em;
+          margin: 0.5em 0;
         }
 
-        button, a {
-          transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        .rich-text-editor li {
+          margin: 0.25em 0;
+        }
+
+        * {
+          transition-property: background-color, border-color, color, fill, stroke;
+          transition-duration: 0.2s;
+          transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        button, a, .task-card {
+          transition-property: all;
         }
       `}</style>
 
-      <div className="flex min-h-screen">
-        <aside className={`w-72 ${darkMode ? 'bg-gradient-to-b from-slate-950 to-slate-900' : 'bg-gradient-to-b from-slate-900 to-slate-800'} text-white flex flex-col shadow-2xl sticky-nav`}>
-          <div className="p-8 pb-6">
-            <h1 className="text-3xl font-bold accent-font mb-2 bg-gradient-to-r from-teal-300 to-cyan-200 bg-clip-text text-transparent">
+      <div className="flex h-screen overflow-hidden">
+        {/* Sidebar with persistent clock */}
+        <aside className={`w-64 ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'} border-r flex flex-col sticky top-0 h-screen`}>
+          <div className="p-6 flex-shrink-0">
+            <h1 className={`text-2xl font-bold ${darkMode ? 'text-white' : 'text-slate-800'} accent-font`}>
               Life Command
             </h1>
-            <p className={`${darkMode ? 'text-slate-500' : 'text-slate-400'} text-sm`}>Your personal dashboard</p>
           </div>
           
-          <nav className="px-8 space-y-2 flex-1">
+          <nav className="flex-1 px-3 overflow-y-auto">
             <NavButton 
               active={activeView === 'tasks'} 
-              onClick={() => setActiveView('tasks')}
-              icon={<List size={20} />}
+              onClick={() => setActiveView('tasks')} 
+              icon={List} 
               label="Tasks"
               count={tasks.filter(t => t.status !== 'completed').length}
               darkMode={darkMode}
             />
             <NavButton 
               active={activeView === 'calendar'} 
-              onClick={() => setActiveView('calendar')}
-              icon={<Calendar size={20} />}
+              onClick={() => setActiveView('calendar')} 
+              icon={Calendar} 
               label="Calendar"
               count={events.length}
               darkMode={darkMode}
             />
             <NavButton 
               active={activeView === 'links'} 
-              onClick={() => setActiveView('links')}
-              icon={<Link2 size={20} />}
+              onClick={() => setActiveView('links')} 
+              icon={Link2} 
               label="Links"
               count={links.length}
               darkMode={darkMode}
             />
             <NavButton 
               active={activeView === 'notes'} 
-              onClick={() => setActiveView('notes')}
-              icon={<StickyNote size={20} />}
+              onClick={() => setActiveView('notes')} 
+              icon={StickyNote} 
               label="Notes"
               count={notes.length}
               darkMode={darkMode}
             />
             <NavButton 
               active={activeView === 'tags'} 
-              onClick={() => setActiveView('tags')}
-              icon={<Tag size={20} />}
+              onClick={() => setActiveView('tags')} 
+              icon={Tag} 
               label="Tags"
               count={allTags.length}
               darkMode={darkMode}
             />
           </nav>
-          
-          <div className={`p-8 pt-4 border-t ${darkMode ? 'border-slate-800' : 'border-slate-700'}`}>
-            <button
-              onClick={() => setDarkMode(!darkMode)}
-              className={`w-full flex items-center justify-center gap-2 px-4 py-2 rounded-lg mb-4 transition-all ${
-                darkMode ? 'bg-slate-800 hover:bg-slate-700' : 'bg-slate-700 hover:bg-slate-600'
-              }`}
-            >
-              {darkMode ? <Sun size={18} /> : <Moon size={18} />}
-              <span className="text-sm">{darkMode ? 'Light Mode' : 'Dark Mode'}</span>
-            </button>
-          </div>
-        </aside>
 
-        <main className="flex-1 flex flex-col overflow-hidden">
-          {/* Header with Clock and Profile */}
-          <div className={`${darkMode ? 'bg-slate-800/50 border-slate-700' : 'bg-white/50 border-slate-200'} backdrop-blur-sm border-b px-12 py-4`}>
-            <div className="flex items-center justify-between">
-              <div className="flex-1" />
-              
-              <div className="text-center">
-                <div className={`text-3xl font-bold ${darkMode ? 'text-white' : 'text-slate-800'} accent-font`}>
-                  {currentTime.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}
-                </div>
-                <div className={`text-sm ${darkMode ? 'text-slate-400' : 'text-slate-600'} mt-1`}>
-                  {currentTime.toLocaleDateString('en-US', { 
-                    weekday: 'long', 
-                    year: 'numeric', 
-                    month: 'long', 
-                    day: 'numeric' 
-                  })}
-                </div>
+          {/* Persistent Clock at Bottom - TASTEFUL DESIGN */}
+          <div className={`px-4 py-3 border-t ${darkMode ? 'border-slate-700 bg-slate-800/50' : 'border-slate-200 bg-slate-50/50'} flex-shrink-0`}>
+            <div className={`text-center ${darkMode ? 'text-slate-300' : 'text-slate-700'}`}>
+              <div className="text-2xl font-bold tabular-nums tracking-tight">
+                {currentTime.toLocaleTimeString('en-US', { 
+                  hour: '2-digit', 
+                  minute: '2-digit'
+                })}
               </div>
-
-              <div className="flex-1 flex justify-end">
-                <button
-                  onClick={() => setShowProfileEditor(true)}
-                  className={`flex items-center gap-3 px-4 py-2 rounded-lg transition-all ${
-                    darkMode ? 'hover:bg-slate-700' : 'hover:bg-slate-100'
-                  }`}
-                >
-                  {profile.imageUrl ? (
-                    <img src={profile.imageUrl} alt={profile.name} className="w-10 h-10 rounded-full object-cover" />
-                  ) : (
-                    <div className={`w-10 h-10 rounded-full flex items-center justify-center ${darkMode ? 'bg-slate-700' : 'bg-slate-200'}`}>
-                      <User size={20} className={darkMode ? 'text-slate-400' : 'text-slate-600'} />
-                    </div>
-                  )}
-                  <span className={`font-medium ${darkMode ? 'text-white' : 'text-slate-800'}`}>{profile.name}</span>
-                </button>
+              <div className={`text-xs mt-0.5 font-medium ${darkMode ? 'text-slate-500' : 'text-slate-500'}`}>
+                {currentTime.toLocaleDateString('en-US', { 
+                  weekday: 'short',
+                  month: 'short', 
+                  day: 'numeric'
+                })}
               </div>
             </div>
           </div>
+        </aside>
 
-          {/* Main Content Area */}
-          <div className="flex-1 p-12 overflow-y-auto">
+        {/* Main Content */}
+        <main className="flex-1 overflow-y-auto">
+          <header className={`${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'} border-b px-8 py-4 flex items-center justify-between sticky top-0 z-10`}>
+            <div className="flex items-center gap-4">
+              <h2 className={`text-2xl font-semibold ${darkMode ? 'text-white' : 'text-slate-800'}`}>
+                {activeView.charAt(0).toUpperCase() + activeView.slice(1)}
+              </h2>
+            </div>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => setDarkMode(!darkMode)}
+                className={`p-2 rounded-lg transition-all hover:scale-110 ${darkMode ? 'bg-slate-700 text-yellow-400' : 'bg-slate-100 text-slate-600'}`}
+              >
+                {darkMode ? <Sun size={20} /> : <Moon size={20} />}
+              </button>
+              <button
+                onClick={() => setShowProfileEditor(true)}
+                className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-all hover:scale-105 ${darkMode ? 'bg-slate-700 hover:bg-slate-600' : 'bg-slate-100 hover:bg-slate-200'}`}
+              >
+                {profile.imageUrl ? (
+                  <img src={profile.imageUrl} alt={profile.name} className="w-8 h-8 rounded-full object-cover" />
+                ) : (
+                  <div className={`w-8 h-8 rounded-full flex items-center justify-center ${darkMode ? 'bg-slate-600' : 'bg-slate-300'}`}>
+                    <User size={18} className={darkMode ? 'text-slate-300' : 'text-slate-600'} />
+                  </div>
+                )}
+                <span className={`font-medium ${darkMode ? 'text-white' : 'text-slate-700'}`}>{profile.name}</span>
+              </button>
+            </div>
+          </header>
+
+          <div className="p-8">
             {activeView === 'tasks' && (
               <TasksView 
                 tasks={tasks}
@@ -563,6 +525,7 @@ export default function LifeDashboard() {
                 updateTask={updateTask}
                 deleteTask={deleteTask}
                 clearCompletedTasks={clearCompletedTasks}
+                reorderTasks={reorderTasks}
                 showNewTaskForm={showNewTaskForm}
                 setShowNewTaskForm={setShowNewTaskForm}
                 links={links}
@@ -577,7 +540,6 @@ export default function LifeDashboard() {
                 toggleViewMode={toggleViewMode}
               />
             )}
-            
             {activeView === 'calendar' && (
               <CalendarView 
                 events={events}
@@ -598,13 +560,13 @@ export default function LifeDashboard() {
                 allTags={allTags}
               />
             )}
-            
             {activeView === 'links' && (
               <LinksView 
                 links={links}
                 addLink={addLink}
                 updateLink={updateLink}
                 deleteLink={deleteLink}
+                reorderLinks={reorderLinks}
                 showNewLinkForm={showNewLinkForm}
                 setShowNewLinkForm={setShowNewLinkForm}
                 highlightedItemId={highlightedItemId}
@@ -614,13 +576,13 @@ export default function LifeDashboard() {
                 toggleViewMode={toggleViewMode}
               />
             )}
-            
             {activeView === 'notes' && (
               <NotesView 
                 notes={notes}
                 addNote={addNote}
                 updateNote={updateNote}
                 deleteNote={deleteNote}
+                reorderNotes={reorderNotes}
                 showNewNoteForm={showNewNoteForm}
                 setShowNewNoteForm={setShowNewNoteForm}
                 highlightedItemId={highlightedItemId}
@@ -630,9 +592,8 @@ export default function LifeDashboard() {
                 toggleViewMode={toggleViewMode}
               />
             )}
-
             {activeView === 'tags' && (
-              <TagsView
+              <TagsView 
                 tasks={tasks}
                 events={events}
                 links={links}
@@ -640,13 +601,14 @@ export default function LifeDashboard() {
                 allTags={allTags}
                 navigateToLinkedItem={navigateToLinkedItem}
                 darkMode={darkMode}
+                viewMode={viewModes.tags}
+                toggleViewMode={toggleViewMode}
               />
             )}
           </div>
         </main>
       </div>
 
-      {/* Profile Editor Modal */}
       {showProfileEditor && (
         <ProfileEditor
           profile={profile}
@@ -662,25 +624,25 @@ export default function LifeDashboard() {
   );
 }
 
-function NavButton({ active, onClick, icon, label, count, darkMode }) {
+function NavButton({ active, onClick, icon: Icon, label, count, darkMode }) {
   return (
     <button
       onClick={onClick}
-      className={`w-full flex items-center justify-between px-4 py-3 rounded-lg transition-all ${
+      className={`w-full flex items-center justify-between px-4 py-3 rounded-lg mb-1 transition-all ${
         active 
-          ? 'bg-teal-600 text-white shadow-lg scale-105' 
+          ? 'bg-teal-600 text-white shadow-md scale-102' 
           : darkMode 
-            ? 'text-slate-400 hover:bg-slate-800 hover:text-white hover:scale-102'
-            : 'text-slate-300 hover:bg-slate-700 hover:text-white hover:scale-102'
-      }`}
+            ? 'text-slate-300 hover:bg-slate-700' 
+            : 'text-slate-600 hover:bg-slate-100'
+      } hover:scale-102`}
     >
       <div className="flex items-center gap-3">
-        {icon}
+        <Icon size={20} />
         <span className="font-medium">{label}</span>
       </div>
       {count > 0 && (
-        <span className={`text-xs px-2 py-1 rounded-full transition-all ${
-          active ? 'bg-teal-700' : darkMode ? 'bg-slate-700' : 'bg-slate-600'
+        <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
+          active ? 'bg-white/20' : darkMode ? 'bg-slate-700' : 'bg-slate-200'
         }`}>
           {count}
         </span>
@@ -699,24 +661,11 @@ function ProfileEditor({ profile, onSave, onClose, darkMode }) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={onClose}>
-      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
-      <div 
-        className={`relative w-full max-w-md ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'} rounded-xl shadow-2xl border p-6 animate-scaleIn`}
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="flex items-center justify-between mb-6">
-          <h3 className={`text-xl font-bold ${darkMode ? 'text-white' : 'text-slate-800'}`}>Edit Profile</h3>
-          <button
-            onClick={onClose}
-            className={`p-2 rounded-lg ${darkMode ? 'hover:bg-slate-700 text-slate-400' : 'hover:bg-slate-100 text-slate-600'} transition-colors`}
-          >
-            <X size={20} />
-          </button>
-        </div>
-
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 animate-fadeIn">
+      <div className={`${darkMode ? 'bg-slate-800' : 'bg-white'} rounded-xl shadow-2xl max-w-md w-full p-6 animate-scaleIn`}>
+        <h3 className={`text-xl font-semibold ${darkMode ? 'text-white' : 'text-slate-800'} mb-4`}>Edit Profile</h3>
+        <form onSubmit={handleSubmit}>
+          <div className="mb-4">
             <label className={`block text-sm font-medium ${darkMode ? 'text-slate-300' : 'text-slate-700'} mb-2`}>
               Name
             </label>
@@ -724,12 +673,11 @@ function ProfileEditor({ profile, onSave, onClose, darkMode }) {
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className={`w-full px-4 py-2 border ${darkMode ? 'bg-slate-700 border-slate-600 text-white' : 'border-slate-300'} rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500`}
+              className={`w-full px-3 py-2 border ${darkMode ? 'bg-slate-700 border-slate-600 text-white' : 'border-slate-300'} rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500`}
               placeholder="Your name"
             />
           </div>
-
-          <div>
+          <div className="mb-4">
             <label className={`block text-sm font-medium ${darkMode ? 'text-slate-300' : 'text-slate-700'} mb-2`}>
               Profile Image URL
             </label>
@@ -737,28 +685,26 @@ function ProfileEditor({ profile, onSave, onClose, darkMode }) {
               type="url"
               value={imageUrl}
               onChange={(e) => setImageUrl(e.target.value)}
-              className={`w-full px-4 py-2 border ${darkMode ? 'bg-slate-700 border-slate-600 text-white' : 'border-slate-300'} rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500`}
+              className={`w-full px-3 py-2 border ${darkMode ? 'bg-slate-700 border-slate-600 text-white' : 'border-slate-300'} rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500`}
               placeholder="https://example.com/image.jpg"
             />
+            {imageUrl && (
+              <div className="mt-2">
+                <img src={imageUrl} alt="Preview" className="w-20 h-20 rounded-full object-cover" onError={(e) => e.target.style.display = 'none'} />
+              </div>
+            )}
           </div>
-
-          {imageUrl && (
-            <div className="flex justify-center">
-              <img src={imageUrl} alt="Preview" className="w-24 h-24 rounded-full object-cover" />
-            </div>
-          )}
-
-          <div className="flex gap-2 pt-4">
+          <div className="flex gap-2">
             <button
               type="submit"
-              className="flex-1 px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors"
+              className="flex-1 px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-all"
             >
-              Save Profile
+              Save
             </button>
             <button
               type="button"
               onClick={onClose}
-              className={`px-4 py-2 ${darkMode ? 'text-slate-300 hover:bg-slate-700' : 'text-slate-600 hover:bg-slate-100'} rounded-lg transition-colors`}
+              className={`flex-1 px-4 py-2 ${darkMode ? 'bg-slate-700 text-slate-300 hover:bg-slate-600' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'} rounded-lg transition-all`}
             >
               Cancel
             </button>
@@ -769,177 +715,115 @@ function ProfileEditor({ profile, onSave, onClose, darkMode }) {
   );
 }
 
-// Rich Text Editor Component
 function RichTextEditor({ value, onChange, placeholder, darkMode, rows = 10 }) {
+  const [isBold, setIsBold] = useState(false);
+  const [isItalic, setIsItalic] = useState(false);
+  const [isOrdered, setIsOrdered] = useState(false);
   const editorRef = useRef(null);
 
-  const applyFormat = (command, value = null) => {
+  const execCommand = (command, value = null) => {
     document.execCommand(command, false, value);
     editorRef.current?.focus();
   };
 
-  const handleInput = () => {
-    if (onChange && editorRef.current) {
-      onChange(editorRef.current.innerHTML);
-    }
+  const handleInput = (e) => {
+    onChange(e.currentTarget.innerHTML);
   };
-
-  useEffect(() => {
-    if (editorRef.current && value !== editorRef.current.innerHTML) {
-      editorRef.current.innerHTML = value || '';
-    }
-  }, [value]);
 
   return (
     <div className={`border ${darkMode ? 'border-slate-600' : 'border-slate-300'} rounded-lg overflow-hidden`}>
-      <div className={`flex gap-1 p-2 border-b ${darkMode ? 'border-slate-600 bg-slate-700' : 'border-slate-300 bg-slate-50'}`}>
+      <div className={`flex gap-1 p-2 ${darkMode ? 'bg-slate-700 border-slate-600' : 'bg-slate-50 border-slate-200'} border-b`}>
         <button
           type="button"
-          onClick={() => applyFormat('bold')}
-          className={`p-2 rounded transition-colors ${darkMode ? 'hover:bg-slate-600' : 'hover:bg-slate-200'}`}
-          title="Bold"
+          onClick={() => {
+            execCommand('bold');
+            setIsBold(!isBold);
+          }}
+          className={`p-2 rounded transition-all hover:scale-110 ${isBold ? 'bg-teal-600 text-white' : darkMode ? 'hover:bg-slate-600 text-slate-300' : 'hover:bg-slate-200'}`}
         >
-          <Bold size={16} className={darkMode ? 'text-slate-300' : 'text-slate-600'} />
+          <Bold size={16} />
         </button>
         <button
           type="button"
-          onClick={() => applyFormat('italic')}
-          className={`p-2 rounded transition-colors ${darkMode ? 'hover:bg-slate-600' : 'hover:bg-slate-200'}`}
-          title="Italic"
+          onClick={() => {
+            execCommand('italic');
+            setIsItalic(!isItalic);
+          }}
+          className={`p-2 rounded transition-all hover:scale-110 ${isItalic ? 'bg-teal-600 text-white' : darkMode ? 'hover:bg-slate-600 text-slate-300' : 'hover:bg-slate-200'}`}
         >
-          <Italic size={16} className={darkMode ? 'text-slate-300' : 'text-slate-600'} />
+          <Italic size={16} />
         </button>
         <button
           type="button"
-          onClick={() => applyFormat('insertUnorderedList')}
-          className={`p-2 rounded transition-colors ${darkMode ? 'hover:bg-slate-600' : 'hover:bg-slate-200'}`}
-          title="Bullet List"
+          onClick={() => {
+            execCommand('insertOrderedList');
+            setIsOrdered(!isOrdered);
+          }}
+          className={`p-2 rounded transition-all hover:scale-110 ${isOrdered ? 'bg-teal-600 text-white' : darkMode ? 'hover:bg-slate-600 text-slate-300' : 'hover:bg-slate-200'}`}
         >
-          <List size={16} className={darkMode ? 'text-slate-300' : 'text-slate-600'} />
-        </button>
-        <button
-          type="button"
-          onClick={() => applyFormat('insertOrderedList')}
-          className={`p-2 rounded transition-colors ${darkMode ? 'hover:bg-slate-600' : 'hover:bg-slate-200'}`}
-          title="Numbered List"
-        >
-          <ListOrdered size={16} className={darkMode ? 'text-slate-300' : 'text-slate-600'} />
+          <ListOrdered size={16} />
         </button>
       </div>
       <div
         ref={editorRef}
         contentEditable
         onInput={handleInput}
-        className={`rich-text-editor p-3 focus:outline-none ${
-          darkMode ? 'bg-slate-700 text-white' : 'bg-white text-slate-900'
-        }`}
-        style={{ minHeight: `${rows * 1.5}em` }}
+        dangerouslySetInnerHTML={{ __html: value }}
+        className={`p-3 min-h-[${rows * 24}px] focus:outline-none ${darkMode ? 'bg-slate-700 text-white' : 'bg-white text-slate-900'} rich-text-editor`}
+        style={{ minHeight: `${rows * 24}px` }}
         data-placeholder={placeholder}
       />
+      <style>{`
+        [contenteditable]:empty:before {
+          content: attr(data-placeholder);
+          color: ${darkMode ? '#94a3b8' : '#64748b'};
+        }
+      `}</style>
     </div>
   );
 }
 
-// Link Items Modal Component
 function LinkItemsModal({ isOpen, onClose, items, onToggleLink, linkedItems, darkMode }) {
-  useEffect(() => {
-    const handleEscape = (e) => {
-      if (e.key === 'Escape') onClose();
-    };
-    if (isOpen) {
-      document.addEventListener('keydown', handleEscape);
-      return () => document.removeEventListener('keydown', handleEscape);
-    }
-  }, [isOpen, onClose]);
-
   if (!isOpen) return null;
 
-  const { tasks, links, notes } = items;
-
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-fadeIn" onClick={onClose}>
-      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
-      <div 
-        className={`relative w-full max-w-2xl max-h-[80vh] ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'} rounded-xl shadow-2xl border overflow-hidden animate-scaleIn`}
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className={`p-4 border-b ${darkMode ? 'border-slate-700' : 'border-slate-200'} flex items-center justify-between sticky top-0 ${darkMode ? 'bg-slate-800' : 'bg-white'} z-10`}>
-          <h3 className={`text-lg font-semibold ${darkMode ? 'text-white' : 'text-slate-800'}`}>Link Items</h3>
-          <button
-            onClick={onClose}
-            className={`p-2 rounded-lg transition-colors ${darkMode ? 'hover:bg-slate-700 text-slate-400' : 'hover:bg-slate-100 text-slate-600'}`}
-          >
-            <X size={20} />
-          </button>
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 animate-fadeIn" onClick={onClose}>
+      <div className={`${darkMode ? 'bg-slate-800' : 'bg-white'} rounded-xl shadow-2xl max-w-2xl w-full max-h-[80vh] overflow-hidden animate-scaleIn`} onClick={(e) => e.stopPropagation()}>
+        <div className={`p-6 border-b ${darkMode ? 'border-slate-700' : 'border-slate-200'}`}>
+          <div className="flex items-center justify-between">
+            <h3 className={`text-xl font-semibold ${darkMode ? 'text-white' : 'text-slate-800'}`}>Link Items</h3>
+            <button onClick={onClose} className={`${darkMode ? 'text-slate-400 hover:text-white' : 'text-slate-400 hover:text-slate-600'} transition-all hover:scale-110`}>
+              <X size={24} />
+            </button>
+          </div>
         </div>
-
-        <div className="overflow-y-auto max-h-[calc(80vh-80px)] p-4">
-          {tasks && tasks.length > 0 && (
+        
+        <div className="p-6 overflow-y-auto max-h-[60vh]">
+          {items.links && items.links.length > 0 && (
             <div className="mb-6">
-              <h4 className={`text-sm font-medium ${darkMode ? 'text-slate-300' : 'text-slate-700'} mb-3 flex items-center gap-2`}>
-                <List size={16} />
-                Tasks
-              </h4>
+              <h4 className={`text-sm font-semibold ${darkMode ? 'text-slate-300' : 'text-slate-600'} mb-3 uppercase tracking-wide`}>Links</h4>
               <div className="space-y-2">
-                {tasks.map(task => {
-                  const isLinked = linkedItems?.some(i => i.id === task.id);
-                  return (
-                    <button
-                      key={task.id}
-                      onClick={() => onToggleLink(task, 'task')}
-                      className={`w-full text-left px-4 py-3 rounded-lg border transition-all ${
-                        isLinked 
-                          ? 'bg-teal-50 border-teal-200 text-teal-900 scale-[0.98]'
-                          : darkMode 
-                            ? 'bg-slate-700 border-slate-600 text-slate-200 hover:bg-slate-600 hover:scale-[0.98]'
-                            : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50 hover:scale-[0.98]'
-                      }`}
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all ${
-                          isLinked ? 'border-teal-600 bg-teal-600 scale-110' : darkMode ? 'border-slate-500' : 'border-slate-300'
-                        }`}>
-                          {isLinked && <Check size={14} className="text-white" />}
-                        </div>
-                        <span className="font-medium">{task.title}</span>
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-
-          {links && links.length > 0 && (
-            <div className="mb-6">
-              <h4 className={`text-sm font-medium ${darkMode ? 'text-slate-300' : 'text-slate-700'} mb-3 flex items-center gap-2`}>
-                <Link2 size={16} />
-                Links
-              </h4>
-              <div className="space-y-2">
-                {links.map(link => {
-                  const isLinked = linkedItems?.some(i => i.id === link.id);
+                {items.links.map(link => {
+                  const isLinked = linkedItems.some(li => li.id === link.id && li.type === 'link');
                   return (
                     <button
                       key={link.id}
                       onClick={() => onToggleLink(link, 'link')}
-                      className={`w-full text-left px-4 py-3 rounded-lg border transition-all ${
+                      className={`w-full text-left p-3 rounded-lg border transition-all hover:scale-[1.02] ${
                         isLinked 
-                          ? 'bg-teal-50 border-teal-200 text-teal-900 scale-[0.98]'
-                          : darkMode 
-                            ? 'bg-slate-700 border-slate-600 text-slate-200 hover:bg-slate-600 hover:scale-[0.98]'
-                            : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50 hover:scale-[0.98]'
+                          ? 'bg-teal-50 border-teal-300 dark:bg-teal-900/20 dark:border-teal-700' 
+                          : darkMode ? 'bg-slate-700 border-slate-600 hover:bg-slate-600' : 'bg-white border-slate-200 hover:bg-slate-50'
                       }`}
                     >
-                      <div className="flex items-center gap-3">
-                        <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all ${
-                          isLinked ? 'border-teal-600 bg-teal-600 scale-110' : darkMode ? 'border-slate-500' : 'border-slate-300'
+                      <div className="flex items-center gap-2">
+                        <div className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-all ${
+                          isLinked ? 'bg-teal-600 border-teal-600' : darkMode ? 'border-slate-500' : 'border-slate-300'
                         }`}>
                           {isLinked && <Check size={14} className="text-white" />}
                         </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="font-medium truncate">{link.title || link.url}</div>
-                          {link.title && <div className="text-xs opacity-60 truncate">{link.url}</div>}
+                        <div className="flex-1">
+                          {link.title && <div className={`font-medium ${darkMode ? 'text-white' : 'text-slate-800'}`}>{link.title}</div>}
+                          <div className={`text-sm ${darkMode ? 'text-slate-400' : 'text-slate-500'} truncate`}>{link.url}</div>
                         </div>
                       </div>
                     </button>
@@ -949,34 +833,31 @@ function LinkItemsModal({ isOpen, onClose, items, onToggleLink, linkedItems, dar
             </div>
           )}
 
-          {notes && notes.length > 0 && (
+          {items.notes && items.notes.length > 0 && (
             <div>
-              <h4 className={`text-sm font-medium ${darkMode ? 'text-slate-300' : 'text-slate-700'} mb-3 flex items-center gap-2`}>
-                <StickyNote size={16} />
-                Notes
-              </h4>
+              <h4 className={`text-sm font-semibold ${darkMode ? 'text-slate-300' : 'text-slate-600'} mb-3 uppercase tracking-wide`}>Notes</h4>
               <div className="space-y-2">
-                {notes.map(note => {
-                  const isLinked = linkedItems?.some(i => i.id === note.id);
+                {items.notes.map(note => {
+                  const isLinked = linkedItems.some(li => li.id === note.id && li.type === 'note');
                   return (
                     <button
                       key={note.id}
                       onClick={() => onToggleLink(note, 'note')}
-                      className={`w-full text-left px-4 py-3 rounded-lg border transition-all ${
+                      className={`w-full text-left p-3 rounded-lg border transition-all hover:scale-[1.02] ${
                         isLinked 
-                          ? 'bg-teal-50 border-teal-200 text-teal-900 scale-[0.98]'
-                          : darkMode 
-                            ? 'bg-slate-700 border-slate-600 text-slate-200 hover:bg-slate-600 hover:scale-[0.98]'
-                            : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50 hover:scale-[0.98]'
+                          ? 'bg-teal-50 border-teal-300 dark:bg-teal-900/20 dark:border-teal-700' 
+                          : darkMode ? 'bg-slate-700 border-slate-600 hover:bg-slate-600' : 'bg-white border-slate-200 hover:bg-slate-50'
                       }`}
                     >
-                      <div className="flex items-center gap-3">
-                        <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all ${
-                          isLinked ? 'border-teal-600 bg-teal-600 scale-110' : darkMode ? 'border-slate-500' : 'border-slate-300'
+                      <div className="flex items-center gap-2">
+                        <div className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-all ${
+                          isLinked ? 'bg-teal-600 border-teal-600' : darkMode ? 'border-slate-500' : 'border-slate-300'
                         }`}>
                           {isLinked && <Check size={14} className="text-white" />}
                         </div>
-                        <span className="font-medium">{note.title || 'Untitled Note'}</span>
+                        <div className="flex-1">
+                          <div className={`font-medium ${darkMode ? 'text-white' : 'text-slate-800'}`}>{note.title || 'Untitled Note'}</div>
+                        </div>
                       </div>
                     </button>
                   );
@@ -985,11 +866,9 @@ function LinkItemsModal({ isOpen, onClose, items, onToggleLink, linkedItems, dar
             </div>
           )}
 
-          {tasks?.length === 0 && links?.length === 0 && notes?.length === 0 && (
-            <div className={`text-center py-12 ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>
-              <StickyNote size={48} className="mx-auto mb-4 opacity-30" />
-              <p>No items available to link yet.</p>
-              <p className="text-sm mt-2">Create some tasks, links, or notes first!</p>
+          {(!items.links || items.links.length === 0) && (!items.notes || items.notes.length === 0) && (
+            <div className={`text-center py-8 ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+              No items available to link
             </div>
           )}
         </div>
@@ -998,229 +877,15 @@ function LinkItemsModal({ isOpen, onClose, items, onToggleLink, linkedItems, dar
   );
 }
 
+// TASKS VIEW - Complete with all fixes and features
 
-// Tags View - New unified tag browser
-function TagsView({ tasks, events, links, notes, allTags, navigateToLinkedItem, darkMode }) {
-  const [selectedTag, setSelectedTag] = useState('all');
-
-  const getItemsByTag = (tag) => {
-    if (tag === 'all') {
-      return {
-        tasks: tasks.filter(t => t.tags && t.tags.length > 0),
-        events: events.filter(e => e.tags && e.tags.length > 0),
-        links: links.filter(l => l.tags && l.tags.length > 0),
-        notes: notes.filter(n => n.tags && n.tags.length > 0)
-      };
-    }
-    
-    return {
-      tasks: tasks.filter(t => t.tags && t.tags.includes(tag)),
-      events: events.filter(e => e.tags && e.tags.includes(tag)),
-      links: links.filter(l => l.tags && l.tags.includes(tag)),
-      notes: notes.filter(n => n.tags && n.tags.includes(tag))
-    };
-  };
-
-  const itemsByTag = getItemsByTag(selectedTag);
-  const totalItems = itemsByTag.tasks.length + itemsByTag.events.length + itemsByTag.links.length + itemsByTag.notes.length;
-
-  return (
-    <div className="max-w-6xl animate-fadeIn">
-      <div className="mb-8">
-        <h2 className={`text-4xl font-bold ${darkMode ? 'text-white' : 'text-slate-800'} accent-font mb-2`}>Tags</h2>
-        <p className={`${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>{allTags.length} tags • {totalItems} items</p>
-      </div>
-
-      {allTags.length > 0 ? (
-        <>
-          <div className="flex flex-wrap gap-2 mb-8">
-            <button
-              onClick={() => setSelectedTag('all')}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-                selectedTag === 'all' 
-                  ? 'bg-teal-600 text-white scale-105' 
-                  : darkMode ? 'bg-slate-700 text-slate-300 hover:bg-slate-600' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-              }`}
-            >
-              All Tags
-            </button>
-            {allTags.map(tag => (
-              <button
-                key={tag}
-                onClick={() => setSelectedTag(tag)}
-                className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-                  selectedTag === tag 
-                    ? 'bg-teal-600 text-white scale-105' 
-                    : darkMode ? 'bg-slate-700 text-slate-300 hover:bg-slate-600' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                }`}
-              >
-                <Tag size={14} />
-                {tag}
-              </button>
-            ))}
-          </div>
-
-          <div className="space-y-8">
-            {itemsByTag.tasks.length > 0 && (
-              <div>
-                <h3 className={`text-xl font-semibold ${darkMode ? 'text-slate-200' : 'text-slate-700'} mb-4 flex items-center gap-2`}>
-                  <List size={20} />
-                  Tasks ({itemsByTag.tasks.length})
-                </h3>
-                <div className="space-y-3">
-                  {itemsByTag.tasks.map(task => (
-                    <button
-                      key={task.id}
-                      onClick={() => navigateToLinkedItem({ id: task.id, type: 'task' })}
-                      className={`w-full text-left p-4 rounded-lg border transition-all hover:scale-[0.99] ${
-                        darkMode ? 'bg-slate-800 border-slate-700 hover:bg-slate-750' : 'bg-white border-slate-200 hover:bg-slate-50'
-                      }`}
-                    >
-                      <div className="flex items-center justify-between">
-                        <div className="flex-1">
-                          <h4 className={`font-semibold ${darkMode ? 'text-white' : 'text-slate-800'}`}>{task.title}</h4>
-                          <div className="flex items-center gap-2 mt-2">
-                            {task.tags.map(t => (
-                              <span key={t} className="inline-flex items-center gap-1 px-2 py-1 bg-teal-100 text-teal-700 rounded text-xs">
-                                <Tag size={10} />
-                                {t}
-                              </span>
-                            ))}
-                          </div>
-                        </div>
-                        <ExternalLink size={16} className={darkMode ? 'text-slate-400' : 'text-slate-500'} />
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {itemsByTag.events.length > 0 && (
-              <div>
-                <h3 className={`text-xl font-semibold ${darkMode ? 'text-slate-200' : 'text-slate-700'} mb-4 flex items-center gap-2`}>
-                  <Calendar size={20} />
-                  Events ({itemsByTag.events.length})
-                </h3>
-                <div className="space-y-3">
-                  {itemsByTag.events.map(event => (
-                    <div
-                      key={event.id}
-                      className={`p-4 rounded-lg border ${
-                        darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'
-                      }`}
-                    >
-                      <h4 className={`font-semibold ${darkMode ? 'text-white' : 'text-slate-800'}`}>{event.title}</h4>
-                      <div className="flex items-center gap-2 mt-2">
-                        {event.tags.map(t => (
-                          <span key={t} className="inline-flex items-center gap-1 px-2 py-1 bg-teal-100 text-teal-700 rounded text-xs">
-                            <Tag size={10} />
-                            {t}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {itemsByTag.links.length > 0 && (
-              <div>
-                <h3 className={`text-xl font-semibold ${darkMode ? 'text-slate-200' : 'text-slate-700'} mb-4 flex items-center gap-2`}>
-                  <Link2 size={20} />
-                  Links ({itemsByTag.links.length})
-                </h3>
-                <div className="space-y-3">
-                  {itemsByTag.links.map(link => (
-                    <button
-                      key={link.id}
-                      onClick={() => navigateToLinkedItem({ id: link.id, type: 'link' })}
-                      className={`w-full text-left p-4 rounded-lg border transition-all hover:scale-[0.99] ${
-                        darkMode ? 'bg-slate-800 border-slate-700 hover:bg-slate-750' : 'bg-white border-slate-200 hover:bg-slate-50'
-                      }`}
-                    >
-                      <div className="flex items-center justify-between">
-                        <div className="flex-1">
-                          <h4 className={`font-semibold ${darkMode ? 'text-white' : 'text-slate-800'}`}>{link.title || link.url}</h4>
-                          <div className="flex items-center gap-2 mt-2">
-                            {link.tags.map(t => (
-                              <span key={t} className="inline-flex items-center gap-1 px-2 py-1 bg-teal-100 text-teal-700 rounded text-xs">
-                                <Tag size={10} />
-                                {t}
-                              </span>
-                            ))}
-                          </div>
-                        </div>
-                        <ExternalLink size={16} className={darkMode ? 'text-slate-400' : 'text-slate-500'} />
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {itemsByTag.notes.length > 0 && (
-              <div>
-                <h3 className={`text-xl font-semibold ${darkMode ? 'text-slate-200' : 'text-slate-700'} mb-4 flex items-center gap-2`}>
-                  <StickyNote size={20} />
-                  Notes ({itemsByTag.notes.length})
-                </h3>
-                <div className="space-y-3">
-                  {itemsByTag.notes.map(note => (
-                    <button
-                      key={note.id}
-                      onClick={() => navigateToLinkedItem({ id: note.id, type: 'note' })}
-                      className={`w-full text-left p-4 rounded-lg border transition-all hover:scale-[0.99] ${
-                        darkMode ? 'bg-slate-800 border-slate-700 hover:bg-slate-750' : 'bg-white border-slate-200 hover:bg-slate-50'
-                      }`}
-                    >
-                      <div className="flex items-center justify-between">
-                        <div className="flex-1">
-                          <h4 className={`font-semibold ${darkMode ? 'text-white' : 'text-slate-800'}`}>{note.title || 'Untitled Note'}</h4>
-                          <div className="flex items-center gap-2 mt-2">
-                            {note.tags.map(t => (
-                              <span key={t} className="inline-flex items-center gap-1 px-2 py-1 bg-teal-100 text-teal-700 rounded text-xs">
-                                <Tag size={10} />
-                                {t}
-                              </span>
-                            ))}
-                          </div>
-                        </div>
-                        <ExternalLink size={16} className={darkMode ? 'text-slate-400' : 'text-slate-500'} />
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {totalItems === 0 && (
-              <div className={`text-center py-16 ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>
-                <Tag size={48} className="mx-auto mb-4 opacity-30" />
-                <p>No items with this tag yet.</p>
-              </div>
-            )}
-          </div>
-        </>
-      ) : (
-        <div className={`text-center py-16 ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>
-          <Tag size={48} className="mx-auto mb-4 opacity-30" />
-          <p>No tags yet. Add tags to your tasks, events, links, and notes!</p>
-        </div>
-      )}
-    </div>
-  );
-}
-
-
-// Tasks View with sorting and drag-drop
 function TasksView({ 
   tasks, 
   addTask, 
   updateTask, 
   deleteTask, 
   clearCompletedTasks,
+  reorderTasks,
   showNewTaskForm,
   setShowNewTaskForm,
   links,
@@ -1234,13 +899,13 @@ function TasksView({
   viewMode,
   toggleViewMode
 }) {
-  const [sortBy, setSortBy] = useState('manual');
-  const [filterTag, setFilterTag] = useState('all');
+  const [filterType, setFilterType] = useState('none'); // none, priority, status, tag
+  const [filterValue, setFilterValue] = useState('all');
   const [draggedItem, setDraggedItem] = useState(null);
   const [dragOverItem, setDragOverItem] = useState(null);
   
   const activeTasks = tasks.filter(t => t.status !== 'completed');
-  const completedTasks = tasks.filter(t => t.status === 'completed');
+  const completedTasks = tasks.filter(t => t.status !== 'completed');
   
   const [showLinkModal, setShowLinkModal] = useState(false);
   const [linkingTaskId, setLinkingTaskId] = useState(null);
@@ -1258,25 +923,22 @@ function TasksView({
 
   const currentTask = tasks.find(t => t.id === linkingTaskId);
 
-  // Filter by tag
-  let filteredTasks = filterTag === 'all' ? activeTasks : activeTasks.filter(t => t.tags && t.tags.includes(filterTag));
-  
-  // Sort tasks
-  const sortedTasks = [...filteredTasks].sort((a, b) => {
-    switch(sortBy) {
-      case 'priority':
-        const priorityOrder = { urgent: 0, high: 1, medium: 2, low: 3 };
-        return priorityOrder[a.priority] - priorityOrder[b.priority];
-      case 'status':
-        const statusOrder = { stuck: 0, paused: 1, working: 2, new: 3, completed: 4 };
-        return statusOrder[a.status] - statusOrder[b.status];
-      case 'date':
-        return new Date(b.createdAt) - new Date(a.createdAt);
-      default:
-        return 0;
-    }
-  });
+  // Get all unique values for filters
+  const taskTags = [...new Set(activeTasks.flatMap(t => t.tags || []))];
+  const priorities = ['urgent', 'high', 'medium', 'low'];
+  const statuses = ['stuck', 'paused', 'working', 'new'];
 
+  // Apply filter
+  let filteredTasks = activeTasks;
+  if (filterType === 'priority' && filterValue !== 'all') {
+    filteredTasks = activeTasks.filter(t => t.priority === filterValue);
+  } else if (filterType === 'status' && filterValue !== 'all') {
+    filteredTasks = activeTasks.filter(t => t.status === filterValue);
+  } else if (filterType === 'tag' && filterValue !== 'all') {
+    filteredTasks = activeTasks.filter(t => t.tags && t.tags.includes(filterValue));
+  }
+
+  // Drag and drop handlers
   const handleDragStart = (e, task) => {
     setDraggedItem(task);
     e.dataTransfer.effectAllowed = 'move';
@@ -1297,15 +959,10 @@ function TasksView({
     const draggedIndex = allTasksCopy.findIndex(t => t.id === draggedItem.id);
     const targetIndex = allTasksCopy.findIndex(t => t.id === targetTask.id);
 
-    // Remove dragged item
     const [removed] = allTasksCopy.splice(draggedIndex, 1);
-    // Insert at new position
     allTasksCopy.splice(targetIndex, 0, removed);
 
-    // Update all tasks with new order
-    allTasksCopy.forEach((task, index) => {
-      updateTask(task.id, { ...task });
-    });
+    reorderTasks(allTasksCopy);
 
     setDraggedItem(null);
     setDragOverItem(null);
@@ -1315,8 +972,6 @@ function TasksView({
     setDraggedItem(null);
     setDragOverItem(null);
   };
-
-  const taskTags = [...new Set(tasks.flatMap(t => t.tags || []))];
 
   return (
     <div className="max-w-6xl animate-fadeIn">
@@ -1352,49 +1007,116 @@ function TasksView({
         </div>
       </div>
 
-      {/* Filters and Sorting */}
-      <div className="flex flex-wrap items-center gap-3 mb-6">
-        <select
-          value={sortBy}
-          onChange={(e) => setSortBy(e.target.value)}
-          className={`px-4 py-2 rounded-lg border transition-all ${
-            darkMode ? 'bg-slate-800 border-slate-700 text-white' : 'bg-white border-slate-200'
-          }`}
-        >
-          <option value="manual">Manual Order (Drag & Drop)</option>
-          <option value="priority">Sort by Priority</option>
-          <option value="status">Sort by Status</option>
-          <option value="date">Sort by Date</option>
-        </select>
+      {/* Filter Controls */}
+      <div className="mb-6">
+        <div className="flex flex-wrap items-center gap-3 mb-3">
+          <Filter size={18} className={darkMode ? 'text-slate-400' : 'text-slate-500'} />
+          <select
+            value={filterType}
+            onChange={(e) => {
+              setFilterType(e.target.value);
+              setFilterValue('all');
+            }}
+            className={`px-4 py-2 rounded-lg border transition-all ${
+              darkMode ? 'bg-slate-800 border-slate-700 text-white' : 'bg-white border-slate-200'
+            }`}
+          >
+            <option value="none">No Filter</option>
+            <option value="priority">Filter by Priority</option>
+            <option value="status">Filter by Status</option>
+            <option value="tag">Filter by Tag</option>
+          </select>
 
-        {taskTags.length > 0 && (
-          <>
-            <div className={`w-px h-8 ${darkMode ? 'bg-slate-700' : 'bg-slate-300'}`} />
-            <button
-              onClick={() => setFilterTag('all')}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-                filterTag === 'all' 
-                  ? 'bg-teal-600 text-white' 
-                  : darkMode ? 'bg-slate-700 text-slate-300 hover:bg-slate-600' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-              }`}
-            >
-              All
-            </button>
-            {taskTags.map(tag => (
+          {filterType === 'priority' && (
+            <div className="flex gap-2">
               <button
-                key={tag}
-                onClick={() => setFilterTag(tag)}
-                className={`flex items-center gap-1 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-                  filterTag === tag 
+                onClick={() => setFilterValue('all')}
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                  filterValue === 'all' 
                     ? 'bg-teal-600 text-white' 
                     : darkMode ? 'bg-slate-700 text-slate-300 hover:bg-slate-600' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                 }`}
               >
-                <Tag size={14} />
-                {tag}
+                All
               </button>
-            ))}
-          </>
+              {priorities.map(priority => (
+                <button
+                  key={priority}
+                  onClick={() => setFilterValue(priority)}
+                  className={`px-4 py-2 rounded-lg text-sm font-medium capitalize transition-all ${
+                    filterValue === priority 
+                      ? 'bg-teal-600 text-white' 
+                      : darkMode ? 'bg-slate-700 text-slate-300 hover:bg-slate-600' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                  }`}
+                >
+                  {priority}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {filterType === 'status' && (
+            <div className="flex gap-2">
+              <button
+                onClick={() => setFilterValue('all')}
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                  filterValue === 'all' 
+                    ? 'bg-teal-600 text-white' 
+                    : darkMode ? 'bg-slate-700 text-slate-300 hover:bg-slate-600' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                }`}
+              >
+                All
+              </button>
+              {statuses.map(status => (
+                <button
+                  key={status}
+                  onClick={() => setFilterValue(status)}
+                  className={`px-4 py-2 rounded-lg text-sm font-medium capitalize transition-all ${
+                    filterValue === status 
+                      ? 'bg-teal-600 text-white' 
+                      : darkMode ? 'bg-slate-700 text-slate-300 hover:bg-slate-600' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                  }`}
+                >
+                  {status === 'working' ? 'Working on it' : status}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {filterType === 'tag' && (
+            <div className="flex gap-2 flex-wrap">
+              <button
+                onClick={() => setFilterValue('all')}
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                  filterValue === 'all' 
+                    ? 'bg-teal-600 text-white' 
+                    : darkMode ? 'bg-slate-700 text-slate-300 hover:bg-slate-600' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                }`}
+              >
+                All
+              </button>
+              {taskTags.map(tag => (
+                <button
+                  key={tag}
+                  onClick={() => setFilterValue(tag)}
+                  className={`flex items-center gap-1 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                    filterValue === tag 
+                      ? 'bg-teal-600 text-white' 
+                      : darkMode ? 'bg-slate-700 text-slate-300 hover:bg-slate-600' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                  }`}
+                >
+                  <Tag size={14} />
+                  {tag}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {filterType !== 'none' && filterValue !== 'all' && (
+          <div className={`text-sm ${darkMode ? 'text-slate-400' : 'text-slate-600'}`}>
+            Showing {filteredTasks.length} task{filteredTasks.length !== 1 ? 's' : ''} with {filterType} = "{filterValue}"
+          </div>
         )}
       </div>
 
@@ -1408,7 +1130,7 @@ function TasksView({
       )}
 
       <div className={viewMode === 'grid' ? 'grid grid-cols-1 md:grid-cols-2 gap-4 mb-8' : 'space-y-4 mb-8'}>
-        {sortedTasks.map((task, index) => (
+        {filteredTasks.map((task, index) => (
           <TaskCard 
             key={task.id} 
             task={task} 
@@ -1426,16 +1148,15 @@ function TasksView({
             onDragEnd={handleDragEnd}
             isDragging={draggedItem?.id === task.id}
             isDragOver={dragOverItem?.id === task.id}
-            isDraggable={sortBy === 'manual'}
             style={{ animationDelay: `${index * 0.03}s` }}
           />
         ))}
       </div>
 
-      {sortedTasks.length === 0 && !showNewTaskForm && (
+      {filteredTasks.length === 0 && !showNewTaskForm && (
         <div className={`text-center py-16 ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>
           <List size={48} className="mx-auto mb-4 opacity-30" />
-          <p>No active tasks. Click "New Task" to get started!</p>
+          <p>No tasks match your filter. Try changing the filter or add a new task!</p>
         </div>
       )}
 
@@ -1605,14 +1326,14 @@ function TaskCard({
   onDragEnd,
   isDragging,
   isDragOver,
-  isDraggable,
   style 
 }) {
   const [showSubtasks, setShowSubtasks] = useState(true);
   const [newSubtask, setNewSubtask] = useState('');
   const [editingSubtaskId, setEditingSubtaskId] = useState(null);
   const [editingSubtaskText, setEditingSubtaskText] = useState('');
-  const descriptionRef = useRef(null);
+  const [isEditingDescription, setIsEditingDescription] = useState(false);
+  const [editedDescription, setEditedDescription] = useState(task.description || '');
 
   const statusConfig = {
     new: { label: 'New', color: 'bg-blue-100 text-blue-700 border-blue-200', icon: Circle },
@@ -1674,38 +1395,98 @@ function TaskCard({
   };
 
   const copySubtask = (text) => {
-    navigator.clipboard.writeText(text).then(() => {
-      // Could add a toast notification here
-    });
+    navigator.clipboard.writeText(text);
+  };
+
+  const saveDescription = () => {
+    updateTask(task.id, { description: editedDescription });
+    setIsEditingDescription(false);
+  };
+
+  const deleteDescription = () => {
+    updateTask(task.id, { description: '' });
+    setEditedDescription('');
   };
 
   return (
     <div 
       id={`item-${task.id}`}
-      draggable={isDraggable}
+      draggable
       onDragStart={(e) => onDragStart(e, task)}
       onDragOver={(e) => onDragOver(e, task)}
       onDrop={(e) => onDrop(e, task)}
       onDragEnd={onDragEnd}
-      className={`task-card p-6 ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'} rounded-xl shadow-md border animate-slideUp ${
+      className={`task-card p-6 ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'} rounded-xl shadow-md border animate-slideUp cursor-move group ${
         isHighlighted ? 'animate-highlight ring-2 ring-teal-500' : ''
-      } ${isDragging ? 'opacity-50 scale-95' : ''} ${isDragOver ? 'border-teal-500 border-2' : ''} ${isDraggable ? 'cursor-move' : ''}`} 
+      } ${isDragging ? 'opacity-50 scale-95' : ''} ${isDragOver ? 'border-teal-500 border-2' : ''}`} 
       style={style}
     >
       <div className="flex items-start justify-between mb-4">
         <div className="flex-1">
           <h3 className={`text-xl font-semibold ${darkMode ? 'text-white' : 'text-slate-800'} mb-2`}>{task.title}</h3>
-          {task.description && (
-            <div 
-              ref={descriptionRef}
-              className={`${darkMode ? 'text-slate-300' : 'text-slate-600'} text-sm mb-3 rich-text-editor`}
-              dangerouslySetInnerHTML={{ __html: task.description }}
-              style={{ 
-                maxHeight: 'none',
-                overflow: 'visible'
-              }}
-            />
+          
+          {/* EDITABLE DESCRIPTION - DYNAMIC HEIGHT */}
+          {isEditingDescription ? (
+            <div className="mb-3">
+              <RichTextEditor
+                value={editedDescription}
+                onChange={setEditedDescription}
+                placeholder="Add description..."
+                darkMode={darkMode}
+                rows={6}
+              />
+              <div className="flex gap-2 mt-2">
+                <button
+                  onClick={saveDescription}
+                  className="flex items-center gap-1 px-3 py-1 bg-teal-600 text-white rounded text-sm hover:bg-teal-700"
+                >
+                  <Save size={14} />
+                  Save
+                </button>
+                <button
+                  onClick={() => setIsEditingDescription(false)}
+                  className={`px-3 py-1 text-sm rounded ${darkMode ? 'text-slate-300 hover:bg-slate-700' : 'text-slate-600 hover:bg-slate-100'}`}
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          ) : task.description ? (
+            <div className="relative group/desc mb-3">
+              <div 
+                className={`${darkMode ? 'text-slate-300' : 'text-slate-600'} text-sm rich-text-editor`}
+                dangerouslySetInnerHTML={{ __html: task.description }}
+                style={{ 
+                  maxHeight: 'none',
+                  overflow: 'visible'
+                }}
+              />
+              <div className="absolute top-0 right-0 flex gap-1 opacity-0 group-hover/desc:opacity-100 transition-opacity">
+                <button
+                  onClick={() => setIsEditingDescription(true)}
+                  className={`p-1 rounded ${darkMode ? 'bg-slate-700 text-teal-400 hover:bg-slate-600' : 'bg-slate-100 text-teal-600 hover:bg-slate-200'}`}
+                  title="Edit description"
+                >
+                  <Edit2 size={14} />
+                </button>
+                <button
+                  onClick={deleteDescription}
+                  className={`p-1 rounded ${darkMode ? 'bg-slate-700 text-red-400 hover:bg-slate-600' : 'bg-slate-100 text-red-600 hover:bg-slate-200'}`}
+                  title="Delete description"
+                >
+                  <Trash2 size={14} />
+                </button>
+              </div>
+            </div>
+          ) : (
+            <button
+              onClick={() => setIsEditingDescription(true)}
+              className={`text-sm ${darkMode ? 'text-slate-500 hover:text-teal-400' : 'text-slate-400 hover:text-teal-600'} mb-3`}
+            >
+              + Add description
+            </button>
           )}
+
           {task.tags && task.tags.length > 0 && (
             <div className="flex flex-wrap gap-1 mb-3">
               {task.tags.map(tag => (
@@ -1789,6 +1570,8 @@ function TaskCard({
                     onChange={(e) => setEditingSubtaskText(e.target.value)}
                     onKeyPress={(e) => e.key === 'Enter' && saveSubtaskEdit()}
                     onBlur={saveSubtaskEdit}
+                    onClick={(e) => e.stopPropagation()}
+                    onMouseDown={(e) => e.stopPropagation()}
                     className={`flex-1 px-2 py-1 text-sm border ${darkMode ? 'bg-slate-700 border-slate-600 text-white' : 'border-slate-300'} rounded focus:outline-none focus:ring-1 focus:ring-teal-500`}
                     autoFocus
                   />
@@ -1878,7 +1661,7 @@ function TaskCard({
 }
 
 
-// Calendar View (unchanged from v4, adding tags support)
+// Calendar View (same as before, works well)
 function CalendarView({ 
   events, 
   addEvent, 
@@ -1981,7 +1764,7 @@ function CalendarView({
         />
       )}
 
-      <div className={`${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'} rounded-xl shadow-lg border p-6 mb-6 transition-all`}>
+      <div className={`${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'} rounded-xl shadow-lg border p-6 mb-6`}>
         <div className="flex items-center justify-between mb-6">
           <button
             onClick={prevMonth}
@@ -2040,14 +1823,8 @@ function CalendarView({
                         event.color === 'red' ? 'bg-red-100 text-red-700' :
                         'bg-teal-100 text-teal-700'
                       }`}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                      }}
                     >
                       <div className="font-medium truncate">{event.title}</div>
-                      {event.startTime && (
-                        <div className="text-xs opacity-75">{event.startTime}</div>
-                      )}
                     </div>
                   ))}
                   {dayEvents.length > 2 && (
@@ -2068,9 +1845,6 @@ function CalendarView({
           .sort((a, b) => {
             if (a.date < b.date) return -1;
             if (a.date > b.date) return 1;
-            if (a.startTime && b.startTime) {
-              return a.startTime.localeCompare(b.startTime);
-            }
             return 0;
           })
           .map((event, index) => (
@@ -2087,12 +1861,6 @@ function CalendarView({
               style={{ animationDelay: `${index * 0.03}s` }}
             />
           ))}
-        {events.length === 0 && (
-          <div className={`text-center py-16 ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>
-            <Calendar size={48} className="mx-auto mb-4 opacity-30" />
-            <p>No events yet. Click a date to add one!</p>
-          </div>
-        )}
       </div>
 
       <LinkItemsModal
@@ -2136,13 +1904,6 @@ function NewEventForm({ onSave, onCancel, initialDate, darkMode, allTags }) {
     e.preventDefault();
     if (title.trim() && date) {
       onSave({ title, date, startTime, endTime, description, color, tags: selectedTags });
-      setTitle('');
-      setDate(formatDateForInput(new Date()));
-      setStartTime('09:00');
-      setEndTime('10:00');
-      setDescription('');
-      setColor('teal');
-      setSelectedTags([]);
     }
   };
 
@@ -2165,7 +1926,7 @@ function NewEventForm({ onSave, onCancel, initialDate, darkMode, allTags }) {
         value={title}
         onChange={(e) => setTitle(e.target.value)}
         placeholder="Event title..."
-        className={`w-full text-lg font-medium mb-3 px-3 py-2 border ${darkMode ? 'bg-slate-700 border-slate-600 text-white placeholder-slate-400' : 'border-slate-300'} rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 transition-all`}
+        className={`w-full text-lg font-medium mb-3 px-3 py-2 border ${darkMode ? 'bg-slate-700 border-slate-600 text-white placeholder-slate-400' : 'border-slate-300'} rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500`}
         autoFocus
       />
       
@@ -2176,7 +1937,7 @@ function NewEventForm({ onSave, onCancel, initialDate, darkMode, allTags }) {
             type="date"
             value={date}
             onChange={(e) => setDate(e.target.value)}
-            className={`w-full px-3 py-2 border ${darkMode ? 'bg-slate-700 border-slate-600 text-white' : 'border-slate-300'} rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 transition-all`}
+            className={`w-full px-3 py-2 border ${darkMode ? 'bg-slate-700 border-slate-600 text-white' : 'border-slate-300'} rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500`}
           />
         </div>
         <div>
@@ -2203,7 +1964,7 @@ function NewEventForm({ onSave, onCancel, initialDate, darkMode, allTags }) {
             type="time"
             value={startTime}
             onChange={(e) => setStartTime(e.target.value)}
-            className={`w-full px-3 py-2 border ${darkMode ? 'bg-slate-700 border-slate-600 text-white' : 'border-slate-300'} rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 transition-all`}
+            className={`w-full px-3 py-2 border ${darkMode ? 'bg-slate-700 border-slate-600 text-white' : 'border-slate-300'} rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500`}
           />
         </div>
         <div>
@@ -2212,7 +1973,7 @@ function NewEventForm({ onSave, onCancel, initialDate, darkMode, allTags }) {
             type="time"
             value={endTime}
             onChange={(e) => setEndTime(e.target.value)}
-            className={`w-full px-3 py-2 border ${darkMode ? 'bg-slate-700 border-slate-600 text-white' : 'border-slate-300'} rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 transition-all`}
+            className={`w-full px-3 py-2 border ${darkMode ? 'bg-slate-700 border-slate-600 text-white' : 'border-slate-300'} rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500`}
           />
         </div>
       </div>
@@ -2221,12 +1982,11 @@ function NewEventForm({ onSave, onCancel, initialDate, darkMode, allTags }) {
         value={description}
         onChange={(e) => setDescription(e.target.value)}
         placeholder="Description (optional)"
-        className={`w-full px-3 py-2 border ${darkMode ? 'bg-slate-700 border-slate-600 text-white placeholder-slate-400' : 'border-slate-300'} rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 resize-none transition-all`}
+        className={`w-full px-3 py-2 border ${darkMode ? 'bg-slate-700 border-slate-600 text-white placeholder-slate-400' : 'border-slate-300'} rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 resize-none mb-3`}
         rows={3}
       />
 
-      {/* Tags */}
-      <div className="mt-4">
+      <div className="mb-3">
         <label className={`block text-sm ${darkMode ? 'text-slate-300' : 'text-slate-600'} mb-2`}>Tags</label>
         <div className="flex flex-wrap gap-2 mb-2">
           {selectedTags.map(tag => (
@@ -2254,9 +2014,9 @@ function NewEventForm({ onSave, onCancel, initialDate, darkMode, allTags }) {
                 addTag(tagInput);
               }
             }}
-            placeholder="Add tag and press Enter..."
+            placeholder="Add tag..."
             list="event-tags"
-            className={`flex-1 px-3 py-2 border ${darkMode ? 'bg-slate-700 border-slate-600 text-white placeholder-slate-400' : 'border-slate-300'} rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 transition-all`}
+            className={`flex-1 px-3 py-2 border ${darkMode ? 'bg-slate-700 border-slate-600 text-white placeholder-slate-400' : 'border-slate-300'} rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500`}
           />
           <datalist id="event-tags">
             {allTags.filter(t => !selectedTags.includes(t)).map(tag => (
@@ -2266,17 +2026,17 @@ function NewEventForm({ onSave, onCancel, initialDate, darkMode, allTags }) {
           <button
             type="button"
             onClick={() => addTag(tagInput)}
-            className="px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-all"
+            className="px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700"
           >
             <Plus size={16} />
           </button>
         </div>
       </div>
       
-      <div className="flex gap-2 mt-4">
+      <div className="flex gap-2">
         <button
           type="submit"
-          className="flex items-center gap-2 px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-all"
+          className="flex items-center gap-2 px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700"
         >
           <Save size={16} />
           Save Event
@@ -2284,7 +2044,7 @@ function NewEventForm({ onSave, onCancel, initialDate, darkMode, allTags }) {
         <button
           type="button"
           onClick={onCancel}
-          className={`px-4 py-2 ${darkMode ? 'text-slate-300 hover:bg-slate-700' : 'text-slate-600 hover:bg-slate-100'} rounded-lg transition-all`}
+          className={`px-4 py-2 ${darkMode ? 'text-slate-300 hover:bg-slate-700' : 'text-slate-600 hover:bg-slate-100'} rounded-lg`}
         >
           Cancel
         </button>
@@ -2321,55 +2081,40 @@ function EventCard({ event, updateEvent, deleteEvent, getLinkedItem, navigateToL
           value={editedEvent.title}
           onChange={(e) => setEditedEvent({ ...editedEvent, title: e.target.value })}
           placeholder="Event title"
-          className={`w-full mb-3 px-3 py-2 border ${darkMode ? 'bg-slate-700 border-slate-600 text-white' : 'border-slate-300'} rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 font-medium transition-all`}
+          className={`w-full mb-3 px-3 py-2 border ${darkMode ? 'bg-slate-700 border-slate-600 text-white' : 'border-slate-300'} rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 font-medium`}
         />
         <div className="grid grid-cols-2 gap-3 mb-3">
-          <div>
-            <label className={`block text-sm ${darkMode ? 'text-slate-300' : 'text-slate-600'} mb-1`}>Date</label>
-            <input
-              type="date"
-              value={editedEvent.date}
-              onChange={(e) => setEditedEvent({ ...editedEvent, date: e.target.value })}
-              className={`w-full px-3 py-2 border ${darkMode ? 'bg-slate-700 border-slate-600 text-white' : 'border-slate-300'} rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 transition-all`}
-            />
-          </div>
-          <div>
-            <label className={`block text-sm ${darkMode ? 'text-slate-300' : 'text-slate-600'} mb-1`}>Start Time</label>
-            <input
-              type="time"
-              value={editedEvent.startTime || '09:00'}
-              onChange={(e) => setEditedEvent({ ...editedEvent, startTime: e.target.value })}
-              className={`w-full px-3 py-2 border ${darkMode ? 'bg-slate-700 border-slate-600 text-white' : 'border-slate-300'} rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 transition-all`}
-            />
-          </div>
-        </div>
-        <div className="mb-3">
-          <label className={`block text-sm ${darkMode ? 'text-slate-300' : 'text-slate-600'} mb-1`}>End Time</label>
+          <input
+            type="date"
+            value={editedEvent.date}
+            onChange={(e) => setEditedEvent({ ...editedEvent, date: e.target.value })}
+            className={`px-3 py-2 border ${darkMode ? 'bg-slate-700 border-slate-600 text-white' : 'border-slate-300'} rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500`}
+          />
           <input
             type="time"
-            value={editedEvent.endTime || '10:00'}
-            onChange={(e) => setEditedEvent({ ...editedEvent, endTime: e.target.value })}
-            className={`w-full px-3 py-2 border ${darkMode ? 'bg-slate-700 border-slate-600 text-white' : 'border-slate-300'} rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 transition-all`}
+            value={editedEvent.startTime || ''}
+            onChange={(e) => setEditedEvent({ ...editedEvent, startTime: e.target.value })}
+            className={`px-3 py-2 border ${darkMode ? 'bg-slate-700 border-slate-600 text-white' : 'border-slate-300'} rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500`}
           />
         </div>
         <textarea
           value={editedEvent.description || ''}
           onChange={(e) => setEditedEvent({ ...editedEvent, description: e.target.value })}
           placeholder="Description"
-          className={`w-full mb-3 px-3 py-2 border ${darkMode ? 'bg-slate-700 border-slate-600 text-white placeholder-slate-400' : 'border-slate-300'} rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 resize-none transition-all`}
+          className={`w-full mb-3 px-3 py-2 border ${darkMode ? 'bg-slate-700 border-slate-600 text-white placeholder-slate-400' : 'border-slate-300'} rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 resize-none`}
           rows={3}
         />
-        <div className="flex gap-2 mt-4">
+        <div className="flex gap-2">
           <button
             onClick={handleSave}
-            className="flex items-center gap-2 px-3 py-1.5 bg-teal-600 text-white rounded-lg hover:bg-teal-700 text-sm transition-all"
+            className="flex items-center gap-2 px-3 py-1.5 bg-teal-600 text-white rounded-lg hover:bg-teal-700 text-sm"
           >
             <Save size={14} />
             Save
           </button>
           <button
             onClick={() => setIsEditing(false)}
-            className={`px-3 py-1.5 ${darkMode ? 'text-slate-300 hover:bg-slate-700' : 'text-slate-600 hover:bg-slate-100'} rounded-lg text-sm transition-all`}
+            className={`px-3 py-1.5 ${darkMode ? 'text-slate-300 hover:bg-slate-700' : 'text-slate-600 hover:bg-slate-100'} rounded-lg text-sm`}
           >
             Cancel
           </button>
@@ -2392,10 +2137,10 @@ function EventCard({ event, updateEvent, deleteEvent, getLinkedItem, navigateToL
             {formatDisplayDate(event.date)}
           </div>
           <h3 className={`text-xl font-semibold ${darkMode ? 'text-white' : 'text-slate-800'} mb-2`}>{event.title}</h3>
-          {(event.startTime || event.endTime) && (
+          {event.startTime && (
             <div className={`flex items-center gap-2 ${darkMode ? 'text-slate-300' : 'text-slate-600'} text-sm mb-2`}>
               <Clock size={16} />
-              <span>{event.startTime} - {event.endTime}</span>
+              <span>{event.startTime}{event.endTime && ` - ${event.endTime}`}</span>
             </div>
           )}
           {event.description && (
@@ -2466,25 +2211,22 @@ function EventCard({ event, updateEvent, deleteEvent, getLinkedItem, navigateToL
   );
 }
 
-// Note: Links and Notes views would be added here following the same pattern
-// Due to file size, this is provided as the core framework
-// The pattern is: View component → Form component → Card component with drag-drop
-// All following the same structure as TasksView above
-
-// For the complete working version, the full file is available in the tar.gz package
-
-// Links View with drag-drop and grid/list toggle
-function LinksView({ links, addLink, updateLink, deleteLink, showNewLinkForm, setShowNewLinkForm, highlightedItemId, darkMode, allTags, viewMode, toggleViewMode }) {
-  const [filterTag, setFilterTag] = useState('all');
+// Links View - WITH LABELS, TAG EDITING, AND FILTERING
+function LinksView({ links, addLink, updateLink, deleteLink, reorderLinks, showNewLinkForm, setShowNewLinkForm, highlightedItemId, darkMode, allTags, viewMode, toggleViewMode }) {
+  const [filterType, setFilterType] = useState('none');
+  const [filterValue, setFilterValue] = useState('all');
   const [draggedItem, setDraggedItem] = useState(null);
   const [dragOverItem, setDragOverItem] = useState(null);
   
   const categories = [...new Set(links.map(l => l.category).filter(Boolean))];
   const linkTags = [...new Set(links.flatMap(l => l.tags || []))];
 
-  const filteredLinks = filterTag === 'all' 
-    ? links 
-    : links.filter(l => l.tags && l.tags.includes(filterTag));
+  let filteredLinks = links;
+  if (filterType === 'category' && filterValue !== 'all') {
+    filteredLinks = links.filter(l => l.category === filterValue);
+  } else if (filterType === 'tag' && filterValue !== 'all') {
+    filteredLinks = links.filter(l => l.tags && l.tags.includes(filterValue));
+  }
 
   const handleDragStart = (e, link) => {
     setDraggedItem(link);
@@ -2509,9 +2251,7 @@ function LinksView({ links, addLink, updateLink, deleteLink, showNewLinkForm, se
     const [removed] = allLinksCopy.splice(draggedIndex, 1);
     allLinksCopy.splice(targetIndex, 0, removed);
 
-    allLinksCopy.forEach((link) => {
-      updateLink(link.id, { ...link });
-    });
+    reorderLinks(allLinksCopy);
 
     setDraggedItem(null);
     setDragOverItem(null);
@@ -2534,14 +2274,12 @@ function LinksView({ links, addLink, updateLink, deleteLink, showNewLinkForm, se
             <button
               onClick={() => toggleViewMode('links', 'list')}
               className={`p-2 rounded transition-all ${viewMode === 'list' ? 'bg-white dark:bg-slate-600 shadow' : 'hover:bg-slate-300 dark:hover:bg-slate-600'}`}
-              title="List view"
             >
               <LayoutList size={18} className={darkMode ? 'text-slate-300' : 'text-slate-700'} />
             </button>
             <button
               onClick={() => toggleViewMode('links', 'grid')}
               className={`p-2 rounded transition-all ${viewMode === 'grid' ? 'bg-white dark:bg-slate-600 shadow' : 'hover:bg-slate-300 dark:hover:bg-slate-600'}`}
-              title="Grid view"
             >
               <Grid size={18} className={darkMode ? 'text-slate-300' : 'text-slate-700'} />
             </button>
@@ -2556,6 +2294,66 @@ function LinksView({ links, addLink, updateLink, deleteLink, showNewLinkForm, se
         </div>
       </div>
 
+      {/* Filter Controls */}
+      <div className="mb-6">
+        <div className="flex flex-wrap items-center gap-3 mb-3">
+          <Filter size={18} className={darkMode ? 'text-slate-400' : 'text-slate-500'} />
+          <select
+            value={filterType}
+            onChange={(e) => {
+              setFilterType(e.target.value);
+              setFilterValue('all');
+            }}
+            className={`px-4 py-2 rounded-lg border ${darkMode ? 'bg-slate-800 border-slate-700 text-white' : 'bg-white border-slate-200'}`}
+          >
+            <option value="none">No Filter</option>
+            <option value="category">Filter by Category</option>
+            <option value="tag">Filter by Tag</option>
+          </select>
+
+          {filterType === 'category' && categories.length > 0 && (
+            <div className="flex gap-2 flex-wrap">
+              <button
+                onClick={() => setFilterValue('all')}
+                className={`px-4 py-2 rounded-lg text-sm font-medium ${filterValue === 'all' ? 'bg-teal-600 text-white' : darkMode ? 'bg-slate-700 text-slate-300 hover:bg-slate-600' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+              >
+                All
+              </button>
+              {categories.map(cat => (
+                <button
+                  key={cat}
+                  onClick={() => setFilterValue(cat)}
+                  className={`px-4 py-2 rounded-lg text-sm font-medium ${filterValue === cat ? 'bg-teal-600 text-white' : darkMode ? 'bg-slate-700 text-slate-300 hover:bg-slate-600' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+                >
+                  {cat}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {filterType === 'tag' && linkTags.length > 0 && (
+            <div className="flex gap-2 flex-wrap">
+              <button
+                onClick={() => setFilterValue('all')}
+                className={`px-4 py-2 rounded-lg text-sm font-medium ${filterValue === 'all' ? 'bg-teal-600 text-white' : darkMode ? 'bg-slate-700 text-slate-300 hover:bg-slate-600' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+              >
+                All
+              </button>
+              {linkTags.map(tag => (
+                <button
+                  key={tag}
+                  onClick={() => setFilterValue(tag)}
+                  className={`flex items-center gap-1 px-4 py-2 rounded-lg text-sm font-medium ${filterValue === tag ? 'bg-teal-600 text-white' : darkMode ? 'bg-slate-700 text-slate-300 hover:bg-slate-600' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+                >
+                  <Tag size={14} />
+                  {tag}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
       {showNewLinkForm && (
         <NewLinkForm 
           onSave={addLink} 
@@ -2564,35 +2362,6 @@ function LinksView({ links, addLink, updateLink, deleteLink, showNewLinkForm, se
           darkMode={darkMode}
           allTags={allTags}
         />
-      )}
-
-      {linkTags.length > 0 && (
-        <div className="flex flex-wrap gap-2 mb-6">
-          <button
-            onClick={() => setFilterTag('all')}
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-              filterTag === 'all' 
-                ? 'bg-teal-600 text-white' 
-                : darkMode ? 'bg-slate-700 text-slate-300 hover:bg-slate-600' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-            }`}
-          >
-            All
-          </button>
-          {linkTags.map(tag => (
-            <button
-              key={tag}
-              onClick={() => setFilterTag(tag)}
-              className={`flex items-center gap-1 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-                filterTag === tag 
-                  ? 'bg-teal-600 text-white' 
-                  : darkMode ? 'bg-slate-700 text-slate-300 hover:bg-slate-600' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-              }`}
-            >
-              <Tag size={14} />
-              {tag}
-            </button>
-          ))}
-        </div>
       )}
 
       <div className={viewMode === 'grid' ? 'grid grid-cols-1 md:grid-cols-2 gap-4' : 'space-y-4'}>
@@ -2605,6 +2374,7 @@ function LinksView({ links, addLink, updateLink, deleteLink, showNewLinkForm, se
             isHighlighted={highlightedItemId === link.id}
             darkMode={darkMode}
             allTags={allTags}
+            existingCategories={categories}
             onDragStart={handleDragStart}
             onDragOver={handleDragOver}
             onDrop={handleDrop}
@@ -2619,7 +2389,7 @@ function LinksView({ links, addLink, updateLink, deleteLink, showNewLinkForm, se
       {filteredLinks.length === 0 && !showNewLinkForm && (
         <div className={`text-center py-16 ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>
           <Link2 size={48} className="mx-auto mb-4 opacity-30" />
-          <p>No links yet. Start adding your inspirations!</p>
+          <p>No links match your filter!</p>
         </div>
       )}
     </div>
@@ -2642,11 +2412,6 @@ function NewLinkForm({ onSave, onCancel, existingCategories, darkMode, allTags }
         finalUrl = 'https://' + finalUrl;
       }
       onSave({ url: finalUrl, title, category, description, tags: selectedTags });
-      setUrl('');
-      setTitle('');
-      setCategory('');
-      setDescription('');
-      setSelectedTags([]);
     }
   };
 
@@ -2664,44 +2429,59 @@ function NewLinkForm({ onSave, onCancel, existingCategories, darkMode, allTags }
 
   return (
     <form onSubmit={handleSubmit} className={`mb-6 p-6 ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'} rounded-xl shadow-lg border animate-slideUp`}>
-      <input
-        type="text"
-        value={url}
-        onChange={(e) => setUrl(e.target.value)}
-        placeholder="example.com or https://example.com"
-        className={`w-full text-lg font-medium mb-3 px-3 py-2 border ${darkMode ? 'bg-slate-700 border-slate-600 text-white placeholder-slate-400' : 'border-slate-300'} rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 transition-all`}
-        autoFocus
-      />
-      <input
-        type="text"
-        value={title}
-        onChange={(e) => setTitle(e.target.value)}
-        placeholder="Title (optional)"
-        className={`w-full mb-3 px-3 py-2 border ${darkMode ? 'bg-slate-700 border-slate-600 text-white placeholder-slate-400' : 'border-slate-300'} rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 transition-all`}
-      />
-      <input
-        type="text"
-        value={category}
-        onChange={(e) => setCategory(e.target.value)}
-        placeholder="Category (optional)"
-        list="categories"
-        className={`w-full mb-3 px-3 py-2 border ${darkMode ? 'bg-slate-700 border-slate-600 text-white placeholder-slate-400' : 'border-slate-300'} rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 transition-all`}
-      />
-      <datalist id="categories">
-        {existingCategories.map(cat => (
-          <option key={cat} value={cat} />
-        ))}
-      </datalist>
-      <textarea
-        value={description}
-        onChange={(e) => setDescription(e.target.value)}
-        placeholder="Description (optional)"
-        className={`w-full px-3 py-2 border ${darkMode ? 'bg-slate-700 border-slate-600 text-white placeholder-slate-400' : 'border-slate-300'} rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 resize-none transition-all`}
-        rows={2}
-      />
+      <div className="mb-3">
+        <label className={`block text-sm font-medium ${darkMode ? 'text-slate-300' : 'text-slate-700'} mb-2`}>URL *</label>
+        <input
+          type="text"
+          value={url}
+          onChange={(e) => setUrl(e.target.value)}
+          placeholder="example.com or https://example.com"
+          className={`w-full px-3 py-2 border ${darkMode ? 'bg-slate-700 border-slate-600 text-white placeholder-slate-400' : 'border-slate-300'} rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500`}
+          autoFocus
+        />
+      </div>
 
-      <div className="mt-4">
-        <label className={`block text-sm ${darkMode ? 'text-slate-300' : 'text-slate-600'} mb-2`}>Tags</label>
+      <div className="mb-3">
+        <label className={`block text-sm font-medium ${darkMode ? 'text-slate-300' : 'text-slate-700'} mb-2`}>Title</label>
+        <input
+          type="text"
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          placeholder="Optional title"
+          className={`w-full px-3 py-2 border ${darkMode ? 'bg-slate-700 border-slate-600 text-white placeholder-slate-400' : 'border-slate-300'} rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500`}
+        />
+      </div>
+
+      <div className="mb-3">
+        <label className={`block text-sm font-medium ${darkMode ? 'text-slate-300' : 'text-slate-700'} mb-2`}>Category</label>
+        <input
+          type="text"
+          value={category}
+          onChange={(e) => setCategory(e.target.value)}
+          placeholder="Optional category"
+          list="categories"
+          className={`w-full px-3 py-2 border ${darkMode ? 'bg-slate-700 border-slate-600 text-white placeholder-slate-400' : 'border-slate-300'} rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500`}
+        />
+        <datalist id="categories">
+          {existingCategories.map(cat => (
+            <option key={cat} value={cat} />
+          ))}
+        </datalist>
+      </div>
+
+      <div className="mb-3">
+        <label className={`block text-sm font-medium ${darkMode ? 'text-slate-300' : 'text-slate-700'} mb-2`}>Description</label>
+        <textarea
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+          placeholder="Optional description"
+          className={`w-full px-3 py-2 border ${darkMode ? 'bg-slate-700 border-slate-600 text-white placeholder-slate-400' : 'border-slate-300'} rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 resize-none`}
+          rows={2}
+        />
+      </div>
+
+      <div className="mb-3">
+        <label className={`block text-sm font-medium ${darkMode ? 'text-slate-300' : 'text-slate-700'} mb-2`}>Tags</label>
         <div className="flex flex-wrap gap-2 mb-2">
           {selectedTags.map(tag => (
             <span key={tag} className="inline-flex items-center gap-1 px-3 py-1 bg-teal-100 text-teal-700 rounded-full text-sm">
@@ -2728,9 +2508,9 @@ function NewLinkForm({ onSave, onCancel, existingCategories, darkMode, allTags }
                 addTag(tagInput);
               }
             }}
-            placeholder="Add tag and press Enter..."
+            placeholder="Add tag..."
             list="link-tags"
-            className={`flex-1 px-3 py-2 border ${darkMode ? 'bg-slate-700 border-slate-600 text-white placeholder-slate-400' : 'border-slate-300'} rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 transition-all`}
+            className={`flex-1 px-3 py-2 border ${darkMode ? 'bg-slate-700 border-slate-600 text-white placeholder-slate-400' : 'border-slate-300'} rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500`}
           />
           <datalist id="link-tags">
             {allTags.filter(t => !selectedTags.includes(t)).map(tag => (
@@ -2740,17 +2520,17 @@ function NewLinkForm({ onSave, onCancel, existingCategories, darkMode, allTags }
           <button
             type="button"
             onClick={() => addTag(tagInput)}
-            className="px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-all"
+            className="px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700"
           >
             <Plus size={16} />
           </button>
         </div>
       </div>
 
-      <div className="flex gap-2 mt-4">
+      <div className="flex gap-2">
         <button
           type="submit"
-          className="flex items-center gap-2 px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-all"
+          className="flex items-center gap-2 px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700"
         >
           <Save size={16} />
           Save
@@ -2758,7 +2538,7 @@ function NewLinkForm({ onSave, onCancel, existingCategories, darkMode, allTags }
         <button
           type="button"
           onClick={onCancel}
-          className={`px-4 py-2 ${darkMode ? 'text-slate-300 hover:bg-slate-700' : 'text-slate-600 hover:bg-slate-100'} rounded-lg transition-all`}
+          className={`px-4 py-2 ${darkMode ? 'text-slate-300 hover:bg-slate-700' : 'text-slate-600 hover:bg-slate-100'} rounded-lg`}
         >
           Cancel
         </button>
@@ -2767,53 +2547,128 @@ function NewLinkForm({ onSave, onCancel, existingCategories, darkMode, allTags }
   );
 }
 
-function LinkCard({ link, updateLink, deleteLink, isHighlighted, darkMode, allTags, onDragStart, onDragOver, onDrop, onDragEnd, isDragging, isDragOver, style }) {
+function LinkCard({ link, updateLink, deleteLink, isHighlighted, darkMode, allTags, existingCategories, onDragStart, onDragOver, onDrop, onDragEnd, isDragging, isDragOver, style }) {
   const [isEditing, setIsEditing] = useState(false);
   const [editedLink, setEditedLink] = useState(link);
+  const [tagInput, setTagInput] = useState('');
+  const [selectedTags, setSelectedTags] = useState(link.tags || []);
 
   const handleSave = () => {
     let finalUrl = editedLink.url.trim();
     if (!finalUrl.match(/^https?:\/\//i)) {
       finalUrl = 'https://' + finalUrl;
     }
-    updateLink(link.id, { ...editedLink, url: finalUrl });
+    updateLink(link.id, { ...editedLink, url: finalUrl, tags: selectedTags });
     setIsEditing(false);
+  };
+
+  const addTag = (tag) => {
+    const trimmedTag = tag.trim();
+    if (trimmedTag && !selectedTags.includes(trimmedTag)) {
+      setSelectedTags([...selectedTags, trimmedTag]);
+    }
+    setTagInput('');
+  };
+
+  const removeTag = (tagToRemove) => {
+    setSelectedTags(selectedTags.filter(t => t !== tagToRemove));
   };
 
   if (isEditing) {
     return (
       <div className={`p-6 ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'} rounded-xl shadow-md border animate-slideUp`} style={style}>
-        <input
-          type="text"
-          value={editedLink.url}
-          onChange={(e) => setEditedLink({ ...editedLink, url: e.target.value })}
-          className={`w-full mb-2 px-3 py-2 border ${darkMode ? 'bg-slate-700 border-slate-600 text-white' : 'border-slate-300'} rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 transition-all`}
-        />
-        <input
-          type="text"
-          value={editedLink.title || ''}
-          onChange={(e) => setEditedLink({ ...editedLink, title: e.target.value })}
-          placeholder="Title"
-          className={`w-full mb-2 px-3 py-2 border ${darkMode ? 'bg-slate-700 border-slate-600 text-white placeholder-slate-400' : 'border-slate-300'} rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 transition-all`}
-        />
-        <input
-          type="text"
-          value={editedLink.category || ''}
-          onChange={(e) => setEditedLink({ ...editedLink, category: e.target.value })}
-          placeholder="Category"
-          className={`w-full mb-2 px-3 py-2 border ${darkMode ? 'bg-slate-700 border-slate-600 text-white placeholder-slate-400' : 'border-slate-300'} rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 transition-all`}
-        />
+        <div className="mb-3">
+          <label className={`block text-sm font-medium ${darkMode ? 'text-slate-300' : 'text-slate-700'} mb-2`}>URL</label>
+          <input
+            type="text"
+            value={editedLink.url}
+            onChange={(e) => setEditedLink({ ...editedLink, url: e.target.value })}
+            className={`w-full px-3 py-2 border ${darkMode ? 'bg-slate-700 border-slate-600 text-white' : 'border-slate-300'} rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500`}
+          />
+        </div>
+        <div className="mb-3">
+          <label className={`block text-sm font-medium ${darkMode ? 'text-slate-300' : 'text-slate-700'} mb-2`}>Title</label>
+          <input
+            type="text"
+            value={editedLink.title || ''}
+            onChange={(e) => setEditedLink({ ...editedLink, title: e.target.value })}
+            placeholder="Title"
+            className={`w-full px-3 py-2 border ${darkMode ? 'bg-slate-700 border-slate-600 text-white placeholder-slate-400' : 'border-slate-300'} rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500`}
+          />
+        </div>
+        <div className="mb-3">
+          <label className={`block text-sm font-medium ${darkMode ? 'text-slate-300' : 'text-slate-700'} mb-2`}>Category</label>
+          <input
+            type="text"
+            value={editedLink.category || ''}
+            onChange={(e) => setEditedLink({ ...editedLink, category: e.target.value })}
+            placeholder="Category"
+            list="edit-categories"
+            className={`w-full px-3 py-2 border ${darkMode ? 'bg-slate-700 border-slate-600 text-white placeholder-slate-400' : 'border-slate-300'} rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500`}
+          />
+          <datalist id="edit-categories">
+            {existingCategories.map(cat => (
+              <option key={cat} value={cat} />
+            ))}
+          </datalist>
+        </div>
+        <div className="mb-3">
+          <label className={`block text-sm font-medium ${darkMode ? 'text-slate-300' : 'text-slate-700'} mb-2`}>Tags</label>
+          <div className="flex flex-wrap gap-2 mb-2">
+            {selectedTags.map(tag => (
+              <span key={tag} className="inline-flex items-center gap-1 px-2 py-1 bg-teal-100 text-teal-700 rounded-full text-sm">
+                <Tag size={12} />
+                {tag}
+                <button
+                  type="button"
+                  onClick={() => removeTag(tag)}
+                  className="hover:text-teal-900"
+                >
+                  <X size={14} />
+                </button>
+              </span>
+            ))}
+          </div>
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={tagInput}
+              onChange={(e) => setTagInput(e.target.value)}
+              onKeyPress={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  addTag(tagInput);
+                }
+              }}
+              placeholder="Add tag..."
+              list="edit-link-tags"
+              className={`flex-1 px-3 py-2 border ${darkMode ? 'bg-slate-700 border-slate-600 text-white placeholder-slate-400' : 'border-slate-300'} rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500`}
+            />
+            <datalist id="edit-link-tags">
+              {allTags.filter(t => !selectedTags.includes(t)).map(tag => (
+                <option key={tag} value={tag} />
+              ))}
+            </datalist>
+            <button
+              type="button"
+              onClick={() => addTag(tagInput)}
+              className="px-3 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700"
+            >
+              <Plus size={16} />
+            </button>
+          </div>
+        </div>
         <div className="flex gap-2 mt-4">
           <button
             onClick={handleSave}
-            className="flex items-center gap-2 px-3 py-1.5 bg-teal-600 text-white rounded-lg hover:bg-teal-700 text-sm transition-all"
+            className="flex items-center gap-2 px-3 py-1.5 bg-teal-600 text-white rounded-lg hover:bg-teal-700 text-sm"
           >
             <Save size={14} />
             Save
           </button>
           <button
             onClick={() => setIsEditing(false)}
-            className={`px-3 py-1.5 ${darkMode ? 'text-slate-300 hover:bg-slate-700' : 'text-slate-600 hover:bg-slate-100'} rounded-lg text-sm transition-all`}
+            className={`px-3 py-1.5 ${darkMode ? 'text-slate-300 hover:bg-slate-700' : 'text-slate-600 hover:bg-slate-100'} rounded-lg text-sm`}
           >
             Cancel
           </button>
@@ -2887,26 +2742,10 @@ function LinkCard({ link, updateLink, deleteLink, isHighlighted, darkMode, allTa
   );
 }
 
-
-// Notes View with drag-drop and grid/list toggle
-function NotesView({ notes, addNote, updateNote, deleteNote, showNewNoteForm, setShowNewNoteForm, highlightedItemId, darkMode, allTags, viewMode, toggleViewMode }) {
-  const [sortBy, setSortBy] = useState('date');
-  const [filterTag, setFilterTag] = useState('all');
+// Notes View - WITH DRAG AND DROP
+function NotesView({ notes, addNote, updateNote, deleteNote, reorderNotes, showNewNoteForm, setShowNewNoteForm, highlightedItemId, darkMode, allTags, viewMode, toggleViewMode }) {
   const [draggedItem, setDraggedItem] = useState(null);
   const [dragOverItem, setDragOverItem] = useState(null);
-  
-  const noteTags = [...new Set(notes.flatMap(n => n.tags || []))];
-  
-  const filteredNotes = filterTag === 'all' 
-    ? notes 
-    : notes.filter(n => n.tags && n.tags.includes(filterTag));
-
-  const sortedNotes = [...filteredNotes].sort((a, b) => {
-    if (sortBy === 'date') {
-      return new Date(b.createdAt) - new Date(a.createdAt);
-    }
-    return 0;
-  });
 
   const handleDragStart = (e, note) => {
     setDraggedItem(note);
@@ -2931,9 +2770,7 @@ function NotesView({ notes, addNote, updateNote, deleteNote, showNewNoteForm, se
     const [removed] = allNotesCopy.splice(draggedIndex, 1);
     allNotesCopy.splice(targetIndex, 0, removed);
 
-    allNotesCopy.forEach((note) => {
-      updateNote(note.id, { ...note });
-    });
+    reorderNotes(allNotesCopy);
 
     setDraggedItem(null);
     setDragOverItem(null);
@@ -2956,14 +2793,12 @@ function NotesView({ notes, addNote, updateNote, deleteNote, showNewNoteForm, se
             <button
               onClick={() => toggleViewMode('notes', 'list')}
               className={`p-2 rounded transition-all ${viewMode === 'list' ? 'bg-white dark:bg-slate-600 shadow' : 'hover:bg-slate-300 dark:hover:bg-slate-600'}`}
-              title="List view"
             >
               <LayoutList size={18} className={darkMode ? 'text-slate-300' : 'text-slate-700'} />
             </button>
             <button
               onClick={() => toggleViewMode('notes', 'grid')}
               className={`p-2 rounded transition-all ${viewMode === 'grid' ? 'bg-white dark:bg-slate-600 shadow' : 'hover:bg-slate-300 dark:hover:bg-slate-600'}`}
-              title="Grid view"
             >
               <Grid size={18} className={darkMode ? 'text-slate-300' : 'text-slate-700'} />
             </button>
@@ -2987,37 +2822,8 @@ function NotesView({ notes, addNote, updateNote, deleteNote, showNewNoteForm, se
         />
       )}
 
-      {noteTags.length > 0 && (
-        <div className="flex flex-wrap gap-2 mb-6">
-          <button
-            onClick={() => setFilterTag('all')}
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-              filterTag === 'all' 
-                ? 'bg-teal-600 text-white' 
-                : darkMode ? 'bg-slate-700 text-slate-300 hover:bg-slate-600' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-            }`}
-          >
-            All
-          </button>
-          {noteTags.map(tag => (
-            <button
-              key={tag}
-              onClick={() => setFilterTag(tag)}
-              className={`flex items-center gap-1 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-                filterTag === tag 
-                  ? 'bg-teal-600 text-white' 
-                  : darkMode ? 'bg-slate-700 text-slate-300 hover:bg-slate-600' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-              }`}
-            >
-              <Tag size={14} />
-              {tag}
-            </button>
-          ))}
-        </div>
-      )}
-
       <div className={viewMode === 'grid' ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4' : 'space-y-4'}>
-        {sortedNotes.map((note, index) => (
+        {notes.map((note, index) => (
           <NoteCard 
             key={note.id} 
             note={note} 
@@ -3037,7 +2843,7 @@ function NotesView({ notes, addNote, updateNote, deleteNote, showNewNoteForm, se
         ))}
       </div>
 
-      {sortedNotes.length === 0 && !showNewNoteForm && (
+      {notes.length === 0 && !showNewNoteForm && (
         <div className={`text-center py-16 ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>
           <StickyNote size={48} className="mx-auto mb-4 opacity-30" />
           <p>No notes yet. Capture your thoughts!</p>
@@ -3069,7 +2875,6 @@ function NewNoteForm({ onSave, onCancel, darkMode, existingTags }) {
       setTitle('');
       setContent('');
       setColor('yellow');
-      setTagInput('');
       setSelectedTags([]);
     }
   };
@@ -3093,19 +2898,33 @@ function NewNoteForm({ onSave, onCancel, darkMode, existingTags }) {
         value={title}
         onChange={(e) => setTitle(e.target.value)}
         placeholder="Note title..."
-        className={`w-full text-lg font-medium mb-3 px-3 py-2 border ${darkMode ? 'bg-slate-700 border-slate-600 text-white placeholder-slate-400' : 'border-slate-300'} rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 transition-all`}
+        className={`w-full text-lg font-medium mb-3 px-3 py-2 border ${darkMode ? 'bg-slate-700 border-slate-600 text-white placeholder-slate-400' : 'border-slate-300'} rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500`}
         autoFocus
       />
       
       <RichTextEditor
         value={content}
         onChange={setContent}
-        placeholder="Your thoughts... Use toolbar for formatting"
+        placeholder="Your thoughts..."
         darkMode={darkMode}
-        rows={15}
+        rows={10}
       />
-      
-      <div className="mt-4 mb-4">
+
+      <div className="flex items-center gap-2 mt-4 mb-4">
+        <span className={`text-sm ${darkMode ? 'text-slate-300' : 'text-slate-600'}`}>Color:</span>
+        {Object.entries(colors).map(([colorName, colorClass]) => (
+          <button
+            key={colorName}
+            type="button"
+            onClick={() => setColor(colorName)}
+            className={`w-8 h-8 rounded-full border-2 ${colorClass} transition-all ${
+              color === colorName ? 'ring-2 ring-teal-500 ring-offset-2 scale-110' : ''
+            }`}
+          />
+        ))}
+      </div>
+
+      <div className="mb-4">
         <label className={`block text-sm ${darkMode ? 'text-slate-300' : 'text-slate-600'} mb-2`}>Tags</label>
         <div className="flex flex-wrap gap-2 mb-2">
           {selectedTags.map(tag => (
@@ -3133,11 +2952,11 @@ function NewNoteForm({ onSave, onCancel, darkMode, existingTags }) {
                 addTag(tagInput);
               }
             }}
-            placeholder="Add tag and press Enter..."
-            list="existing-tags"
-            className={`flex-1 px-3 py-2 border ${darkMode ? 'bg-slate-700 border-slate-600 text-white placeholder-slate-400' : 'border-slate-300'} rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 transition-all`}
+            placeholder="Add tag..."
+            list="note-tags"
+            className={`flex-1 px-3 py-2 border ${darkMode ? 'bg-slate-700 border-slate-600 text-white placeholder-slate-400' : 'border-slate-300'} rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500`}
           />
-          <datalist id="existing-tags">
+          <datalist id="note-tags">
             {existingTags.filter(t => !selectedTags.includes(t)).map(tag => (
               <option key={tag} value={tag} />
             ))}
@@ -3145,36 +2964,17 @@ function NewNoteForm({ onSave, onCancel, darkMode, existingTags }) {
           <button
             type="button"
             onClick={() => addTag(tagInput)}
-            className="px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-all"
+            className="px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700"
           >
             <Plus size={16} />
           </button>
         </div>
-        {existingTags.length > 0 && (
-          <div className="mt-2 text-xs text-slate-500">
-            Existing tags: {existingTags.slice(0, 5).join(', ')}{existingTags.length > 5 ? '...' : ''}
-          </div>
-        )}
-      </div>
-      
-      <div className="flex items-center gap-2 mb-4">
-        <span className={`text-sm ${darkMode ? 'text-slate-300' : 'text-slate-600'}`}>Color:</span>
-        {Object.entries(colors).map(([colorName, colorClass]) => (
-          <button
-            key={colorName}
-            type="button"
-            onClick={() => setColor(colorName)}
-            className={`w-8 h-8 rounded-full border-2 ${colorClass} transition-all ${
-              color === colorName ? 'ring-2 ring-teal-500 ring-offset-2 scale-110' : ''
-            }`}
-          />
-        ))}
       </div>
       
       <div className="flex gap-2">
         <button
           type="submit"
-          className="flex items-center gap-2 px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-all"
+          className="flex items-center gap-2 px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700"
         >
           <Save size={16} />
           Save
@@ -3182,7 +2982,7 @@ function NewNoteForm({ onSave, onCancel, darkMode, existingTags }) {
         <button
           type="button"
           onClick={onCancel}
-          className={`px-4 py-2 ${darkMode ? 'text-slate-300 hover:bg-slate-700' : 'text-slate-600 hover:bg-slate-100'} rounded-lg transition-all`}
+          className={`px-4 py-2 ${darkMode ? 'text-slate-300 hover:bg-slate-700' : 'text-slate-600 hover:bg-slate-100'} rounded-lg`}
         >
           Cancel
         </button>
@@ -3198,11 +2998,11 @@ function NoteCard({ note, updateNote, deleteNote, isHighlighted, darkMode, exist
   const [selectedTags, setSelectedTags] = useState(note.tags || []);
 
   const colors = {
-    yellow: 'bg-yellow-100 border-yellow-300 hover:shadow-yellow-200',
-    blue: 'bg-blue-100 border-blue-300 hover:shadow-blue-200',
-    green: 'bg-green-100 border-green-300 hover:shadow-green-200',
-    pink: 'bg-pink-100 border-pink-300 hover:shadow-pink-200',
-    purple: 'bg-purple-100 border-purple-300 hover:shadow-purple-200',
+    yellow: 'bg-yellow-100 border-yellow-300',
+    blue: 'bg-blue-100 border-blue-300',
+    green: 'bg-green-100 border-green-300',
+    pink: 'bg-pink-100 border-pink-300',
+    purple: 'bg-purple-100 border-purple-300',
   };
 
   const handleSave = () => {
@@ -3214,9 +3014,7 @@ function NoteCard({ note, updateNote, deleteNote, isHighlighted, darkMode, exist
     const tempDiv = document.createElement('div');
     tempDiv.innerHTML = note.content;
     const text = `${note.title}\n\n${tempDiv.textContent || tempDiv.innerText}`;
-    navigator.clipboard.writeText(text).then(() => {
-      // Could add toast notification
-    });
+    navigator.clipboard.writeText(text);
   };
 
   const addTag = (tag) => {
@@ -3239,16 +3037,16 @@ function NoteCard({ note, updateNote, deleteNote, isHighlighted, darkMode, exist
           value={editedNote.title || ''}
           onChange={(e) => setEditedNote({ ...editedNote, title: e.target.value })}
           placeholder="Title"
-          className="w-full mb-2 px-2 py-1 bg-white/50 border border-slate-300 rounded focus:outline-none focus:ring-2 focus:ring-teal-500 transition-all"
+          className="w-full mb-2 px-2 py-1 bg-white/50 border border-slate-300 rounded focus:outline-none focus:ring-2 focus:ring-teal-500"
         />
         <RichTextEditor
           value={editedNote.content || ''}
           onChange={(content) => setEditedNote({ ...editedNote, content })}
           placeholder="Content"
           darkMode={false}
-          rows={15}
+          rows={10}
         />
-        <div className="mt-4 mb-4">
+        <div className="mt-3 mb-3">
           <div className="flex flex-wrap gap-2 mb-2">
             {selectedTags.map(tag => (
               <span key={tag} className="inline-flex items-center gap-1 px-2 py-1 bg-white/70 rounded-full text-xs">
@@ -3276,10 +3074,10 @@ function NoteCard({ note, updateNote, deleteNote, isHighlighted, darkMode, exist
                 }
               }}
               placeholder="Add tag..."
-              list="existing-tags-edit"
-              className="flex-1 px-2 py-1 bg-white/50 border border-slate-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 transition-all"
+              list="edit-note-tags"
+              className="flex-1 px-2 py-1 bg-white/50 border border-slate-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
             />
-            <datalist id="existing-tags-edit">
+            <datalist id="edit-note-tags">
               {existingTags.filter(t => !selectedTags.includes(t)).map(tag => (
                 <option key={tag} value={tag} />
               ))}
@@ -3287,23 +3085,23 @@ function NoteCard({ note, updateNote, deleteNote, isHighlighted, darkMode, exist
             <button
               type="button"
               onClick={() => addTag(tagInput)}
-              className="px-2 py-1 bg-teal-600 text-white rounded text-sm hover:bg-teal-700 transition-all"
+              className="px-2 py-1 bg-teal-600 text-white rounded text-sm hover:bg-teal-700"
             >
               <Plus size={14} />
             </button>
           </div>
         </div>
-        <div className="flex gap-2 mt-4">
+        <div className="flex gap-2 mt-3">
           <button
             onClick={handleSave}
-            className="flex items-center gap-1 px-3 py-1 bg-teal-600 text-white rounded hover:bg-teal-700 text-sm transition-all"
+            className="flex items-center gap-1 px-3 py-1 bg-teal-600 text-white rounded hover:bg-teal-700 text-sm"
           >
             <Save size={14} />
             Save
           </button>
           <button
             onClick={() => setIsEditing(false)}
-            className="px-3 py-1 bg-white/50 text-slate-600 hover:bg-white rounded text-sm transition-all"
+            className="px-3 py-1 bg-white/50 text-slate-600 hover:bg-white rounded text-sm"
           >
             Cancel
           </button>
@@ -3363,6 +3161,160 @@ function NoteCard({ note, updateNote, deleteNote, isHighlighted, darkMode, exist
             </span>
           ))}
         </div>
+      )}
+    </div>
+  );
+}
+
+// Tags View - WITH GRID/LIST TOGGLE AND ALL ITEM TYPES
+function TagsView({ tasks, events, links, notes, allTags, navigateToLinkedItem, darkMode, viewMode, toggleViewMode }) {
+  const [selectedTag, setSelectedTag] = useState('all');
+
+  const getItemsWithTag = (tag) => {
+    const items = [];
+    
+    tasks.filter(t => t.status !== 'completed').forEach(task => {
+      if (tag === 'all' || (task.tags && task.tags.includes(tag))) {
+        items.push({ ...task, type: 'task', icon: List });
+      }
+    });
+
+    events.forEach(event => {
+      if (tag === 'all' || (event.tags && event.tags.includes(tag))) {
+        items.push({ ...event, type: 'event', icon: Calendar });
+      }
+    });
+
+    links.forEach(link => {
+      if (tag === 'all' || (link.tags && link.tags.includes(tag))) {
+        items.push({ ...link, type: 'link', icon: Link2 });
+      }
+    });
+
+    notes.forEach(note => {
+      if (tag === 'all' || (note.tags && note.tags.includes(tag))) {
+        items.push({ ...note, type: 'note', icon: StickyNote });
+      }
+    });
+
+    return items;
+  };
+
+  const filteredItems = getItemsWithTag(selectedTag);
+
+  return (
+    <div className="max-w-6xl animate-fadeIn">
+      <div className="flex items-center justify-between mb-8">
+        <div>
+          <h2 className={`text-4xl font-bold ${darkMode ? 'text-white' : 'text-slate-800'} accent-font`}>Tags</h2>
+          <p className={`${darkMode ? 'text-slate-400' : 'text-slate-500'} mt-1`}>{allTags.length} unique tags • {filteredItems.length} items</p>
+        </div>
+        <div className="flex gap-1 p-1 bg-slate-200 dark:bg-slate-700 rounded-lg">
+          <button
+            onClick={() => toggleViewMode('tags', 'list')}
+            className={`p-2 rounded transition-all ${viewMode === 'list' ? 'bg-white dark:bg-slate-600 shadow' : 'hover:bg-slate-300 dark:hover:bg-slate-600'}`}
+          >
+            <LayoutList size={18} className={darkMode ? 'text-slate-300' : 'text-slate-700'} />
+          </button>
+          <button
+            onClick={() => toggleViewMode('tags', 'grid')}
+            className={`p-2 rounded transition-all ${viewMode === 'grid' ? 'bg-white dark:bg-slate-600 shadow' : 'hover:bg-slate-300 dark:hover:bg-slate-600'}`}
+          >
+            <Grid size={18} className={darkMode ? 'text-slate-300' : 'text-slate-700'} />
+          </button>
+        </div>
+      </div>
+
+      {allTags.length === 0 ? (
+        <div className={`text-center py-16 ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+          <Tag size={48} className="mx-auto mb-4 opacity-30" />
+          <p>No tags yet. Add tags to your tasks, events, links, or notes!</p>
+        </div>
+      ) : (
+        <>
+          <div className="flex flex-wrap gap-2 mb-8">
+            <button
+              onClick={() => setSelectedTag('all')}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                selectedTag === 'all' 
+                  ? 'bg-teal-600 text-white shadow-lg scale-105' 
+                  : darkMode ? 'bg-slate-700 text-slate-300 hover:bg-slate-600' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+              }`}
+            >
+              All ({getItemsWithTag('all').length})
+            </button>
+            {allTags.map(tag => (
+              <button
+                key={tag}
+                onClick={() => setSelectedTag(tag)}
+                className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                  selectedTag === tag 
+                    ? 'bg-teal-600 text-white shadow-lg scale-105' 
+                    : darkMode ? 'bg-slate-700 text-slate-300 hover:bg-slate-600' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                }`}
+              >
+                <Tag size={14} />
+                {tag}
+                <span className={`px-2 py-0.5 rounded-full text-xs ${selectedTag === tag ? 'bg-white/20' : darkMode ? 'bg-slate-600' : 'bg-slate-200'}`}>
+                  {getItemsWithTag(tag).length}
+                </span>
+              </button>
+            ))}
+          </div>
+
+          <div className={viewMode === 'grid' ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4' : 'space-y-3'}>
+            {filteredItems.map((item, index) => {
+              const Icon = item.icon;
+              return (
+                <div
+                  key={`${item.type}-${item.id}`}
+                  onClick={() => navigateToLinkedItem({ id: item.id, type: item.type, title: item.title || item.url })}
+                  className={`p-4 ${darkMode ? 'bg-slate-800 border-slate-700 hover:bg-slate-700' : 'bg-white border-slate-200 hover:bg-slate-50'} rounded-lg border cursor-pointer transition-all hover:scale-105 hover:shadow-lg animate-slideUp`}
+                  style={{ animationDelay: `${index * 0.02}s` }}
+                >
+                  <div className="flex items-start gap-3">
+                    <div className={`p-2 rounded-lg ${
+                      item.type === 'task' ? 'bg-blue-100 text-blue-600' :
+                      item.type === 'event' ? 'bg-purple-100 text-purple-600' :
+                      item.type === 'link' ? 'bg-green-100 text-green-600' :
+                      'bg-yellow-100 text-yellow-600'
+                    }`}>
+                      <Icon size={18} />
+                    </div>
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className={`text-xs uppercase font-semibold ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                          {item.type}
+                        </span>
+                      </div>
+                      <h4 className={`font-semibold ${darkMode ? 'text-white' : 'text-slate-800'} mb-1`}>
+                        {item.title || item.url || 'Untitled'}
+                      </h4>
+                      {item.tags && item.tags.length > 0 && (
+                        <div className="flex flex-wrap gap-1">
+                          {item.tags.map(tag => (
+                            <span key={tag} className="inline-flex items-center gap-1 px-2 py-0.5 bg-teal-50 text-teal-700 rounded text-xs">
+                              <Tag size={8} />
+                              {tag}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                    <ExternalLink size={16} className={darkMode ? 'text-slate-500' : 'text-slate-400'} />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {filteredItems.length === 0 && selectedTag !== 'all' && (
+            <div className={`text-center py-16 ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+              <Tag size={48} className="mx-auto mb-4 opacity-30" />
+              <p>No items with tag "{selectedTag}"</p>
+            </div>
+          )}
+        </>
       )}
     </div>
   );
