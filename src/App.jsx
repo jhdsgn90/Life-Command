@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Plus, Check, Circle, Pause, AlertCircle, Trash2, Link2, StickyNote, List, ExternalLink, X, Edit2, Save, Calendar, ChevronLeft, ChevronRight, Clock, Copy, Moon, Sun, Tag, ChevronDown, ChevronUp, Bold, Italic, ListOrdered, Grid3x3, LayoutList, User, Camera } from 'lucide-react';
+import { Plus, Check, Circle, Pause, AlertCircle, Trash2, Link2, StickyNote, List, ExternalLink, X, Edit2, Save, Calendar, ChevronLeft, ChevronRight, Clock, Copy, Moon, Sun, Tag, ChevronDown, ChevronUp, Bold, Italic, ListOrdered, Grid, LayoutList, User, Camera } from 'lucide-react';
 
 const generateId = () => Date.now().toString(36) + Math.random().toString(36).substr(2);
 
@@ -1339,7 +1339,7 @@ function TasksView({
               className={`p-2 rounded transition-all ${viewMode === 'grid' ? 'bg-white dark:bg-slate-600 shadow' : 'hover:bg-slate-300 dark:hover:bg-slate-600'}`}
               title="Grid view"
             >
-              <Grid3x3 size={18} className={darkMode ? 'text-slate-300' : 'text-slate-700'} />
+              <Grid size={18} className={darkMode ? 'text-slate-300' : 'text-slate-700'} />
             </button>
           </div>
           <button
@@ -2543,7 +2543,7 @@ function LinksView({ links, addLink, updateLink, deleteLink, showNewLinkForm, se
               className={`p-2 rounded transition-all ${viewMode === 'grid' ? 'bg-white dark:bg-slate-600 shadow' : 'hover:bg-slate-300 dark:hover:bg-slate-600'}`}
               title="Grid view"
             >
-              <Grid3x3 size={18} className={darkMode ? 'text-slate-300' : 'text-slate-700'} />
+              <Grid size={18} className={darkMode ? 'text-slate-300' : 'text-slate-700'} />
             </button>
           </div>
           <button
@@ -2965,7 +2965,7 @@ function NotesView({ notes, addNote, updateNote, deleteNote, showNewNoteForm, se
               className={`p-2 rounded transition-all ${viewMode === 'grid' ? 'bg-white dark:bg-slate-600 shadow' : 'hover:bg-slate-300 dark:hover:bg-slate-600'}`}
               title="Grid view"
             >
-              <Grid3x3 size={18} className={darkMode ? 'text-slate-300' : 'text-slate-700'} />
+              <Grid size={18} className={darkMode ? 'text-slate-300' : 'text-slate-700'} />
             </button>
           </div>
           <button
