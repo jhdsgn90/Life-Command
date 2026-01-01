@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Check, Circle, Pause, AlertCircle, Trash2, Link2, StickyNote, List, ExternalLink, X, Edit2, Save, Calendar, ChevronLeft, ChevronRight, Clock } from 'lucide-react';
+import { Plus, Check, Circle, Pause, AlertCircle, Trash2, Link2, StickyNote, List, ExternalLink, X, Edit2, Save, Calendar, ChevronLeft, ChevronRight, Clock, Copy, Moon, Sun, Tag, ChevronDown, ChevronUp } from 'lucide-react';
 
 const generateId = () => Date.now().toString(36) + Math.random().toString(36).substr(2);
 
@@ -9,6 +9,7 @@ export default function LifeDashboard() {
   const [links, setLinks] = useState([]);
   const [notes, setNotes] = useState([]);
   const [events, setEvents] = useState([]);
+  const [darkMode, setDarkMode] = useState(false);
   const [showNewTaskForm, setShowNewTaskForm] = useState(false);
   const [showNewLinkForm, setShowNewLinkForm] = useState(false);
   const [showNewNoteForm, setShowNewNoteForm] = useState(false);
@@ -21,11 +22,13 @@ export default function LifeDashboard() {
       const savedLinks = localStorage.getItem('lifeDashboard_links');
       const savedNotes = localStorage.getItem('lifeDashboard_notes');
       const savedEvents = localStorage.getItem('lifeDashboard_events');
+      const savedDarkMode = localStorage.getItem('lifeDashboard_darkMode');
       
       if (savedTasks) setTasks(JSON.parse(savedTasks));
       if (savedLinks) setLinks(JSON.parse(savedLinks));
       if (savedNotes) setNotes(JSON.parse(savedNotes));
       if (savedEvents) setEvents(JSON.parse(savedEvents));
+      if (savedDarkMode) setDarkMode(JSON.parse(savedDarkMode));
     } catch (error) {
       console.error('Error loading from localStorage:', error);
     }
@@ -63,6 +66,14 @@ export default function LifeDashboard() {
     }
   }, [events]);
 
+  useEffect(() => {
+    try {
+      localStorage.setItem('lifeDashboard_darkMode', JSON.stringify(darkMode));
+    } catch (error) {
+      console.error('Error saving dark mode:', error);
+    }
+  }, [darkMode]);
+
   const addTask = (taskData) => {
     const newTask = {
       id: generateId(),
@@ -70,6 +81,7 @@ export default function LifeDashboard() {
       status: 'new',
       priority: 'medium',
       linkedItems: [],
+      subtasks: [],
       createdAt: new Date().toISOString(),
     };
     setTasks([newTask, ...tasks]);
@@ -124,6 +136,7 @@ export default function LifeDashboard() {
     const newNote = {
       id: generateId(),
       ...noteData,
+      tags: noteData.tags || [],
       createdAt: new Date().toISOString(),
     };
     setNotes([newNote, ...notes]);
@@ -222,7 +235,7 @@ export default function LifeDashboard() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-stone-50 to-neutral-100">
+    <div className={`min-h-screen ${darkMode ? 'bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900' : 'bg-gradient-to-br from-slate-50 via-stone-50 to-neutral-100'}`}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=Crimson+Text:wght@600;700&display=swap');
         
@@ -277,12 +290,12 @@ export default function LifeDashboard() {
       `}</style>
 
       <div className="flex min-h-screen">
-        <aside className="w-72 bg-gradient-to-b from-slate-900 to-slate-800 text-white p-8 flex flex-col shadow-2xl">
+        <aside className={`w-72 ${darkMode ? 'bg-gradient-to-b from-slate-950 to-slate-900' : 'bg-gradient-to-b from-slate-900 to-slate-800'} text-white p-8 flex flex-col shadow-2xl`}>
           <div className="mb-12">
             <h1 className="text-3xl font-bold accent-font mb-2 bg-gradient-to-r from-teal-300 to-cyan-200 bg-clip-text text-transparent">
               Life Command
             </h1>
-            <p className="text-slate-400 text-sm">Your personal dashboard</p>
+            <p className={`${darkMode ? 'text-slate-500' : 'text-slate-400'} text-sm`}>Your personal dashboard</p>
           </div>
           
           <nav className="space-y-2 flex-1">
@@ -292,6 +305,7 @@ export default function LifeDashboard() {
               icon={<List size={20} />}
               label="Tasks"
               count={tasks.filter(t => t.status !== 'completed').length}
+              darkMode={darkMode}
             />
             <NavButton 
               active={activeView === 'calendar'} 
@@ -299,6 +313,7 @@ export default function LifeDashboard() {
               icon={<Calendar size={20} />}
               label="Calendar"
               count={events.length}
+              darkMode={darkMode}
             />
             <NavButton 
               active={activeView === 'links'} 
@@ -306,6 +321,7 @@ export default function LifeDashboard() {
               icon={<Link2 size={20} />}
               label="Links"
               count={links.length}
+              darkMode={darkMode}
             />
             <NavButton 
               active={activeView === 'notes'} 
@@ -313,11 +329,21 @@ export default function LifeDashboard() {
               icon={<StickyNote size={20} />}
               label="Notes"
               count={notes.length}
+              darkMode={darkMode}
             />
           </nav>
           
-          <div className="mt-auto pt-8 border-t border-slate-700">
-            <p className="text-xs text-slate-500">
+          <div className={`mt-auto pt-8 border-t ${darkMode ? 'border-slate-800' : 'border-slate-700'}`}>
+            <button
+              onClick={() => setDarkMode(!darkMode)}
+              className={`w-full flex items-center justify-center gap-2 px-4 py-2 rounded-lg mb-4 transition-all ${
+                darkMode ? 'bg-slate-800 hover:bg-slate-700' : 'bg-slate-700 hover:bg-slate-600'
+              }`}
+            >
+              {darkMode ? <Sun size={18} /> : <Moon size={18} />}
+              <span className="text-sm">{darkMode ? 'Light Mode' : 'Dark Mode'}</span>
+            </button>
+            <p className={`text-xs ${darkMode ? 'text-slate-600' : 'text-slate-500'}`}>
               {new Date().toLocaleDateString('en-US', { 
                 weekday: 'long', 
                 year: 'numeric', 
@@ -342,6 +368,7 @@ export default function LifeDashboard() {
               notes={notes}
               toggleLinkToTask={toggleLinkToTask}
               getLinkedItem={getLinkedItem}
+              darkMode={darkMode}
             />
           )}
           
@@ -360,6 +387,7 @@ export default function LifeDashboard() {
               notes={notes}
               toggleLinkToEvent={toggleLinkToEvent}
               getLinkedItem={getLinkedItem}
+              darkMode={darkMode}
             />
           )}
           
@@ -371,6 +399,7 @@ export default function LifeDashboard() {
               deleteLink={deleteLink}
               showNewLinkForm={showNewLinkForm}
               setShowNewLinkForm={setShowNewLinkForm}
+              darkMode={darkMode}
             />
           )}
           
@@ -382,6 +411,7 @@ export default function LifeDashboard() {
               deleteNote={deleteNote}
               showNewNoteForm={showNewNoteForm}
               setShowNewNoteForm={setShowNewNoteForm}
+              darkMode={darkMode}
             />
           )}
         </main>
@@ -390,14 +420,16 @@ export default function LifeDashboard() {
   );
 }
 
-function NavButton({ active, onClick, icon, label, count }) {
+function NavButton({ active, onClick, icon, label, count, darkMode }) {
   return (
     <button
       onClick={onClick}
       className={`w-full flex items-center justify-between px-4 py-3 rounded-lg transition-all ${
         active 
           ? 'bg-teal-600 text-white shadow-lg' 
-          : 'text-slate-300 hover:bg-slate-700 hover:text-white'
+          : darkMode 
+            ? 'text-slate-400 hover:bg-slate-800 hover:text-white'
+            : 'text-slate-300 hover:bg-slate-700 hover:text-white'
       }`}
     >
       <div className="flex items-center gap-3">
@@ -406,7 +438,7 @@ function NavButton({ active, onClick, icon, label, count }) {
       </div>
       {count > 0 && (
         <span className={`text-xs px-2 py-1 rounded-full ${
-          active ? 'bg-teal-700' : 'bg-slate-600'
+          active ? 'bg-teal-700' : darkMode ? 'bg-slate-700' : 'bg-slate-600'
         }`}>
           {count}
         </span>
@@ -428,7 +460,8 @@ function CalendarView({
   links,
   notes,
   toggleLinkToEvent,
-  getLinkedItem
+  getLinkedItem,
+  darkMode
 }) {
   const [currentMonth, setCurrentMonth] = useState(new Date());
   
@@ -470,8 +503,8 @@ function CalendarView({
     <div className="max-w-7xl animate-fadeIn">
       <div className="flex items-center justify-between mb-8">
         <div>
-          <h2 className="text-4xl font-bold text-slate-800 accent-font">Calendar</h2>
-          <p className="text-slate-500 mt-1">{events.length} events scheduled</p>
+          <h2 className={`text-4xl font-bold ${darkMode ? 'text-white' : 'text-slate-800'} accent-font`}>Calendar</h2>
+          <p className={`${darkMode ? 'text-slate-400' : 'text-slate-500'} mt-1`}>{events.length} events scheduled</p>
         </div>
         <button
           onClick={() => {
@@ -493,31 +526,32 @@ function CalendarView({
             setSelectedDate(null);
           }}
           initialDate={selectedDate}
+          darkMode={darkMode}
         />
       )}
 
-      <div className="bg-white rounded-xl shadow-lg border border-slate-200 p-6 mb-6">
+      <div className={`${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'} rounded-xl shadow-lg border p-6 mb-6`}>
         <div className="flex items-center justify-between mb-6">
           <button
             onClick={prevMonth}
-            className="p-2 hover:bg-slate-100 rounded-lg transition-colors"
+            className={`p-2 ${darkMode ? 'hover:bg-slate-700' : 'hover:bg-slate-100'} rounded-lg transition-colors`}
           >
-            <ChevronLeft size={24} />
+            <ChevronLeft size={24} className={darkMode ? 'text-white' : ''} />
           </button>
-          <h3 className="text-2xl font-bold text-slate-800">
+          <h3 className={`text-2xl font-bold ${darkMode ? 'text-white' : 'text-slate-800'}`}>
             {currentMonth.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
           </h3>
           <button
             onClick={nextMonth}
-            className="p-2 hover:bg-slate-100 rounded-lg transition-colors"
+            className={`p-2 ${darkMode ? 'hover:bg-slate-700' : 'hover:bg-slate-100'} rounded-lg transition-colors`}
           >
-            <ChevronRight size={24} />
+            <ChevronRight size={24} className={darkMode ? 'text-white' : ''} />
           </button>
         </div>
 
         <div className="grid grid-cols-7 gap-2">
           {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
-            <div key={day} className="text-center font-semibold text-slate-600 text-sm py-2">
+            <div key={day} className={`text-center font-semibold ${darkMode ? 'text-slate-400' : 'text-slate-600'} text-sm py-2`}>
               {day}
             </div>
           ))}
@@ -532,11 +566,15 @@ function CalendarView({
                 key={index}
                 onClick={() => handleDateClick(day)}
                 className={`min-h-[100px] p-2 border rounded-lg cursor-pointer transition-all ${
-                  isCurrentMonth ? 'bg-white border-slate-200' : 'bg-slate-50 border-slate-100'
+                  darkMode 
+                    ? isCurrentMonth ? 'bg-slate-700 border-slate-600' : 'bg-slate-800 border-slate-700'
+                    : isCurrentMonth ? 'bg-white border-slate-200' : 'bg-slate-50 border-slate-100'
                 } ${isToday ? 'ring-2 ring-teal-500' : ''} hover:border-teal-300 hover:shadow-md`}
               >
                 <div className={`text-sm font-medium mb-1 ${
-                  isToday ? 'text-teal-600 font-bold' : isCurrentMonth ? 'text-slate-700' : 'text-slate-400'
+                  isToday ? 'text-teal-600 font-bold' : 
+                  darkMode ? (isCurrentMonth ? 'text-slate-200' : 'text-slate-500') :
+                  (isCurrentMonth ? 'text-slate-700' : 'text-slate-400')
                 }`}>
                   {day.getDate()}
                 </div>
@@ -562,7 +600,7 @@ function CalendarView({
                     </div>
                   ))}
                   {dayEvents.length > 2 && (
-                    <div className="text-xs text-slate-500 px-2">
+                    <div className={`text-xs ${darkMode ? 'text-slate-400' : 'text-slate-500'} px-2`}>
                       +{dayEvents.length - 2} more
                     </div>
                   )}
@@ -574,7 +612,7 @@ function CalendarView({
       </div>
 
       <div className="space-y-4">
-        <h3 className="text-xl font-semibold text-slate-700">Upcoming Events</h3>
+        <h3 className={`text-xl font-semibold ${darkMode ? 'text-slate-200' : 'text-slate-700'}`}>Upcoming Events</h3>
         {events
           .filter(e => new Date(e.date) >= new Date())
           .sort((a, b) => new Date(a.date) - new Date(b.date))
@@ -590,6 +628,7 @@ function CalendarView({
               notes={notes}
               toggleLinkToEvent={toggleLinkToEvent}
               getLinkedItem={getLinkedItem}
+              darkMode={darkMode}
               style={{ animationDelay: `${index * 0.05}s` }}
             />
           ))}
@@ -598,10 +637,17 @@ function CalendarView({
   );
 }
 
-function NewEventForm({ onSave, onCancel, initialDate }) {
+function NewEventForm({ onSave, onCancel, initialDate, darkMode }) {
   const [title, setTitle] = useState('');
+  const formatDateForInput = (date) => {
+    const d = new Date(date);
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
   const [date, setDate] = useState(
-    initialDate ? initialDate.toISOString().split('T')[0] : new Date().toISOString().split('T')[0]
+    initialDate ? formatDateForInput(initialDate) : formatDateForInput(new Date())
   );
   const [startTime, setStartTime] = useState('09:00');
   const [endTime, setEndTime] = useState('10:00');
@@ -621,7 +667,7 @@ function NewEventForm({ onSave, onCancel, initialDate }) {
     if (title.trim() && date) {
       onSave({ title, date, startTime, endTime, description, color });
       setTitle('');
-      setDate(new Date().toISOString().split('T')[0]);
+      setDate(formatDateForInput(new Date()));
       setStartTime('09:00');
       setEndTime('10:00');
       setDescription('');
@@ -630,28 +676,28 @@ function NewEventForm({ onSave, onCancel, initialDate }) {
   };
 
   return (
-    <form onSubmit={handleSubmit} className="mb-6 p-6 bg-white rounded-xl shadow-lg border border-slate-200 animate-slideUp">
+    <form onSubmit={handleSubmit} className={`mb-6 p-6 ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'} rounded-xl shadow-lg border animate-slideUp`}>
       <input
         type="text"
         value={title}
         onChange={(e) => setTitle(e.target.value)}
         placeholder="Event title..."
-        className="w-full text-lg font-medium mb-3 px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
+        className={`w-full text-lg font-medium mb-3 px-3 py-2 border ${darkMode ? 'bg-slate-700 border-slate-600 text-white placeholder-slate-400' : 'border-slate-300'} rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500`}
         autoFocus
       />
       
       <div className="grid grid-cols-2 gap-3 mb-3">
         <div>
-          <label className="block text-sm text-slate-600 mb-1">Date</label>
+          <label className={`block text-sm ${darkMode ? 'text-slate-300' : 'text-slate-600'} mb-1`}>Date</label>
           <input
             type="date"
             value={date}
             onChange={(e) => setDate(e.target.value)}
-            className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
+            className={`w-full px-3 py-2 border ${darkMode ? 'bg-slate-700 border-slate-600 text-white' : 'border-slate-300'} rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500`}
           />
         </div>
         <div>
-          <label className="block text-sm text-slate-600 mb-1">Color</label>
+          <label className={`block text-sm ${darkMode ? 'text-slate-300' : 'text-slate-600'} mb-1`}>Color</label>
           <div className="flex gap-2 pt-2">
             {Object.entries(colors).map(([colorName, colorClass]) => (
               <button
@@ -669,21 +715,21 @@ function NewEventForm({ onSave, onCancel, initialDate }) {
 
       <div className="grid grid-cols-2 gap-3 mb-3">
         <div>
-          <label className="block text-sm text-slate-600 mb-1">Start Time</label>
+          <label className={`block text-sm ${darkMode ? 'text-slate-300' : 'text-slate-600'} mb-1`}>Start Time</label>
           <input
             type="time"
             value={startTime}
             onChange={(e) => setStartTime(e.target.value)}
-            className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
+            className={`w-full px-3 py-2 border ${darkMode ? 'bg-slate-700 border-slate-600 text-white' : 'border-slate-300'} rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500`}
           />
         </div>
         <div>
-          <label className="block text-sm text-slate-600 mb-1">End Time</label>
+          <label className={`block text-sm ${darkMode ? 'text-slate-300' : 'text-slate-600'} mb-1`}>End Time</label>
           <input
             type="time"
             value={endTime}
             onChange={(e) => setEndTime(e.target.value)}
-            className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
+            className={`w-full px-3 py-2 border ${darkMode ? 'bg-slate-700 border-slate-600 text-white' : 'border-slate-300'} rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500`}
           />
         </div>
       </div>
@@ -692,7 +738,7 @@ function NewEventForm({ onSave, onCancel, initialDate }) {
         value={description}
         onChange={(e) => setDescription(e.target.value)}
         placeholder="Description (optional)"
-        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 resize-none"
+        className={`w-full px-3 py-2 border ${darkMode ? 'bg-slate-700 border-slate-600 text-white placeholder-slate-400' : 'border-slate-300'} rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 resize-none`}
         rows={3}
       />
       
@@ -707,7 +753,7 @@ function NewEventForm({ onSave, onCancel, initialDate }) {
         <button
           type="button"
           onClick={onCancel}
-          className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
+          className={`px-4 py-2 ${darkMode ? 'text-slate-300 hover:bg-slate-700' : 'text-slate-600 hover:bg-slate-100'} rounded-lg transition-colors`}
         >
           Cancel
         </button>
@@ -716,7 +762,7 @@ function NewEventForm({ onSave, onCancel, initialDate }) {
   );
 }
 
-function EventCard({ event, updateEvent, deleteEvent, tasks, links, notes, toggleLinkToEvent, getLinkedItem, style }) {
+function EventCard({ event, updateEvent, deleteEvent, tasks, links, notes, toggleLinkToEvent, getLinkedItem, darkMode, style }) {
   const [showLinkMenu, setShowLinkMenu] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editedEvent, setEditedEvent] = useState(event);
@@ -729,6 +775,14 @@ function EventCard({ event, updateEvent, deleteEvent, tasks, links, notes, toggl
     day: 'numeric' 
   });
 
+  const formatDateForInput = (dateStr) => {
+    const d = new Date(dateStr);
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
   const handleSave = () => {
     updateEvent(event.id, editedEvent);
     setIsEditing(false);
@@ -736,18 +790,49 @@ function EventCard({ event, updateEvent, deleteEvent, tasks, links, notes, toggl
 
   if (isEditing) {
     return (
-      <div className="p-6 bg-white rounded-xl shadow-md border border-slate-200 animate-slideUp" style={style}>
+      <div className={`p-6 ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'} rounded-xl shadow-md border animate-slideUp`} style={style}>
         <input
           type="text"
           value={editedEvent.title}
           onChange={(e) => setEditedEvent({ ...editedEvent, title: e.target.value })}
-          className="w-full mb-2 px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
+          placeholder="Event title"
+          className={`w-full mb-3 px-3 py-2 border ${darkMode ? 'bg-slate-700 border-slate-600 text-white' : 'border-slate-300'} rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 font-medium`}
         />
-        <input
-          type="date"
-          value={editedEvent.date}
-          onChange={(e) => setEditedEvent({ ...editedEvent, date: e.target.value })}
-          className="w-full mb-2 px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
+        <div className="grid grid-cols-2 gap-3 mb-3">
+          <div>
+            <label className={`block text-sm ${darkMode ? 'text-slate-300' : 'text-slate-600'} mb-1`}>Date</label>
+            <input
+              type="date"
+              value={formatDateForInput(editedEvent.date)}
+              onChange={(e) => setEditedEvent({ ...editedEvent, date: e.target.value })}
+              className={`w-full px-3 py-2 border ${darkMode ? 'bg-slate-700 border-slate-600 text-white' : 'border-slate-300'} rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500`}
+            />
+          </div>
+          <div>
+            <label className={`block text-sm ${darkMode ? 'text-slate-300' : 'text-slate-600'} mb-1`}>Start Time</label>
+            <input
+              type="time"
+              value={editedEvent.startTime || '09:00'}
+              onChange={(e) => setEditedEvent({ ...editedEvent, startTime: e.target.value })}
+              className={`w-full px-3 py-2 border ${darkMode ? 'bg-slate-700 border-slate-600 text-white' : 'border-slate-300'} rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500`}
+            />
+          </div>
+        </div>
+        <div className="mb-3">
+          <label className={`block text-sm ${darkMode ? 'text-slate-300' : 'text-slate-600'} mb-1`}>End Time</label>
+          <input
+            type="time"
+            value={editedEvent.endTime || '10:00'}
+            onChange={(e) => setEditedEvent({ ...editedEvent, endTime: e.target.value })}
+            className={`w-full px-3 py-2 border ${darkMode ? 'bg-slate-700 border-slate-600 text-white' : 'border-slate-300'} rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500`}
+          />
+        </div>
+        <textarea
+          value={editedEvent.description || ''}
+          onChange={(e) => setEditedEvent({ ...editedEvent, description: e.target.value })}
+          placeholder="Description"
+          className={`w-full mb-3 px-3 py-2 border ${darkMode ? 'bg-slate-700 border-slate-600 text-white placeholder-slate-400' : 'border-slate-300'} rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 resize-none`}
+          rows={3}
         />
         <div className="flex gap-2 mt-4">
           <button
@@ -759,7 +844,7 @@ function EventCard({ event, updateEvent, deleteEvent, tasks, links, notes, toggl
           </button>
           <button
             onClick={() => setIsEditing(false)}
-            className="px-3 py-1.5 text-slate-600 hover:bg-slate-100 rounded-lg text-sm"
+            className={`px-3 py-1.5 ${darkMode ? 'text-slate-300 hover:bg-slate-700' : 'text-slate-600 hover:bg-slate-100'} rounded-lg text-sm`}
           >
             Cancel
           </button>
@@ -769,7 +854,7 @@ function EventCard({ event, updateEvent, deleteEvent, tasks, links, notes, toggl
   }
 
   return (
-    <div className="task-card p-6 bg-white rounded-xl shadow-md border border-slate-200 animate-slideUp" style={style}>
+    <div className={`task-card p-6 ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'} rounded-xl shadow-md border animate-slideUp`} style={style}>
       <div className="flex items-start justify-between mb-4">
         <div className="flex-1">
           <div className={`inline-block px-3 py-1 rounded-full text-xs font-medium mb-2 ${
@@ -781,27 +866,27 @@ function EventCard({ event, updateEvent, deleteEvent, tasks, links, notes, toggl
           }`}>
             {formattedDate}
           </div>
-          <h3 className="text-xl font-semibold text-slate-800 mb-2">{event.title}</h3>
+          <h3 className={`text-xl font-semibold ${darkMode ? 'text-white' : 'text-slate-800'} mb-2`}>{event.title}</h3>
           {(event.startTime || event.endTime) && (
-            <div className="flex items-center gap-2 text-slate-600 text-sm mb-2">
+            <div className={`flex items-center gap-2 ${darkMode ? 'text-slate-300' : 'text-slate-600'} text-sm mb-2`}>
               <Clock size={16} />
               <span>{event.startTime} - {event.endTime}</span>
             </div>
           )}
           {event.description && (
-            <p className="text-slate-600 text-sm mb-3">{event.description}</p>
+            <p className={`${darkMode ? 'text-slate-300' : 'text-slate-600'} text-sm mb-3`}>{event.description}</p>
           )}
         </div>
         <div className="flex gap-2 ml-4">
           <button
             onClick={() => setIsEditing(true)}
-            className="text-slate-400 hover:text-teal-600 transition-colors"
+            className={`${darkMode ? 'text-slate-500 hover:text-teal-400' : 'text-slate-400 hover:text-teal-600'} transition-colors`}
           >
             <Edit2 size={18} />
           </button>
           <button
             onClick={() => deleteEvent(event.id)}
-            className="text-slate-400 hover:text-red-600 transition-colors"
+            className={`${darkMode ? 'text-slate-500 hover:text-red-400' : 'text-slate-400 hover:text-red-600'} transition-colors`}
           >
             <Trash2 size={18} />
           </button>
@@ -809,7 +894,7 @@ function EventCard({ event, updateEvent, deleteEvent, tasks, links, notes, toggl
       </div>
 
       {event.linkedItems && event.linkedItems.length > 0 && (
-        <div className="mb-3 pt-3 border-t border-slate-100">
+        <div className={`mb-3 pt-3 border-t ${darkMode ? 'border-slate-700' : 'border-slate-100'}`}>
           <div className="flex flex-wrap gap-2">
             {event.linkedItems.map(linkedItem => {
               const item = getLinkedItem(linkedItem);
@@ -841,28 +926,28 @@ function EventCard({ event, updateEvent, deleteEvent, tasks, links, notes, toggl
         </button>
 
         {showLinkMenu && (
-          <div className="absolute left-0 top-full mt-2 w-80 bg-white rounded-lg shadow-xl border border-slate-200 z-10 max-h-96 overflow-y-auto">
-            <div className="p-3 border-b border-slate-200 flex items-center justify-between">
-              <h4 className="font-medium text-sm text-slate-700">Link to this event</h4>
+          <div className={`absolute left-0 top-full mt-2 w-80 ${darkMode ? 'bg-slate-700 border-slate-600' : 'bg-white border-slate-200'} rounded-lg shadow-xl border z-50 max-h-96 overflow-y-auto`}>
+            <div className={`p-3 border-b ${darkMode ? 'border-slate-600' : 'border-slate-200'} flex items-center justify-between`}>
+              <h4 className={`font-medium text-sm ${darkMode ? 'text-slate-200' : 'text-slate-700'}`}>Link to this event</h4>
               <button 
                 onClick={() => setShowLinkMenu(false)}
-                className="text-slate-400 hover:text-slate-600"
+                className={`${darkMode ? 'text-slate-400 hover:text-slate-200' : 'text-slate-400 hover:text-slate-600'}`}
               >
                 <X size={16} />
               </button>
             </div>
             
             {tasks.length > 0 && (
-              <div className="p-3 border-b border-slate-200">
-                <p className="text-xs text-slate-500 mb-2">Tasks</p>
+              <div className={`p-3 border-b ${darkMode ? 'border-slate-600' : 'border-slate-200'}`}>
+                <p className={`text-xs ${darkMode ? 'text-slate-400' : 'text-slate-500'} mb-2`}>Tasks</p>
                 {tasks.map(task => {
                   const isLinked = event.linkedItems?.some(i => i.id === task.id);
                   return (
                     <button
                       key={task.id}
                       onClick={() => toggleLinkToEvent(event.id, task, 'task')}
-                      className={`w-full text-left px-3 py-2 rounded hover:bg-slate-50 mb-1 text-sm ${
-                        isLinked ? 'bg-teal-50 text-teal-700' : 'text-slate-700'
+                      className={`w-full text-left px-3 py-2 rounded ${darkMode ? 'hover:bg-slate-600' : 'hover:bg-slate-50'} mb-1 text-sm ${
+                        isLinked ? 'bg-teal-50 text-teal-700' : darkMode ? 'text-slate-200' : 'text-slate-700'
                       }`}
                     >
                       <div className="flex items-center gap-2">
@@ -876,16 +961,16 @@ function EventCard({ event, updateEvent, deleteEvent, tasks, links, notes, toggl
             )}
 
             {links.length > 0 && (
-              <div className="p-3 border-b border-slate-200">
-                <p className="text-xs text-slate-500 mb-2">Links</p>
+              <div className={`p-3 border-b ${darkMode ? 'border-slate-600' : 'border-slate-200'}`}>
+                <p className={`text-xs ${darkMode ? 'text-slate-400' : 'text-slate-500'} mb-2`}>Links</p>
                 {links.map(link => {
                   const isLinked = event.linkedItems?.some(i => i.id === link.id);
                   return (
                     <button
                       key={link.id}
                       onClick={() => toggleLinkToEvent(event.id, link, 'link')}
-                      className={`w-full text-left px-3 py-2 rounded hover:bg-slate-50 mb-1 text-sm ${
-                        isLinked ? 'bg-teal-50 text-teal-700' : 'text-slate-700'
+                      className={`w-full text-left px-3 py-2 rounded ${darkMode ? 'hover:bg-slate-600' : 'hover:bg-slate-50'} mb-1 text-sm ${
+                        isLinked ? 'bg-teal-50 text-teal-700' : darkMode ? 'text-slate-200' : 'text-slate-700'
                       }`}
                     >
                       <div className="flex items-center gap-2">
@@ -900,15 +985,15 @@ function EventCard({ event, updateEvent, deleteEvent, tasks, links, notes, toggl
             
             {notes.length > 0 && (
               <div className="p-3">
-                <p className="text-xs text-slate-500 mb-2">Notes</p>
+                <p className={`text-xs ${darkMode ? 'text-slate-400' : 'text-slate-500'} mb-2`}>Notes</p>
                 {notes.map(note => {
                   const isLinked = event.linkedItems?.some(i => i.id === note.id);
                   return (
                     <button
                       key={note.id}
                       onClick={() => toggleLinkToEvent(event.id, note, 'note')}
-                      className={`w-full text-left px-3 py-2 rounded hover:bg-slate-50 mb-1 text-sm ${
-                        isLinked ? 'bg-teal-50 text-teal-700' : 'text-slate-700'
+                      className={`w-full text-left px-3 py-2 rounded ${darkMode ? 'hover:bg-slate-600' : 'hover:bg-slate-50'} mb-1 text-sm ${
+                        isLinked ? 'bg-teal-50 text-teal-700' : darkMode ? 'text-slate-200' : 'text-slate-700'
                       }`}
                     >
                       <div className="flex items-center gap-2">
@@ -922,7 +1007,7 @@ function EventCard({ event, updateEvent, deleteEvent, tasks, links, notes, toggl
             )}
             
             {tasks.length === 0 && links.length === 0 && notes.length === 0 && (
-              <div className="p-4 text-center text-sm text-slate-500">
+              <div className={`p-4 text-center text-sm ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>
                 No items to connect yet
               </div>
             )}
@@ -932,6 +1017,9 @@ function EventCard({ event, updateEvent, deleteEvent, tasks, links, notes, toggl
     </div>
   );
 }
+
+// Due to length limits, I'll continue in the next response with Tasks, Links, and Notes components with all the new features
+
 
 function TasksView({ 
   tasks, 
@@ -944,7 +1032,8 @@ function TasksView({
   links,
   notes,
   toggleLinkToTask,
-  getLinkedItem
+  getLinkedItem,
+  darkMode
 }) {
   const activeTasks = tasks.filter(t => t.status !== 'completed');
   const completedTasks = tasks.filter(t => t.status === 'completed');
@@ -953,8 +1042,8 @@ function TasksView({
     <div className="max-w-6xl animate-fadeIn">
       <div className="flex items-center justify-between mb-8">
         <div>
-          <h2 className="text-4xl font-bold text-slate-800 accent-font">Tasks</h2>
-          <p className="text-slate-500 mt-1">{activeTasks.length} active • {completedTasks.length} completed</p>
+          <h2 className={`text-4xl font-bold ${darkMode ? 'text-white' : 'text-slate-800'} accent-font`}>Tasks</h2>
+          <p className={`${darkMode ? 'text-slate-400' : 'text-slate-500'} mt-1`}>{activeTasks.length} active • {completedTasks.length} completed</p>
         </div>
         <button
           onClick={() => setShowNewTaskForm(true)}
@@ -968,7 +1057,8 @@ function TasksView({
       {showNewTaskForm && (
         <NewTaskForm 
           onSave={addTask} 
-          onCancel={() => setShowNewTaskForm(false)} 
+          onCancel={() => setShowNewTaskForm(false)}
+          darkMode={darkMode}
         />
       )}
 
@@ -983,35 +1073,36 @@ function TasksView({
             notes={notes}
             toggleLinkToTask={toggleLinkToTask}
             getLinkedItem={getLinkedItem}
+            darkMode={darkMode}
             style={{ animationDelay: `${index * 0.05}s` }}
           />
         ))}
       </div>
 
       {activeTasks.length === 0 && !showNewTaskForm && (
-        <div className="text-center py-16 text-slate-500">
+        <div className={`text-center py-16 ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>
           <List size={48} className="mx-auto mb-4 opacity-30" />
           <p>No active tasks. Click "New Task" to get started!</p>
         </div>
       )}
 
       {completedTasks.length > 0 && (
-        <div className="mt-12 pt-8 border-t border-slate-200">
+        <div className={`mt-12 pt-8 border-t ${darkMode ? 'border-slate-700' : 'border-slate-200'}`}>
           <div className="flex items-center justify-between mb-4">
-            <h3 className="text-xl font-semibold text-slate-700">Completed</h3>
+            <h3 className={`text-xl font-semibold ${darkMode ? 'text-slate-200' : 'text-slate-700'}`}>Completed</h3>
             <button
               onClick={clearCompletedTasks}
-              className="text-sm text-slate-500 hover:text-red-600 transition-colors"
+              className={`text-sm ${darkMode ? 'text-slate-400 hover:text-red-400' : 'text-slate-500 hover:text-red-600'} transition-colors`}
             >
               Clear All
             </button>
           </div>
           <div className="space-y-2 opacity-60">
             {completedTasks.map(task => (
-              <div key={task.id} className="p-4 bg-white rounded-lg border border-slate-200">
+              <div key={task.id} className={`p-4 ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'} rounded-lg border`}>
                 <div className="flex items-center gap-3">
                   <Check className="text-green-600" size={20} />
-                  <span className="line-through text-slate-600">{task.title}</span>
+                  <span className={`line-through ${darkMode ? 'text-slate-400' : 'text-slate-600'}`}>{task.title}</span>
                 </div>
               </div>
             ))}
@@ -1022,7 +1113,7 @@ function TasksView({
   );
 }
 
-function NewTaskForm({ onSave, onCancel }) {
+function NewTaskForm({ onSave, onCancel, darkMode }) {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
 
@@ -1036,20 +1127,20 @@ function NewTaskForm({ onSave, onCancel }) {
   };
 
   return (
-    <form onSubmit={handleSubmit} className="mb-6 p-6 bg-white rounded-xl shadow-lg border border-slate-200 animate-slideUp">
+    <form onSubmit={handleSubmit} className={`mb-6 p-6 ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'} rounded-xl shadow-lg border animate-slideUp`}>
       <input
         type="text"
         value={title}
         onChange={(e) => setTitle(e.target.value)}
         placeholder="Task title..."
-        className="w-full text-lg font-medium mb-3 px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
+        className={`w-full text-lg font-medium mb-3 px-3 py-2 border ${darkMode ? 'bg-slate-700 border-slate-600 text-white placeholder-slate-400' : 'border-slate-300'} rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500`}
         autoFocus
       />
       <textarea
         value={description}
         onChange={(e) => setDescription(e.target.value)}
         placeholder="Description (optional)"
-        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 resize-none"
+        className={`w-full px-3 py-2 border ${darkMode ? 'bg-slate-700 border-slate-600 text-white placeholder-slate-400' : 'border-slate-300'} rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 resize-none`}
         rows={3}
       />
       <div className="flex gap-2 mt-4">
@@ -1063,7 +1154,7 @@ function NewTaskForm({ onSave, onCancel }) {
         <button
           type="button"
           onClick={onCancel}
-          className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
+          className={`px-4 py-2 ${darkMode ? 'text-slate-300 hover:bg-slate-700' : 'text-slate-600 hover:bg-slate-100'} rounded-lg transition-colors`}
         >
           Cancel
         </button>
@@ -1072,8 +1163,10 @@ function NewTaskForm({ onSave, onCancel }) {
   );
 }
 
-function TaskCard({ task, updateTask, deleteTask, links, notes, toggleLinkToTask, getLinkedItem, style }) {
+function TaskCard({ task, updateTask, deleteTask, links, notes, toggleLinkToTask, getLinkedItem, darkMode, style }) {
   const [showLinkMenu, setShowLinkMenu] = useState(false);
+  const [showSubtasks, setShowSubtasks] = useState(true);
+  const [newSubtask, setNewSubtask] = useState('');
 
   const statusConfig = {
     new: { label: 'New', color: 'bg-blue-100 text-blue-700 border-blue-200', icon: Circle },
@@ -1090,35 +1183,60 @@ function TaskCard({ task, updateTask, deleteTask, links, notes, toggleLinkToTask
     low: { label: 'Low', color: 'bg-slate-400 text-white' },
   };
 
+  const addSubtask = () => {
+    if (newSubtask.trim()) {
+      const subtasks = task.subtasks || [];
+      updateTask(task.id, {
+        subtasks: [...subtasks, { id: generateId(), text: newSubtask, completed: false }]
+      });
+      setNewSubtask('');
+    }
+  };
+
+  const toggleSubtask = (subtaskId) => {
+    const subtasks = task.subtasks || [];
+    updateTask(task.id, {
+      subtasks: subtasks.map(st => 
+        st.id === subtaskId ? { ...st, completed: !st.completed } : st
+      )
+    });
+  };
+
+  const deleteSubtask = (subtaskId) => {
+    const subtasks = task.subtasks || [];
+    updateTask(task.id, {
+      subtasks: subtasks.filter(st => st.id !== subtaskId)
+    });
+  };
+
   const currentStatus = statusConfig[task.status];
   const currentPriority = priorityConfig[task.priority];
-  const StatusIcon = currentStatus.icon;
 
   return (
-    <div className="task-card p-6 bg-white rounded-xl shadow-md border border-slate-200 animate-slideUp" style={style}>
+    <div className={`task-card p-6 ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'} rounded-xl shadow-md border animate-slideUp`} style={style}>
       <div className="flex items-start justify-between mb-4">
         <div className="flex-1">
-          <h3 className="text-xl font-semibold text-slate-800 mb-2">{task.title}</h3>
+          <h3 className={`text-xl font-semibold ${darkMode ? 'text-white' : 'text-slate-800'} mb-2`}>{task.title}</h3>
           {task.description && (
-            <p className="text-slate-600 text-sm mb-3">{task.description}</p>
+            <p className={`${darkMode ? 'text-slate-300' : 'text-slate-600'} text-sm mb-3`}>{task.description}</p>
           )}
         </div>
         <button
           onClick={() => deleteTask(task.id)}
-          className="text-slate-400 hover:text-red-600 transition-colors ml-4"
+          className={`${darkMode ? 'text-slate-500 hover:text-red-400' : 'text-slate-400 hover:text-red-600'} transition-colors ml-4`}
         >
           <Trash2 size={18} />
         </button>
       </div>
 
       <div className="flex flex-wrap items-center gap-2 mb-4">
-        <div className="flex gap-1">
+        <div className="flex gap-1 flex-wrap">
           {Object.entries(statusConfig).map(([key, config]) => (
             <button
               key={key}
               onClick={() => updateTask(task.id, { status: key })}
               className={`status-badge px-3 py-1 rounded-full text-xs font-medium border ${
-                task.status === key ? config.color : 'bg-slate-50 text-slate-500 border-slate-200'
+                task.status === key ? config.color : darkMode ? 'bg-slate-700 text-slate-400 border-slate-600' : 'bg-slate-50 text-slate-500 border-slate-200'
               }`}
             >
               {config.label}
@@ -1128,14 +1246,14 @@ function TaskCard({ task, updateTask, deleteTask, links, notes, toggleLinkToTask
       </div>
 
       <div className="flex items-center gap-2 mb-4">
-        <span className="text-xs text-slate-500">Priority:</span>
+        <span className={`text-xs ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>Priority:</span>
         <div className="flex gap-1">
           {Object.entries(priorityConfig).map(([key, config]) => (
             <button
               key={key}
               onClick={() => updateTask(task.id, { priority: key })}
               className={`px-2 py-1 rounded text-xs font-medium ${
-                task.priority === key ? config.color : 'bg-slate-100 text-slate-500'
+                task.priority === key ? config.color : darkMode ? 'bg-slate-700 text-slate-400' : 'bg-slate-100 text-slate-500'
               }`}
             >
               {config.label}
@@ -1144,8 +1262,68 @@ function TaskCard({ task, updateTask, deleteTask, links, notes, toggleLinkToTask
         </div>
       </div>
 
+      {/* Subtasks */}
+      <div className={`mb-4 pb-4 border-b ${darkMode ? 'border-slate-700' : 'border-slate-100'}`}>
+        <button
+          onClick={() => setShowSubtasks(!showSubtasks)}
+          className={`flex items-center gap-2 text-sm font-medium ${darkMode ? 'text-slate-300' : 'text-slate-700'} mb-2`}
+        >
+          {showSubtasks ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+          Subtasks {task.subtasks && task.subtasks.length > 0 && `(${task.subtasks.filter(st => st.completed).length}/${task.subtasks.length})`}
+        </button>
+        
+        {showSubtasks && (
+          <div className="space-y-2">
+            {task.subtasks && task.subtasks.map(subtask => (
+              <div key={subtask.id} className="flex items-center gap-2 group">
+                <button
+                  onClick={() => toggleSubtask(subtask.id)}
+                  className={`flex-shrink-0 w-5 h-5 rounded border-2 flex items-center justify-center ${
+                    subtask.completed 
+                      ? 'bg-teal-600 border-teal-600' 
+                      : darkMode ? 'border-slate-600 hover:border-teal-500' : 'border-slate-300 hover:border-teal-500'
+                  }`}
+                >
+                  {subtask.completed && <Check size={12} className="text-white" />}
+                </button>
+                <span className={`flex-1 text-sm ${
+                  subtask.completed 
+                    ? darkMode ? 'line-through text-slate-500' : 'line-through text-slate-400'
+                    : darkMode ? 'text-slate-300' : 'text-slate-700'
+                }`}>
+                  {subtask.text}
+                </span>
+                <button
+                  onClick={() => deleteSubtask(subtask.id)}
+                  className={`opacity-0 group-hover:opacity-100 transition-opacity ${darkMode ? 'text-slate-500 hover:text-red-400' : 'text-slate-400 hover:text-red-600'}`}
+                >
+                  <X size={14} />
+                </button>
+              </div>
+            ))}
+            
+            <div className="flex gap-2 mt-2">
+              <input
+                type="text"
+                value={newSubtask}
+                onChange={(e) => setNewSubtask(e.target.value)}
+                onKeyPress={(e) => e.key === 'Enter' && addSubtask()}
+                placeholder="Add subtask..."
+                className={`flex-1 px-2 py-1 text-sm border ${darkMode ? 'bg-slate-700 border-slate-600 text-white placeholder-slate-500' : 'border-slate-300'} rounded focus:outline-none focus:ring-1 focus:ring-teal-500`}
+              />
+              <button
+                onClick={addSubtask}
+                className="px-3 py-1 bg-teal-600 text-white rounded text-sm hover:bg-teal-700"
+              >
+                <Plus size={14} />
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+
       {task.linkedItems && task.linkedItems.length > 0 && (
-        <div className="mb-3 pt-3 border-t border-slate-100">
+        <div className={`mb-3 pt-3 border-t ${darkMode ? 'border-slate-700' : 'border-slate-100'}`}>
           <div className="flex flex-wrap gap-2">
             {task.linkedItems.map(linkedItem => {
               const item = getLinkedItem(linkedItem);
@@ -1175,28 +1353,28 @@ function TaskCard({ task, updateTask, deleteTask, links, notes, toggleLinkToTask
         </button>
 
         {showLinkMenu && (
-          <div className="absolute left-0 top-full mt-2 w-80 bg-white rounded-lg shadow-xl border border-slate-200 z-10 max-h-96 overflow-y-auto">
-            <div className="p-3 border-b border-slate-200 flex items-center justify-between">
-              <h4 className="font-medium text-sm text-slate-700">Link to this task</h4>
+          <div className={`absolute left-0 top-full mt-2 w-80 ${darkMode ? 'bg-slate-700 border-slate-600' : 'bg-white border-slate-200'} rounded-lg shadow-xl border z-50 max-h-96 overflow-y-auto`}>
+            <div className={`p-3 border-b ${darkMode ? 'border-slate-600' : 'border-slate-200'} flex items-center justify-between`}>
+              <h4 className={`font-medium text-sm ${darkMode ? 'text-slate-200' : 'text-slate-700'}`}>Link to this task</h4>
               <button 
                 onClick={() => setShowLinkMenu(false)}
-                className="text-slate-400 hover:text-slate-600"
+                className={`${darkMode ? 'text-slate-400 hover:text-slate-200' : 'text-slate-400 hover:text-slate-600'}`}
               >
                 <X size={16} />
               </button>
             </div>
             
             {links.length > 0 && (
-              <div className="p-3 border-b border-slate-200">
-                <p className="text-xs text-slate-500 mb-2">Links</p>
+              <div className={`p-3 border-b ${darkMode ? 'border-slate-600' : 'border-slate-200'}`}>
+                <p className={`text-xs ${darkMode ? 'text-slate-400' : 'text-slate-500'} mb-2`}>Links</p>
                 {links.map(link => {
                   const isLinked = task.linkedItems?.some(i => i.id === link.id);
                   return (
                     <button
                       key={link.id}
                       onClick={() => toggleLinkToTask(task.id, link, 'link')}
-                      className={`w-full text-left px-3 py-2 rounded hover:bg-slate-50 mb-1 text-sm ${
-                        isLinked ? 'bg-teal-50 text-teal-700' : 'text-slate-700'
+                      className={`w-full text-left px-3 py-2 rounded ${darkMode ? 'hover:bg-slate-600' : 'hover:bg-slate-50'} mb-1 text-sm ${
+                        isLinked ? 'bg-teal-50 text-teal-700' : darkMode ? 'text-slate-200' : 'text-slate-700'
                       }`}
                     >
                       <div className="flex items-center gap-2">
@@ -1211,15 +1389,15 @@ function TaskCard({ task, updateTask, deleteTask, links, notes, toggleLinkToTask
             
             {notes.length > 0 && (
               <div className="p-3">
-                <p className="text-xs text-slate-500 mb-2">Notes</p>
+                <p className={`text-xs ${darkMode ? 'text-slate-400' : 'text-slate-500'} mb-2`}>Notes</p>
                 {notes.map(note => {
                   const isLinked = task.linkedItems?.some(i => i.id === note.id);
                   return (
                     <button
                       key={note.id}
                       onClick={() => toggleLinkToTask(task.id, note, 'note')}
-                      className={`w-full text-left px-3 py-2 rounded hover:bg-slate-50 mb-1 text-sm ${
-                        isLinked ? 'bg-teal-50 text-teal-700' : 'text-slate-700'
+                      className={`w-full text-left px-3 py-2 rounded ${darkMode ? 'hover:bg-slate-600' : 'hover:bg-slate-50'} mb-1 text-sm ${
+                        isLinked ? 'bg-teal-50 text-teal-700' : darkMode ? 'text-slate-200' : 'text-slate-700'
                       }`}
                     >
                       <div className="flex items-center gap-2">
@@ -1233,7 +1411,7 @@ function TaskCard({ task, updateTask, deleteTask, links, notes, toggleLinkToTask
             )}
             
             {links.length === 0 && notes.length === 0 && (
-              <div className="p-4 text-center text-sm text-slate-500">
+              <div className={`p-4 text-center text-sm ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>
                 No links or notes to connect yet
               </div>
             )}
@@ -1244,7 +1422,7 @@ function TaskCard({ task, updateTask, deleteTask, links, notes, toggleLinkToTask
   );
 }
 
-function LinksView({ links, addLink, updateLink, deleteLink, showNewLinkForm, setShowNewLinkForm }) {
+function LinksView({ links, addLink, updateLink, deleteLink, showNewLinkForm, setShowNewLinkForm, darkMode }) {
   const categories = [...new Set(links.map(l => l.category).filter(Boolean))];
   const [filterCategory, setFilterCategory] = useState('all');
 
@@ -1256,8 +1434,8 @@ function LinksView({ links, addLink, updateLink, deleteLink, showNewLinkForm, se
     <div className="max-w-6xl animate-fadeIn">
       <div className="flex items-center justify-between mb-8">
         <div>
-          <h2 className="text-4xl font-bold text-slate-800 accent-font">Links</h2>
-          <p className="text-slate-500 mt-1">{links.length} saved</p>
+          <h2 className={`text-4xl font-bold ${darkMode ? 'text-white' : 'text-slate-800'} accent-font`}>Links</h2>
+          <p className={`${darkMode ? 'text-slate-400' : 'text-slate-500'} mt-1`}>{links.length} saved</p>
         </div>
         <button
           onClick={() => setShowNewLinkForm(true)}
@@ -1273,6 +1451,7 @@ function LinksView({ links, addLink, updateLink, deleteLink, showNewLinkForm, se
           onSave={addLink} 
           onCancel={() => setShowNewLinkForm(false)}
           existingCategories={categories}
+          darkMode={darkMode}
         />
       )}
 
@@ -1283,7 +1462,7 @@ function LinksView({ links, addLink, updateLink, deleteLink, showNewLinkForm, se
             className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
               filterCategory === 'all' 
                 ? 'bg-teal-600 text-white' 
-                : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                : darkMode ? 'bg-slate-700 text-slate-300 hover:bg-slate-600' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
             }`}
           >
             All
@@ -1295,7 +1474,7 @@ function LinksView({ links, addLink, updateLink, deleteLink, showNewLinkForm, se
               className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
                 filterCategory === cat 
                   ? 'bg-teal-600 text-white' 
-                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                  : darkMode ? 'bg-slate-700 text-slate-300 hover:bg-slate-600' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
               }`}
             >
               {cat}
@@ -1311,13 +1490,14 @@ function LinksView({ links, addLink, updateLink, deleteLink, showNewLinkForm, se
             link={link} 
             updateLink={updateLink}
             deleteLink={deleteLink}
+            darkMode={darkMode}
             style={{ animationDelay: `${index * 0.05}s` }}
           />
         ))}
       </div>
 
       {filteredLinks.length === 0 && !showNewLinkForm && (
-        <div className="text-center py-16 text-slate-500">
+        <div className={`text-center py-16 ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>
           <Link2 size={48} className="mx-auto mb-4 opacity-30" />
           <p>No links yet. Start adding your inspirations!</p>
         </div>
@@ -1326,7 +1506,7 @@ function LinksView({ links, addLink, updateLink, deleteLink, showNewLinkForm, se
   );
 }
 
-function NewLinkForm({ onSave, onCancel, existingCategories }) {
+function NewLinkForm({ onSave, onCancel, existingCategories, darkMode }) {
   const [url, setUrl] = useState('');
   const [title, setTitle] = useState('');
   const [category, setCategory] = useState('');
@@ -1335,7 +1515,12 @@ function NewLinkForm({ onSave, onCancel, existingCategories }) {
   const handleSubmit = (e) => {
     e.preventDefault();
     if (url.trim()) {
-      onSave({ url, title, category, description });
+      // Auto-add https:// if no protocol specified
+      let finalUrl = url.trim();
+      if (!finalUrl.match(/^https?:\/\//i)) {
+        finalUrl = 'https://' + finalUrl;
+      }
+      onSave({ url: finalUrl, title, category, description });
       setUrl('');
       setTitle('');
       setCategory('');
@@ -1344,13 +1529,13 @@ function NewLinkForm({ onSave, onCancel, existingCategories }) {
   };
 
   return (
-    <form onSubmit={handleSubmit} className="mb-6 p-6 bg-white rounded-xl shadow-lg border border-slate-200 animate-slideUp">
+    <form onSubmit={handleSubmit} className={`mb-6 p-6 ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'} rounded-xl shadow-lg border animate-slideUp`}>
       <input
-        type="url"
+        type="text"
         value={url}
         onChange={(e) => setUrl(e.target.value)}
-        placeholder="https://..."
-        className="w-full text-lg font-medium mb-3 px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
+        placeholder="example.com or https://example.com"
+        className={`w-full text-lg font-medium mb-3 px-3 py-2 border ${darkMode ? 'bg-slate-700 border-slate-600 text-white placeholder-slate-400' : 'border-slate-300'} rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500`}
         autoFocus
       />
       <input
@@ -1358,7 +1543,7 @@ function NewLinkForm({ onSave, onCancel, existingCategories }) {
         value={title}
         onChange={(e) => setTitle(e.target.value)}
         placeholder="Title (optional)"
-        className="w-full mb-3 px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
+        className={`w-full mb-3 px-3 py-2 border ${darkMode ? 'bg-slate-700 border-slate-600 text-white placeholder-slate-400' : 'border-slate-300'} rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500`}
       />
       <input
         type="text"
@@ -1366,7 +1551,7 @@ function NewLinkForm({ onSave, onCancel, existingCategories }) {
         onChange={(e) => setCategory(e.target.value)}
         placeholder="Category (optional)"
         list="categories"
-        className="w-full mb-3 px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
+        className={`w-full mb-3 px-3 py-2 border ${darkMode ? 'bg-slate-700 border-slate-600 text-white placeholder-slate-400' : 'border-slate-300'} rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500`}
       />
       <datalist id="categories">
         {existingCategories.map(cat => (
@@ -1377,7 +1562,7 @@ function NewLinkForm({ onSave, onCancel, existingCategories }) {
         value={description}
         onChange={(e) => setDescription(e.target.value)}
         placeholder="Description (optional)"
-        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 resize-none"
+        className={`w-full px-3 py-2 border ${darkMode ? 'bg-slate-700 border-slate-600 text-white placeholder-slate-400' : 'border-slate-300'} rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 resize-none`}
         rows={2}
       />
       <div className="flex gap-2 mt-4">
@@ -1391,7 +1576,7 @@ function NewLinkForm({ onSave, onCancel, existingCategories }) {
         <button
           type="button"
           onClick={onCancel}
-          className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
+          className={`px-4 py-2 ${darkMode ? 'text-slate-300 hover:bg-slate-700' : 'text-slate-600 hover:bg-slate-100'} rounded-lg transition-colors`}
         >
           Cancel
         </button>
@@ -1400,37 +1585,41 @@ function NewLinkForm({ onSave, onCancel, existingCategories }) {
   );
 }
 
-function LinkCard({ link, updateLink, deleteLink, style }) {
+function LinkCard({ link, updateLink, deleteLink, darkMode, style }) {
   const [isEditing, setIsEditing] = useState(false);
   const [editedLink, setEditedLink] = useState(link);
 
   const handleSave = () => {
-    updateLink(link.id, editedLink);
+    let finalUrl = editedLink.url.trim();
+    if (!finalUrl.match(/^https?:\/\//i)) {
+      finalUrl = 'https://' + finalUrl;
+    }
+    updateLink(link.id, { ...editedLink, url: finalUrl });
     setIsEditing(false);
   };
 
   if (isEditing) {
     return (
-      <div className="p-6 bg-white rounded-xl shadow-md border border-slate-200 animate-slideUp" style={style}>
+      <div className={`p-6 ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'} rounded-xl shadow-md border animate-slideUp`} style={style}>
         <input
-          type="url"
+          type="text"
           value={editedLink.url}
           onChange={(e) => setEditedLink({ ...editedLink, url: e.target.value })}
-          className="w-full mb-2 px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
+          className={`w-full mb-2 px-3 py-2 border ${darkMode ? 'bg-slate-700 border-slate-600 text-white' : 'border-slate-300'} rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500`}
         />
         <input
           type="text"
           value={editedLink.title || ''}
           onChange={(e) => setEditedLink({ ...editedLink, title: e.target.value })}
           placeholder="Title"
-          className="w-full mb-2 px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
+          className={`w-full mb-2 px-3 py-2 border ${darkMode ? 'bg-slate-700 border-slate-600 text-white placeholder-slate-400' : 'border-slate-300'} rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500`}
         />
         <input
           type="text"
           value={editedLink.category || ''}
           onChange={(e) => setEditedLink({ ...editedLink, category: e.target.value })}
           placeholder="Category"
-          className="w-full mb-2 px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
+          className={`w-full mb-2 px-3 py-2 border ${darkMode ? 'bg-slate-700 border-slate-600 text-white placeholder-slate-400' : 'border-slate-300'} rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500`}
         />
         <div className="flex gap-2 mt-4">
           <button
@@ -1442,7 +1631,7 @@ function LinkCard({ link, updateLink, deleteLink, style }) {
           </button>
           <button
             onClick={() => setIsEditing(false)}
-            className="px-3 py-1.5 text-slate-600 hover:bg-slate-100 rounded-lg text-sm"
+            className={`px-3 py-1.5 ${darkMode ? 'text-slate-300 hover:bg-slate-700' : 'text-slate-600 hover:bg-slate-100'} rounded-lg text-sm`}
           >
             Cancel
           </button>
@@ -1452,11 +1641,11 @@ function LinkCard({ link, updateLink, deleteLink, style }) {
   }
 
   return (
-    <div className="task-card p-6 bg-white rounded-xl shadow-md border border-slate-200 animate-slideUp" style={style}>
+    <div className={`task-card p-6 ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'} rounded-xl shadow-md border animate-slideUp`} style={style}>
       <div className="flex items-start justify-between mb-3">
         <div className="flex-1">
           {link.title && (
-            <h3 className="font-semibold text-slate-800 mb-1">{link.title}</h3>
+            <h3 className={`font-semibold ${darkMode ? 'text-white' : 'text-slate-800'} mb-1`}>{link.title}</h3>
           )}
           <a 
             href={link.url} 
@@ -1471,13 +1660,13 @@ function LinkCard({ link, updateLink, deleteLink, style }) {
         <div className="flex gap-2 ml-4">
           <button
             onClick={() => setIsEditing(true)}
-            className="text-slate-400 hover:text-teal-600 transition-colors"
+            className={`${darkMode ? 'text-slate-500 hover:text-teal-400' : 'text-slate-400 hover:text-teal-600'} transition-colors`}
           >
             <Edit2 size={16} />
           </button>
           <button
             onClick={() => deleteLink(link.id)}
-            className="text-slate-400 hover:text-red-600 transition-colors"
+            className={`${darkMode ? 'text-slate-500 hover:text-red-400' : 'text-slate-400 hover:text-red-600'} transition-colors`}
           >
             <Trash2 size={16} />
           </button>
@@ -1485,11 +1674,11 @@ function LinkCard({ link, updateLink, deleteLink, style }) {
       </div>
       
       {link.description && (
-        <p className="text-sm text-slate-600 mb-3">{link.description}</p>
+        <p className={`text-sm ${darkMode ? 'text-slate-300' : 'text-slate-600'} mb-3`}>{link.description}</p>
       )}
       
       {link.category && (
-        <span className="inline-block px-3 py-1 bg-slate-100 text-slate-600 rounded-full text-xs font-medium">
+        <span className={`inline-block px-3 py-1 ${darkMode ? 'bg-slate-700 text-slate-300' : 'bg-slate-100 text-slate-600'} rounded-full text-xs font-medium`}>
           {link.category}
         </span>
       )}
@@ -1497,13 +1686,29 @@ function LinkCard({ link, updateLink, deleteLink, style }) {
   );
 }
 
-function NotesView({ notes, addNote, updateNote, deleteNote, showNewNoteForm, setShowNewNoteForm }) {
+function NotesView({ notes, addNote, updateNote, deleteNote, showNewNoteForm, setShowNewNoteForm, darkMode }) {
+  const [sortBy, setSortBy] = useState('date'); // 'date' or 'tag'
+  const [filterTag, setFilterTag] = useState('all');
+  
+  const allTags = [...new Set(notes.flatMap(n => n.tags || []))];
+  
+  const filteredNotes = filterTag === 'all' 
+    ? notes 
+    : notes.filter(n => n.tags && n.tags.includes(filterTag));
+
+  const sortedNotes = [...filteredNotes].sort((a, b) => {
+    if (sortBy === 'date') {
+      return new Date(b.createdAt) - new Date(a.createdAt);
+    }
+    return 0;
+  });
+
   return (
     <div className="max-w-6xl animate-fadeIn">
       <div className="flex items-center justify-between mb-8">
         <div>
-          <h2 className="text-4xl font-bold text-slate-800 accent-font">Notes</h2>
-          <p className="text-slate-500 mt-1">{notes.length} notes</p>
+          <h2 className={`text-4xl font-bold ${darkMode ? 'text-white' : 'text-slate-800'} accent-font`}>Notes</h2>
+          <p className={`${darkMode ? 'text-slate-400' : 'text-slate-500'} mt-1`}>{notes.length} notes</p>
         </div>
         <button
           onClick={() => setShowNewNoteForm(true)}
@@ -1517,24 +1722,55 @@ function NotesView({ notes, addNote, updateNote, deleteNote, showNewNoteForm, se
       {showNewNoteForm && (
         <NewNoteForm 
           onSave={addNote} 
-          onCancel={() => setShowNewNoteForm(false)} 
+          onCancel={() => setShowNewNoteForm(false)}
+          darkMode={darkMode}
         />
       )}
 
+      {allTags.length > 0 && (
+        <div className="flex flex-wrap gap-2 mb-6">
+          <button
+            onClick={() => setFilterTag('all')}
+            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+              filterTag === 'all' 
+                ? 'bg-teal-600 text-white' 
+                : darkMode ? 'bg-slate-700 text-slate-300 hover:bg-slate-600' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+            }`}
+          >
+            All
+          </button>
+          {allTags.map(tag => (
+            <button
+              key={tag}
+              onClick={() => setFilterTag(tag)}
+              className={`flex items-center gap-1 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                filterTag === tag 
+                  ? 'bg-teal-600 text-white' 
+                  : darkMode ? 'bg-slate-700 text-slate-300 hover:bg-slate-600' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+              }`}
+            >
+              <Tag size={14} />
+              {tag}
+            </button>
+          ))}
+        </div>
+      )}
+
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {notes.map((note, index) => (
+        {sortedNotes.map((note, index) => (
           <NoteCard 
             key={note.id} 
             note={note} 
             updateNote={updateNote}
             deleteNote={deleteNote}
+            darkMode={darkMode}
             style={{ animationDelay: `${index * 0.05}s` }}
           />
         ))}
       </div>
 
-      {notes.length === 0 && !showNewNoteForm && (
-        <div className="text-center py-16 text-slate-500">
+      {sortedNotes.length === 0 && !showNewNoteForm && (
+        <div className={`text-center py-16 ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>
           <StickyNote size={48} className="mx-auto mb-4 opacity-30" />
           <p>No notes yet. Capture your thoughts!</p>
         </div>
@@ -1543,10 +1779,11 @@ function NotesView({ notes, addNote, updateNote, deleteNote, showNewNoteForm, se
   );
 }
 
-function NewNoteForm({ onSave, onCancel }) {
+function NewNoteForm({ onSave, onCancel, darkMode }) {
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
   const [color, setColor] = useState('yellow');
+  const [tags, setTags] = useState('');
 
   const colors = {
     yellow: 'bg-yellow-100 border-yellow-300',
@@ -1559,33 +1796,43 @@ function NewNoteForm({ onSave, onCancel }) {
   const handleSubmit = (e) => {
     e.preventDefault();
     if (title.trim() || content.trim()) {
-      onSave({ title, content, color });
+      const tagArray = tags.split(',').map(t => t.trim()).filter(Boolean);
+      onSave({ title, content, color, tags: tagArray });
       setTitle('');
       setContent('');
       setColor('yellow');
+      setTags('');
     }
   };
 
   return (
-    <form onSubmit={handleSubmit} className="mb-6 p-6 bg-white rounded-xl shadow-lg border border-slate-200 animate-slideUp">
+    <form onSubmit={handleSubmit} className={`mb-6 p-6 ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'} rounded-xl shadow-lg border animate-slideUp`}>
       <input
         type="text"
         value={title}
         onChange={(e) => setTitle(e.target.value)}
         placeholder="Note title..."
-        className="w-full text-lg font-medium mb-3 px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
+        className={`w-full text-lg font-medium mb-3 px-3 py-2 border ${darkMode ? 'bg-slate-700 border-slate-600 text-white placeholder-slate-400' : 'border-slate-300'} rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500`}
         autoFocus
       />
       <textarea
         value={content}
         onChange={(e) => setContent(e.target.value)}
         placeholder="Your thoughts..."
-        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 resize-none"
-        rows={4}
+        className={`w-full px-3 py-2 border ${darkMode ? 'bg-slate-700 border-slate-600 text-white placeholder-slate-400' : 'border-slate-300'} rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 resize-none`}
+        rows={6}
+      />
+      
+      <input
+        type="text"
+        value={tags}
+        onChange={(e) => setTags(e.target.value)}
+        placeholder="Tags (comma-separated)"
+        className={`w-full mt-3 px-3 py-2 border ${darkMode ? 'bg-slate-700 border-slate-600 text-white placeholder-slate-400' : 'border-slate-300'} rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500`}
       />
       
       <div className="flex items-center gap-2 mt-4 mb-4">
-        <span className="text-sm text-slate-600">Color:</span>
+        <span className={`text-sm ${darkMode ? 'text-slate-300' : 'text-slate-600'}`}>Color:</span>
         {Object.entries(colors).map(([colorName, colorClass]) => (
           <button
             key={colorName}
@@ -1609,7 +1856,7 @@ function NewNoteForm({ onSave, onCancel }) {
         <button
           type="button"
           onClick={onCancel}
-          className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
+          className={`px-4 py-2 ${darkMode ? 'text-slate-300 hover:bg-slate-700' : 'text-slate-600 hover:bg-slate-100'} rounded-lg transition-colors`}
         >
           Cancel
         </button>
@@ -1618,9 +1865,10 @@ function NewNoteForm({ onSave, onCancel }) {
   );
 }
 
-function NoteCard({ note, updateNote, deleteNote, style }) {
+function NoteCard({ note, updateNote, deleteNote, darkMode, style }) {
   const [isEditing, setIsEditing] = useState(false);
   const [editedNote, setEditedNote] = useState(note);
+  const [editedTags, setEditedTags] = useState((note.tags || []).join(', '));
 
   const colors = {
     yellow: 'bg-yellow-100 border-yellow-300 hover:shadow-yellow-200',
@@ -1631,8 +1879,16 @@ function NoteCard({ note, updateNote, deleteNote, style }) {
   };
 
   const handleSave = () => {
-    updateNote(note.id, editedNote);
+    const tagArray = editedTags.split(',').map(t => t.trim()).filter(Boolean);
+    updateNote(note.id, { ...editedNote, tags: tagArray });
     setIsEditing(false);
+  };
+
+  const copyToClipboard = () => {
+    const text = `${note.title}\n\n${note.content}`;
+    navigator.clipboard.writeText(text).then(() => {
+      alert('Note copied to clipboard!');
+    });
   };
 
   if (isEditing) {
@@ -1650,7 +1906,14 @@ function NoteCard({ note, updateNote, deleteNote, style }) {
           onChange={(e) => setEditedNote({ ...editedNote, content: e.target.value })}
           placeholder="Content"
           className="w-full mb-2 px-2 py-1 bg-white/50 border border-slate-300 rounded focus:outline-none focus:ring-2 focus:ring-teal-500 resize-none"
-          rows={5}
+          rows={10}
+        />
+        <input
+          type="text"
+          value={editedTags}
+          onChange={(e) => setEditedTags(e.target.value)}
+          placeholder="Tags (comma-separated)"
+          className="w-full mb-2 px-2 py-1 bg-white/50 border border-slate-300 rounded focus:outline-none focus:ring-2 focus:ring-teal-500"
         />
         <div className="flex gap-2 mt-4">
           <button
@@ -1673,23 +1936,45 @@ function NoteCard({ note, updateNote, deleteNote, style }) {
 
   return (
     <div 
-      className={`task-card p-6 rounded-xl shadow-md border-2 ${colors[note.color || 'yellow']} animate-slideUp cursor-pointer`}
+      className={`task-card p-6 rounded-xl shadow-md border-2 ${colors[note.color || 'yellow']} animate-slideUp cursor-pointer relative group`}
       style={style}
       onClick={() => setIsEditing(true)}
     >
       <div className="flex items-start justify-between mb-3">
         <h3 className="font-semibold text-slate-800 flex-1">{note.title || 'Untitled Note'}</h3>
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            deleteNote(note.id);
-          }}
-          className="text-slate-400 hover:text-red-600 transition-colors"
-        >
-          <Trash2 size={16} />
-        </button>
+        <div className="flex gap-1">
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              copyToClipboard();
+            }}
+            className="text-slate-400 hover:text-teal-600 transition-colors opacity-0 group-hover:opacity-100"
+            title="Copy note"
+          >
+            <Copy size={16} />
+          </button>
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              deleteNote(note.id);
+            }}
+            className="text-slate-400 hover:text-red-600 transition-colors"
+          >
+            <Trash2 size={16} />
+          </button>
+        </div>
       </div>
-      <p className="text-slate-700 text-sm whitespace-pre-wrap">{note.content}</p>
+      <p className="text-slate-700 text-sm whitespace-pre-wrap mb-3">{note.content}</p>
+      {note.tags && note.tags.length > 0 && (
+        <div className="flex flex-wrap gap-1">
+          {note.tags.map(tag => (
+            <span key={tag} className="inline-flex items-center gap-1 px-2 py-1 bg-white/50 rounded text-xs text-slate-600">
+              <Tag size={10} />
+              {tag}
+            </span>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
