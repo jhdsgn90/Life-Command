@@ -8,20 +8,16 @@ export default function LifeDashboard() {
   const [projects, setProjects] = useState([]);
   const [links, setLinks] = useState([]);
   const [notes, setNotes] = useState([]);
-  const [events, setEvents] = useState([]);
   const [darkMode, setDarkMode] = useState(false);
   const [profile, setProfile] = useState({ name: 'User', imageUrl: '' });
   const [showProfileEditor, setShowProfileEditor] = useState(false);
   const [showNewProjectForm, setShowNewProjectForm] = useState(false);
   const [showNewLinkForm, setShowNewLinkForm] = useState(false);
   const [showNewNoteForm, setShowNewNoteForm] = useState(false);
-  const [showNewEventForm, setShowNewEventForm] = useState(false);
-  const [selectedDate, setSelectedDate] = useState(null);
   const [highlightedItemId, setHighlightedItemId] = useState(null);
   const [currentTime, setCurrentTime] = useState(new Date());
   const [viewModes, setViewModes] = useState({
     projects: 'list',
-    calendar: 'calendar',
     links: 'grid',
     notes: 'grid',
     tags: 'grid'
@@ -103,7 +99,6 @@ export default function LifeDashboard() {
       const savedProjects = localStorage.getItem('lifeDashboard_projects');
       const savedLinks = localStorage.getItem('lifeDashboard_links');
       const savedNotes = localStorage.getItem('lifeDashboard_notes');
-      const savedEvents = localStorage.getItem('lifeDashboard_events');
       const savedDarkMode = localStorage.getItem('lifeDashboard_darkMode');
       const savedProfile = localStorage.getItem('lifeDashboard_profile');
       const savedViewModes = localStorage.getItem('lifeDashboard_viewModes');
@@ -111,7 +106,6 @@ export default function LifeDashboard() {
       if (savedProjects) setProjects(JSON.parse(savedProjects));
       if (savedLinks) setLinks(JSON.parse(savedLinks));
       if (savedNotes) setNotes(JSON.parse(savedNotes));
-      if (savedEvents) setEvents(JSON.parse(savedEvents));
       if (savedDarkMode) setDarkMode(JSON.parse(savedDarkMode));
       if (savedProfile) setProfile(JSON.parse(savedProfile));
       if (savedViewModes) setViewModes(JSON.parse(savedViewModes));
@@ -146,14 +140,6 @@ export default function LifeDashboard() {
 
   useEffect(() => {
     try {
-      localStorage.setItem('lifeDashboard_events', JSON.stringify(events));
-    } catch (error) {
-      console.error('Error saving events:', error);
-    }
-  }, [events]);
-
-  useEffect(() => {
-    try {
       localStorage.setItem('lifeDashboard_darkMode', JSON.stringify(darkMode));
     } catch (error) {
       console.error('Error saving darkMode:', error);
@@ -185,12 +171,11 @@ export default function LifeDashboard() {
       projects,
       links,
       notes,
-      events,
       profile,
       darkMode,
       viewModes,
       exportDate: new Date().toISOString(),
-      version: '6.0'
+      version: '6.2'
     };
 
     const dataStr = JSON.stringify(dataToExport, null, 2);
@@ -222,7 +207,6 @@ export default function LifeDashboard() {
             if (imported.projects) setProjects(imported.projects);
             if (imported.links) setLinks(imported.links);
             if (imported.notes) setNotes(imported.notes);
-            if (imported.events) setEvents(imported.events);
             if (imported.profile) setProfile(imported.profile);
             if (typeof imported.darkMode !== 'undefined') setDarkMode(imported.darkMode);
             if (imported.viewModes) setViewModes(imported.viewModes);
@@ -312,61 +296,6 @@ export default function LifeDashboard() {
     setNotes(newOrder);
   };
 
-  const addEvent = (eventData) => {
-    const newEvent = {
-      id: generateId(),
-      ...eventData,
-      linkedItems: [],
-      createdAt: new Date().toISOString()
-    };
-    setEvents([...events, newEvent]);
-    setShowNewEventForm(false);
-    setSelectedDate(null);
-  };
-
-  const updateEvent = (id, updates) => {
-    setEvents(events.map(event => event.id === id ? { ...event, ...updates } : event));
-  };
-
-  const deleteEvent = (id) => {
-    setEvents(events.filter(event => event.id !== id));
-  };
-
-  const toggleLinkToProject = (projectId, item, type) => {
-    const project = projects.find(p => p.id === projectId);
-    if (!project) return;
-
-    const linkedItems = project.linkedItems || [];
-    const existingIndex = linkedItems.findIndex(li => li.id === item.id && li.type === type);
-
-    if (existingIndex > -1) {
-      updateProject(projectId, {
-        linkedItems: linkedItems.filter((_, i) => i !== existingIndex)
-      });
-    } else {
-      updateProject(projectId, {
-        linkedItems: [...linkedItems, { id: item.id, type, title: item.title || item.url }]
-      });
-    }
-  };
-
-  const toggleLinkToEvent = (eventId, item, type) => {
-    const event = events.find(e => e.id === eventId);
-    if (!event) return;
-
-    const linkedItems = event.linkedItems || [];
-    const existingIndex = linkedItems.findIndex(li => li.id === item.id && li.type === type);
-
-    if (existingIndex > -1) {
-      updateEvent(eventId, {
-        linkedItems: linkedItems.filter((_, i) => i !== existingIndex)
-      });
-    } else {
-      updateEvent(eventId, {
-        linkedItems: [...linkedItems, { id: item.id, type, title: item.title || item.url }]
-      });
-    }
-  };
 
   const getLinkedItem = (linkedItem) => {
     if (linkedItem.type === 'link') {
@@ -399,7 +328,6 @@ export default function LifeDashboard() {
 
   const allTags = [...new Set([
     ...projects.flatMap(p => p.tags || []),
-    ...events.flatMap(e => e.tags || []),
     ...links.flatMap(l => l.tags || []),
     ...notes.flatMap(n => n.tags || [])
   ])];
@@ -481,6 +409,20 @@ export default function LifeDashboard() {
           text-align: left !important;
         }
 
+        .rich-text-editor * {
+          direction: ltr !important;
+          text-align: left !important;
+        }
+
+        div[contenteditable] {
+          direction: ltr !important;
+          text-align: left !important;
+        }
+
+        div[contenteditable] * {
+          direction: ltr !important;
+        }
+
         .rich-text-editor strong {
           font-weight: 600;
         }
@@ -543,14 +485,6 @@ export default function LifeDashboard() {
               icon={List} 
               label="Projects"
               count={projects.filter(p => !p.completed).length}
-              darkMode={darkMode}
-            />
-            <NavButton 
-              active={activeView === 'calendar'} 
-              onClick={() => setActiveView('calendar')} 
-              icon={Calendar} 
-              label="Calendar"
-              count={events.length}
               darkMode={darkMode}
             />
             <NavButton 
@@ -667,20 +601,6 @@ export default function LifeDashboard() {
                 toggleViewMode={toggleViewMode}
               />
             )}
-            {activeView === 'calendar' && (
-              <CalendarView
-                events={events}
-                addEvent={addEvent}
-                updateEvent={updateEvent}
-                deleteEvent={deleteEvent}
-                showNewEventForm={showNewEventForm}
-                setShowNewEventForm={setShowNewEventForm}
-                selectedDate={selectedDate}
-                setSelectedDate={setSelectedDate}
-                darkMode={darkMode}
-                allTags={allTags}
-              />
-            )}
             {activeView === 'links' && (
               <LinksView
                 links={links}
@@ -726,7 +646,6 @@ export default function LifeDashboard() {
                 projects={projects}
                 links={links}
                 notes={notes}
-                events={events}
                 navigateToLinkedItem={navigateToLinkedItem}
                 darkMode={darkMode}
                 allTags={allTags}
@@ -2721,6 +2640,25 @@ function NoteCard({ note, updateNote, deleteNote, isHighlighted, darkMode, allTa
   const [tagInput, setTagInput] = useState('');
   const [editingTags, setEditingTags] = useState(note.tags || []);
 
+  // Post-it note colors (pastel shades)
+  const noteColors = [
+    'bg-yellow-100 border-yellow-200',
+    'bg-pink-100 border-pink-200',
+    'bg-blue-100 border-blue-200',
+    'bg-green-100 border-green-200',
+    'bg-purple-100 border-purple-200',
+    'bg-orange-100 border-orange-200',
+    'bg-teal-100 border-teal-200',
+    'bg-rose-100 border-rose-200'
+  ];
+
+  // Get consistent color based on note ID
+  const getNoteColor = () => {
+    if (darkMode) return 'bg-slate-800 border-slate-700';
+    const hash = note.id.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+    return noteColors[hash % noteColors.length];
+  };
+
   const saveNote = () => {
     if (editedTitle.trim()) {
       updateNote(note.id, { title: editedTitle, content: editedContent });
@@ -2750,22 +2688,25 @@ function NoteCard({ note, updateNote, deleteNote, isHighlighted, darkMode, allTa
       id={`item-${note.id}`}
       onDragOver={(e) => onDragOver(e, note)}
       onDrop={(e) => onDrop(e, note)}
-      className={`task-card p-6 ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'} rounded-xl shadow-md border animate-slideUp group relative ${
+      className={`task-card p-6 ${getNoteColor()} rounded-xl shadow-md border animate-slideUp group relative ${
         isHighlighted ? 'animate-highlight ring-2 ring-teal-500' : ''
       } ${isDragging ? 'opacity-50 scale-95' : ''} ${isDragOver ? 'border-teal-500 border-2' : ''}`}
       style={style}
     >
-      <div
-        draggable
-        onDragStart={(e) => onDragStart(e, note)}
-        onDragEnd={onDragEnd}
-        className={`absolute top-4 right-4 p-2 rounded cursor-move transition-all ${
-          darkMode ? 'text-slate-400 hover:bg-slate-700 hover:text-teal-400' : 'text-slate-500 hover:bg-slate-100 hover:text-teal-600'
-        }`}
-        title="Drag to reorder"
-      >
-        <Move size={20} />
-      </div>
+      {/* Hide drag handle when editing */}
+      {!isEditing && (
+        <div
+          draggable
+          onDragStart={(e) => onDragStart(e, note)}
+          onDragEnd={onDragEnd}
+          className={`absolute top-4 right-4 p-2 rounded cursor-move transition-all ${
+            darkMode ? 'text-slate-400 hover:bg-slate-700 hover:text-teal-400' : 'text-slate-500 hover:bg-slate-100 hover:text-teal-600'
+          }`}
+          title="Drag to reorder"
+        >
+          <Move size={20} />
+        </div>
+      )}
 
       {isEditing ? (
         <div>
@@ -2911,410 +2852,11 @@ function NoteCard({ note, updateNote, deleteNote, isHighlighted, darkMode, allTa
 }
 
 // CALENDAR VIEW - Simple event list for now
-function CalendarView({
-  events,
-  addEvent,
-  updateEvent,
-  deleteEvent,
-  showNewEventForm,
-  setShowNewEventForm,
-  selectedDate,
-  setSelectedDate,
-  darkMode,
-  allTags
-}) {
-  return (
-    <div className="max-w-4xl animate-fadeIn">
-      <div className="flex items-center justify-between mb-8">
-        <div>
-          <h2 className={`text-4xl font-bold ${darkMode ? 'text-white' : 'text-slate-800'} accent-font`}>Calendar</h2>
-          <p className={`${darkMode ? 'text-slate-400' : 'text-slate-500'} mt-1`}>{events.length} events</p>
-        </div>
-        <button
-          onClick={() => setShowNewEventForm(true)}
-          className="flex items-center gap-2 px-6 py-3 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-all shadow-lg hover:shadow-xl hover:scale-105"
-        >
-          <Plus size={20} />
-          New Event
-        </button>
-      </div>
-
-      {showNewEventForm && (
-        <NewEventForm
-          onSave={addEvent}
-          onCancel={() => setShowNewEventForm(false)}
-          darkMode={darkMode}
-          allTags={allTags}
-        />
-      )}
-
-      <div className="space-y-4">
-        {events.length === 0 && !showNewEventForm ? (
-          <div className={`text-center py-16 ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>
-            <Calendar size={48} className="mx-auto mb-4 opacity-30" />
-            <p>No events yet. Add your first event!</p>
-          </div>
-        ) : (
-          events.map((event, index) => (
-            <EventCard
-              key={event.id}
-              event={event}
-              updateEvent={updateEvent}
-              deleteEvent={deleteEvent}
-              darkMode={darkMode}
-              allTags={allTags}
-              style={{ animationDelay: `${index * 0.03}s` }}
-            />
-          ))
-        )}
-      </div>
-    </div>
-  );
-}
-
-function NewEventForm({ onSave, onCancel, darkMode, allTags }) {
-  const [title, setTitle] = useState('');
-  const [date, setDate] = useState('');
-  const [time, setTime] = useState('');
-  const [description, setDescription] = useState('');
-  const [tagInput, setTagInput] = useState('');
-  const [selectedTags, setSelectedTags] = useState([]);
-
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    if (title.trim() && date) {
-      onSave({ title, date, time, description, tags: selectedTags });
-      setTitle('');
-      setDate('');
-      setTime('');
-      setDescription('');
-      setSelectedTags([]);
-    }
-  };
-
-  const addTag = (tag) => {
-    const trimmedTag = tag.trim();
-    if (trimmedTag && !selectedTags.includes(trimmedTag)) {
-      setSelectedTags([...selectedTags, trimmedTag]);
-    }
-    setTagInput('');
-  };
-
-  const removeTag = (tagToRemove) => {
-    setSelectedTags(selectedTags.filter(t => t !== tagToRemove));
-  };
-
-  return (
-    <form onSubmit={handleSubmit} className={`mb-6 p-6 ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'} rounded-xl shadow-lg border animate-slideUp`}>
-      <input
-        type="text"
-        value={title}
-        onChange={(e) => setTitle(e.target.value)}
-        placeholder="Event title..."
-        className={`w-full text-lg font-medium mb-3 px-3 py-2 border ${darkMode ? 'bg-slate-700 border-slate-600 text-white placeholder-slate-400' : 'border-slate-300'} rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 transition-all`}
-        autoFocus
-      />
-      <div className="grid grid-cols-2 gap-3 mb-3">
-        <input
-          type="date"
-          value={date}
-          onChange={(e) => setDate(e.target.value)}
-          className={`px-3 py-2 border ${darkMode ? 'bg-slate-700 border-slate-600 text-white' : 'border-slate-300'} rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 transition-all`}
-        />
-        <input
-          type="time"
-          value={time}
-          onChange={(e) => setTime(e.target.value)}
-          className={`px-3 py-2 border ${darkMode ? 'bg-slate-700 border-slate-600 text-white' : 'border-slate-300'} rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 transition-all`}
-        />
-      </div>
-      <RichTextEditor
-        value={description}
-        onChange={setDescription}
-        placeholder="Description (optional)..."
-        darkMode={darkMode}
-        rows={6}
-      />
-
-      <div className="mt-4">
-        <label className={`block text-sm ${darkMode ? 'text-slate-300' : 'text-slate-600'} mb-2`}>Tags</label>
-        <div className="flex flex-wrap gap-2 mb-2">
-          {selectedTags.map(tag => (
-            <span key={tag} className="inline-flex items-center gap-1 px-3 py-1 bg-teal-100 text-teal-700 rounded-full text-sm">
-              <Tag size={12} />
-              {tag}
-              <button type="button" onClick={() => removeTag(tag)} className="hover:text-teal-900">
-                <X size={14} />
-              </button>
-            </span>
-          ))}
-        </div>
-        <div className="flex gap-2">
-          <input
-            type="text"
-            value={tagInput}
-            onChange={(e) => setTagInput(e.target.value)}
-            onKeyPress={(e) => {
-              if (e.key === 'Enter') {
-                e.preventDefault();
-                addTag(tagInput);
-              }
-            }}
-            placeholder="Add tag and press Enter..."
-            list="event-tags"
-            className={`flex-1 px-3 py-2 border ${darkMode ? 'bg-slate-700 border-slate-600 text-white placeholder-slate-400' : 'border-slate-300'} rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 transition-all`}
-          />
-          <datalist id="event-tags">
-            {allTags.filter(t => !selectedTags.includes(t)).map(tag => (
-              <option key={tag} value={tag} />
-            ))}
-          </datalist>
-          <button
-            type="button"
-            onClick={() => addTag(tagInput)}
-            className="px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-all"
-          >
-            <Plus size={16} />
-          </button>
-        </div>
-      </div>
-
-      <div className="flex gap-2 mt-4">
-        <button type="submit" className="flex items-center gap-2 px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-all">
-          <Save size={16} />
-          Save
-        </button>
-        <button type="button" onClick={onCancel} className={`px-4 py-2 ${darkMode ? 'text-slate-300 hover:bg-slate-700' : 'text-slate-600 hover:bg-slate-100'} rounded-lg transition-all`}>
-          Cancel
-        </button>
-      </div>
-    </form>
-  );
-}
-
-function EventCard({ event, updateEvent, deleteEvent, darkMode, allTags, style }) {
-  const [isEditing, setIsEditing] = useState(false);
-  const [editedTitle, setEditedTitle] = useState(event.title);
-  const [editedDate, setEditedDate] = useState(event.date);
-  const [editedTime, setEditedTime] = useState(event.time || '');
-  const [editedDescription, setEditedDescription] = useState(event.description || '');
-  const [isEditingTags, setIsEditingTags] = useState(false);
-  const [tagInput, setTagInput] = useState('');
-  const [editingTags, setEditingTags] = useState(event.tags || []);
-
-  const saveEvent = () => {
-    if (editedTitle.trim() && editedDate) {
-      updateEvent(event.id, {
-        title: editedTitle,
-        date: editedDate,
-        time: editedTime,
-        description: editedDescription
-      });
-    }
-    setIsEditing(false);
-  };
-
-  const saveTags = () => {
-    updateEvent(event.id, { tags: editingTags });
-    setIsEditingTags(false);
-  };
-
-  const addTag = (tag) => {
-    const trimmedTag = tag.trim();
-    if (trimmedTag && !editingTags.includes(trimmedTag)) {
-      setEditingTags([...editingTags, trimmedTag]);
-    }
-    setTagInput('');
-  };
-
-  const removeTag = (tagToRemove) => {
-    setEditingTags(editingTags.filter(t => t !== tagToRemove));
-  };
-
-  const formattedDate = new Date(event.date).toLocaleDateString('en-US', {
-    weekday: 'short',
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric'
-  });
-
-  return (
-    <div
-      className={`task-card p-6 ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'} rounded-xl shadow-md border animate-slideUp`}
-      style={style}
-    >
-      {isEditing ? (
-        <div>
-          <input
-            type="text"
-            value={editedTitle}
-            onChange={(e) => setEditedTitle(e.target.value)}
-            className={`w-full text-xl font-semibold mb-3 px-2 py-1 border ${darkMode ? 'bg-slate-700 border-slate-600 text-white' : 'bg-white border-slate-300'} rounded focus:outline-none focus:ring-2 focus:ring-teal-500`}
-          />
-          <div className="grid grid-cols-2 gap-3 mb-3">
-            <input
-              type="date"
-              value={editedDate}
-              onChange={(e) => setEditedDate(e.target.value)}
-              className={`px-3 py-2 border ${darkMode ? 'bg-slate-700 border-slate-600 text-white' : 'border-slate-300'} rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500`}
-            />
-            <input
-              type="time"
-              value={editedTime}
-              onChange={(e) => setEditedTime(e.target.value)}
-              className={`px-3 py-2 border ${darkMode ? 'bg-slate-700 border-slate-600 text-white' : 'border-slate-300'} rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500`}
-            />
-          </div>
-          <RichTextEditor
-            value={editedDescription}
-            onChange={setEditedDescription}
-            placeholder="Description..."
-            darkMode={darkMode}
-            rows={6}
-          />
-          <div className="flex gap-2 mt-3">
-            <button onClick={saveEvent} className="flex items-center gap-1 px-3 py-1 bg-teal-600 text-white rounded text-sm hover:bg-teal-700">
-              <Save size={14} />
-              Save
-            </button>
-            <button
-              onClick={() => setIsEditing(false)}
-              className={`px-3 py-1 text-sm rounded ${darkMode ? 'text-slate-300 hover:bg-slate-700' : 'text-slate-600 hover:bg-slate-100'}`}
-            >
-              Cancel
-            </button>
-          </div>
-        </div>
-      ) : (
-        <div>
-          <div className="flex items-start justify-between mb-3">
-            <div className="flex-1">
-              <h3
-                onClick={() => setIsEditing(true)}
-                className={`text-xl font-semibold ${darkMode ? 'text-white' : 'text-slate-800'} cursor-pointer hover:text-teal-600 transition-colors mb-2`}
-              >
-                {event.title}
-              </h3>
-              <div className={`flex items-center gap-2 text-sm ${darkMode ? 'text-slate-400' : 'text-slate-600'}`}>
-                <Calendar size={16} />
-                <span>{formattedDate}</span>
-                {event.time && (
-                  <>
-                    <Clock size={16} />
-                    <span>{event.time}</span>
-                  </>
-                )}
-              </div>
-            </div>
-            <button
-              onClick={() => deleteEvent(event.id)}
-              className={`${darkMode ? 'text-slate-500 hover:text-red-400' : 'text-slate-400 hover:text-red-600'} transition-all hover:scale-110`}
-            >
-              <Trash2 size={18} />
-            </button>
-          </div>
-
-          {event.description && (
-            <div
-              onClick={() => setIsEditing(true)}
-              className={`${darkMode ? 'text-slate-300' : 'text-slate-600'} text-sm mb-3 cursor-pointer rich-text-editor`}
-              dangerouslySetInnerHTML={{ __html: event.description }}
-            />
-          )}
-
-          {isEditingTags ? (
-            <div className="mb-3 mt-4">
-              <div className="flex flex-wrap gap-1 mb-2">
-                {editingTags.map(tag => (
-                  <span key={tag} className="inline-flex items-center gap-1 px-2 py-1 bg-teal-100 text-teal-700 rounded text-xs">
-                    <Tag size={10} />
-                    {tag}
-                    <button onClick={() => removeTag(tag)} className="hover:text-teal-900">
-                      <X size={10} />
-                    </button>
-                  </span>
-                ))}
-              </div>
-              <div className="flex gap-2 mb-2">
-                <input
-                  type="text"
-                  value={tagInput}
-                  onChange={(e) => setTagInput(e.target.value)}
-                  onKeyPress={(e) => {
-                    if (e.key === 'Enter') {
-                      e.preventDefault();
-                      addTag(tagInput);
-                    }
-                  }}
-                  placeholder="Add tag..."
-                  list="edit-event-tags"
-                  className={`flex-1 px-2 py-1 text-xs border ${darkMode ? 'bg-slate-700 border-slate-600 text-white' : 'bg-white border-slate-300'} rounded focus:outline-none focus:ring-1 focus:ring-teal-500`}
-                />
-                <datalist id="edit-event-tags">
-                  {allTags.filter(t => !editingTags.includes(t)).map(tag => (
-                    <option key={tag} value={tag} />
-                  ))}
-                </datalist>
-                <button onClick={() => addTag(tagInput)} className="px-2 py-1 bg-teal-600 text-white rounded text-xs hover:bg-teal-700">
-                  <Plus size={12} />
-                </button>
-              </div>
-              <div className="flex gap-2">
-                <button onClick={saveTags} className="px-2 py-1 bg-teal-600 text-white rounded text-xs hover:bg-teal-700">
-                  Save
-                </button>
-                <button
-                  onClick={() => {
-                    setEditingTags(event.tags || []);
-                    setIsEditingTags(false);
-                  }}
-                  className={`px-2 py-1 text-xs rounded ${darkMode ? 'text-slate-300 hover:bg-slate-700' : 'text-slate-600 hover:bg-slate-100'}`}
-                >
-                  Cancel
-                </button>
-              </div>
-            </div>
-          ) : (event.tags && event.tags.length > 0) ? (
-            <div className="flex flex-wrap gap-1 mt-4 group/tags relative">
-              {event.tags.map(tag => (
-                <span key={tag} className="inline-flex items-center gap-1 px-2 py-1 bg-teal-50 text-teal-700 rounded text-xs border border-teal-200">
-                  <Tag size={10} />
-                  {tag}
-                </span>
-              ))}
-              <button
-                onClick={() => {
-                  setEditingTags(event.tags || []);
-                  setIsEditingTags(true);
-                }}
-                className={`ml-1 px-2 py-1 text-xs rounded opacity-0 group-hover/tags:opacity-100 transition-opacity ${darkMode ? 'bg-slate-700 text-teal-400 hover:bg-slate-600' : 'bg-teal-50 text-teal-700 hover:bg-teal-100'}`}
-              >
-                <Edit2 size={10} />
-              </button>
-            </div>
-          ) : (
-            <button
-              onClick={() => {
-                setEditingTags([]);
-                setIsEditingTags(true);
-              }}
-              className={`text-xs ${darkMode ? 'text-slate-500 hover:text-teal-400' : 'text-slate-400 hover:text-teal-600'} mt-4`}
-            >
-              + Add tags
-            </button>
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
-
 // TAGS VIEW - Shows all items with a specific tag
 function TagsView({
   projects,
   links,
   notes,
-  events,
   navigateToLinkedItem,
   darkMode,
   allTags
@@ -3340,12 +2882,6 @@ function TagsView({
     notes.forEach(n => {
       if (n.tags && n.tags.includes(tag)) {
         items.push({ ...n, type: 'note', icon: StickyNote });
-      }
-    });
-
-    events.forEach(e => {
-      if (e.tags && e.tags.includes(tag)) {
-        items.push({ ...e, type: 'event', icon: Calendar });
       }
     });
 
