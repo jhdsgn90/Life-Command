@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Plus, Check, Circle, Pause, AlertCircle, Trash2, Link2, StickyNote, List, ExternalLink, X, Edit2, Save, Calendar, ChevronLeft, ChevronRight, Clock, Copy, Moon, Sun, Tag, ChevronDown, ChevronUp, Bold, Italic, ListOrdered, Grid, LayoutList, User, Camera, Filter, Download, Upload, GripVertical } from 'lucide-react';
+import { Plus, Check, Circle, Pause, AlertCircle, Trash2, Link2, StickyNote, List, ExternalLink, X, Edit2, Save, Calendar, ChevronLeft, ChevronRight, Clock, Copy, Moon, Sun, Tag, ChevronDown, ChevronUp, Bold, Italic, ListOrdered, Grid, LayoutList, User, Camera, Filter, Download, Upload, Move } from 'lucide-react';
 
 const generateId = () => Date.now().toString(36) + Math.random().toString(36).substr(2);
 
@@ -668,28 +668,69 @@ export default function LifeDashboard() {
               />
             )}
             {activeView === 'calendar' && (
-              <div className="text-center py-16">
-                <Calendar size={48} className={`mx-auto mb-4 ${darkMode ? 'text-slate-600' : 'text-slate-300'}`} />
-                <p className={darkMode ? 'text-slate-400' : 'text-slate-500'}>Calendar view coming in next update!</p>
-              </div>
+              <CalendarView
+                events={events}
+                addEvent={addEvent}
+                updateEvent={updateEvent}
+                deleteEvent={deleteEvent}
+                showNewEventForm={showNewEventForm}
+                setShowNewEventForm={setShowNewEventForm}
+                selectedDate={selectedDate}
+                setSelectedDate={setSelectedDate}
+                darkMode={darkMode}
+                allTags={allTags}
+              />
             )}
             {activeView === 'links' && (
-              <div className="text-center py-16">
-                <Link2 size={48} className={`mx-auto mb-4 ${darkMode ? 'text-slate-600' : 'text-slate-300'}`} />
-                <p className={darkMode ? 'text-slate-400' : 'text-slate-500'}>Links view coming in next update!</p>
-              </div>
+              <LinksView
+                links={links}
+                addLink={addLink}
+                updateLink={updateLink}
+                deleteLink={deleteLink}
+                reorderLinks={reorderLinks}
+                showNewLinkForm={showNewLinkForm}
+                setShowNewLinkForm={setShowNewLinkForm}
+                projects={projects}
+                notes={notes}
+                getLinkedItem={getLinkedItem}
+                navigateToLinkedItem={navigateToLinkedItem}
+                highlightedItemId={highlightedItemId}
+                darkMode={darkMode}
+                allTags={allTags}
+                viewMode={viewModes.links}
+                toggleViewMode={toggleViewMode}
+              />
             )}
             {activeView === 'notes' && (
-              <div className="text-center py-16">
-                <StickyNote size={48} className={`mx-auto mb-4 ${darkMode ? 'text-slate-600' : 'text-slate-300'}`} />
-                <p className={darkMode ? 'text-slate-400' : 'text-slate-500'}>Notes view coming in next update!</p>
-              </div>
+              <NotesView
+                notes={notes}
+                addNote={addNote}
+                updateNote={updateNote}
+                deleteNote={deleteNote}
+                reorderNotes={reorderNotes}
+                showNewNoteForm={showNewNoteForm}
+                setShowNewNoteForm={setShowNewNoteForm}
+                projects={projects}
+                links={links}
+                getLinkedItem={getLinkedItem}
+                navigateToLinkedItem={navigateToLinkedItem}
+                highlightedItemId={highlightedItemId}
+                darkMode={darkMode}
+                allTags={allTags}
+                viewMode={viewModes.notes}
+                toggleViewMode={toggleViewMode}
+              />
             )}
             {activeView === 'tags' && (
-              <div className="text-center py-16">
-                <Tag size={48} className={`mx-auto mb-4 ${darkMode ? 'text-slate-600' : 'text-slate-300'}`} />
-                <p className={darkMode ? 'text-slate-400' : 'text-slate-500'}>Tags view coming in next update!</p>
-              </div>
+              <TagsView
+                projects={projects}
+                links={links}
+                notes={notes}
+                events={events}
+                navigateToLinkedItem={navigateToLinkedItem}
+                darkMode={darkMode}
+                allTags={allTags}
+              />
             )}
           </div>
         </main>
@@ -1347,16 +1388,14 @@ function LinkItemsModal({ isOpen, onClose, items, onToggleLink, linkedItems, dar
 
 function NewProjectForm({ onSave, onCancel, darkMode, allTags }) {
   const [title, setTitle] = useState('');
-  const [description, setDescription] = useState('');
   const [tagInput, setTagInput] = useState('');
   const [selectedTags, setSelectedTags] = useState([]);
 
   const handleSubmit = (e) => {
     e.preventDefault();
     if (title.trim()) {
-      onSave({ title, description, tags: selectedTags });
+      onSave({ title, tags: selectedTags });
       setTitle('');
-      setDescription('');
       setSelectedTags([]);
     }
   };
@@ -1380,18 +1419,11 @@ function NewProjectForm({ onSave, onCancel, darkMode, allTags }) {
         value={title}
         onChange={(e) => setTitle(e.target.value)}
         placeholder="Project title..."
-        className={`w-full text-lg font-medium mb-3 px-3 py-2 border ${darkMode ? 'bg-slate-700 border-slate-600 text-white placeholder-slate-400' : 'border-slate-300'} rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 transition-all`}
+        className={`w-full text-lg font-medium mb-4 px-3 py-2 border ${darkMode ? 'bg-slate-700 border-slate-600 text-white placeholder-slate-400' : 'border-slate-300'} rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 transition-all`}
         autoFocus
       />
-      <RichTextEditor
-        value={description}
-        onChange={setDescription}
-        placeholder="Description (optional) - Use toolbar for formatting"
-        darkMode={darkMode}
-        rows={6}
-      />
       
-      <div className="mt-4">
+      <div className="mb-4">
         <label className={`block text-sm ${darkMode ? 'text-slate-300' : 'text-slate-600'} mb-2`}>Tags</label>
         <div className="flex flex-wrap gap-2 mb-2">
           {selectedTags.map(tag => (
@@ -1438,7 +1470,7 @@ function NewProjectForm({ onSave, onCancel, darkMode, allTags }) {
         </div>
       </div>
 
-      <div className="flex gap-2 mt-4">
+      <div className="flex gap-2">
         <button
           type="submit"
           className="flex items-center gap-2 px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-all"
@@ -1483,8 +1515,6 @@ function ProjectCard({
   const [newSubItemText, setNewSubItemText] = useState('');
   const [editingSubItemId, setEditingSubItemId] = useState(null);
   const [editingSubItemText, setEditingSubItemText] = useState('');
-  const [isEditingDescription, setIsEditingDescription] = useState(false);
-  const [editedDescription, setEditedDescription] = useState(project.description || '');
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [editedTitle, setEditedTitle] = useState(project.title);
   const [isEditingTags, setIsEditingTags] = useState(false);
@@ -1568,16 +1598,6 @@ function ProjectCard({
     navigator.clipboard.writeText(text);
   };
 
-  const saveDescription = () => {
-    updateProject(project.id, { description: editedDescription });
-    setIsEditingDescription(false);
-  };
-
-  const deleteDescription = () => {
-    updateProject(project.id, { description: '' });
-    setEditedDescription('');
-  };
-
   const saveTitle = () => {
     if (editedTitle.trim()) {
       updateProject(project.id, { title: editedTitle });
@@ -1613,17 +1633,17 @@ function ProjectCard({
       } ${isDragging ? 'opacity-50 scale-95' : ''} ${isDragOver ? 'border-teal-500 border-2' : ''}`} 
       style={style}
     >
-      {/* DRAG HANDLE - Top Right Corner */}
+      {/* IMPROVED DRAG HANDLE - Always visible with hover effect */}
       <div
         draggable
         onDragStart={(e) => onDragStart(e, project)}
         onDragEnd={onDragEnd}
-        className={`absolute top-4 right-4 p-2 rounded cursor-move opacity-0 group-hover:opacity-100 transition-all ${
-          darkMode ? 'hover:bg-slate-700 text-slate-400' : 'hover:bg-slate-100 text-slate-500'
+        className={`absolute top-4 right-4 p-2 rounded cursor-move transition-all ${
+          darkMode ? 'text-slate-400 hover:bg-slate-700 hover:text-teal-400' : 'text-slate-500 hover:bg-slate-100 hover:text-teal-600'
         }`}
         title="Drag to reorder"
       >
-        <GripVertical size={20} />
+        <Move size={20} />
       </div>
 
       <div className="flex items-start justify-between mb-4 pr-10">
@@ -1666,63 +1686,6 @@ function ProjectCard({
             </div>
           )}
           
-          {/* EDITABLE DESCRIPTION */}
-          {isEditingDescription ? (
-            <div className="mb-3">
-              <RichTextEditor
-                value={editedDescription}
-                onChange={setEditedDescription}
-                placeholder="Add description..."
-                darkMode={darkMode}
-                rows={6}
-              />
-              <div className="flex gap-2 mt-2">
-                <button
-                  onClick={saveDescription}
-                  className="flex items-center gap-1 px-3 py-1 bg-teal-600 text-white rounded text-sm hover:bg-teal-700"
-                >
-                  <Save size={14} />
-                  Save
-                </button>
-                <button
-                  onClick={() => setIsEditingDescription(false)}
-                  className={`px-3 py-1 text-sm rounded ${darkMode ? 'text-slate-300 hover:bg-slate-700' : 'text-slate-600 hover:bg-slate-100'}`}
-                >
-                  Cancel
-                </button>
-              </div>
-            </div>
-          ) : project.description ? (
-            <div className="relative group/desc mb-3">
-              <div 
-                className={`${darkMode ? 'text-slate-300' : 'text-slate-600'} text-sm rich-text-editor`}
-                dangerouslySetInnerHTML={{ __html: project.description }}
-              />
-              <div className="absolute top-0 right-0 flex gap-1 opacity-0 group-hover/desc:opacity-100 transition-opacity">
-                <button
-                  onClick={() => setIsEditingDescription(true)}
-                  className={`p-1 rounded ${darkMode ? 'bg-slate-700 text-teal-400 hover:bg-slate-600' : 'bg-slate-100 text-teal-600 hover:bg-slate-200'}`}
-                  title="Edit description"
-                >
-                  <Edit2 size={14} />
-                </button>
-                <button
-                  onClick={deleteDescription}
-                  className={`p-1 rounded ${darkMode ? 'bg-slate-700 text-red-400 hover:bg-slate-600' : 'bg-slate-100 text-red-600 hover:bg-slate-200'}`}
-                  title="Delete description"
-                >
-                  <Trash2 size={14} />
-                </button>
-              </div>
-            </div>
-          ) : (
-            <button
-              onClick={() => setIsEditingDescription(true)}
-              className={`text-sm ${darkMode ? 'text-slate-500 hover:text-teal-400' : 'text-slate-400 hover:text-teal-600'} mb-4`}
-            >
-              + Add description
-            </button>
-          )}
 
           {/* EDITABLE TAGS - MORE SPACING ABOVE */}
           {isEditingTags ? (
@@ -1988,3 +1951,1494 @@ function ProjectCard({
     </div>
   );
 }
+
+// LINKS VIEW - Complete with filtering and tag editing
+function LinksView({
+  links,
+  addLink,
+  updateLink,
+  deleteLink,
+  reorderLinks,
+  showNewLinkForm,
+  setShowNewLinkForm,
+  projects,
+  notes,
+  getLinkedItem,
+  navigateToLinkedItem,
+  highlightedItemId,
+  darkMode,
+  allTags,
+  viewMode,
+  toggleViewMode
+}) {
+  const [filterTag, setFilterTag] = useState('all');
+  const [draggedItem, setDraggedItem] = useState(null);
+  const [dragOverItem, setDragOverItem] = useState(null);
+
+  const linkTags = [...new Set(links.flatMap(l => l.tags || []))];
+
+  const filteredLinks = filterTag === 'all' 
+    ? links 
+    : links.filter(link => link.tags && link.tags.includes(filterTag));
+
+  const handleDragStart = (e, link) => {
+    setDraggedItem(link);
+    e.dataTransfer.effectAllowed = 'move';
+  };
+
+  const handleDragOver = (e, link) => {
+    e.preventDefault();
+    if (draggedItem && draggedItem.id !== link.id) {
+      setDragOverItem(link);
+    }
+  };
+
+  const handleDrop = (e, targetLink) => {
+    e.preventDefault();
+    if (!draggedItem || draggedItem.id === targetLink.id) return;
+
+    const linksCopy = [...links];
+    const draggedIndex = linksCopy.findIndex(l => l.id === draggedItem.id);
+    const targetIndex = linksCopy.findIndex(l => l.id === targetLink.id);
+
+    const [removed] = linksCopy.splice(draggedIndex, 1);
+    linksCopy.splice(targetIndex, 0, removed);
+
+    reorderLinks(linksCopy);
+
+    setDraggedItem(null);
+    setDragOverItem(null);
+  };
+
+  const handleDragEnd = () => {
+    setDraggedItem(null);
+    setDragOverItem(null);
+  };
+
+  return (
+    <div className="max-w-7xl animate-fadeIn">
+      <div className="flex items-center justify-between mb-8">
+        <div>
+          <h2 className={`text-4xl font-bold ${darkMode ? 'text-white' : 'text-slate-800'} accent-font`}>Links</h2>
+          <p className={`${darkMode ? 'text-slate-400' : 'text-slate-500'} mt-1`}>{links.length} saved links</p>
+        </div>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => setShowNewLinkForm(true)}
+            className="flex items-center gap-2 px-6 py-3 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-all shadow-lg hover:shadow-xl hover:scale-105"
+          >
+            <Plus size={20} />
+            New Link
+          </button>
+        </div>
+      </div>
+
+      {/* Filter by Tags */}
+      {linkTags.length > 0 && (
+        <div className="mb-6">
+          <div className="flex flex-wrap items-center gap-3">
+            <Filter size={18} className={darkMode ? 'text-slate-400' : 'text-slate-500'} />
+            <button
+              onClick={() => setFilterTag('all')}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                filterTag === 'all'
+                  ? 'bg-teal-600 text-white'
+                  : darkMode ? 'bg-slate-700 text-slate-300 hover:bg-slate-600' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+              }`}
+            >
+              All
+            </button>
+            {linkTags.map(tag => (
+              <button
+                key={tag}
+                onClick={() => setFilterTag(tag)}
+                className={`flex items-center gap-1 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                  filterTag === tag
+                    ? 'bg-teal-600 text-white'
+                    : darkMode ? 'bg-slate-700 text-slate-300 hover:bg-slate-600' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                }`}
+              >
+                <Tag size={14} />
+                {tag}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {showNewLinkForm && (
+        <NewLinkForm
+          onSave={addLink}
+          onCancel={() => setShowNewLinkForm(false)}
+          darkMode={darkMode}
+          allTags={allTags}
+        />
+      )}
+
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
+        {filteredLinks.map((link, index) => (
+          <LinkCard
+            key={link.id}
+            link={link}
+            updateLink={updateLink}
+            deleteLink={deleteLink}
+            isHighlighted={highlightedItemId === link.id}
+            darkMode={darkMode}
+            allTags={allTags}
+            onDragStart={handleDragStart}
+            onDragOver={handleDragOver}
+            onDrop={handleDrop}
+            onDragEnd={handleDragEnd}
+            isDragging={draggedItem?.id === link.id}
+            isDragOver={dragOverItem?.id === link.id}
+            style={{ animationDelay: `${index * 0.03}s` }}
+          />
+        ))}
+      </div>
+
+      {filteredLinks.length === 0 && !showNewLinkForm && (
+        <div className={`text-center py-16 ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+          <Link2 size={48} className="mx-auto mb-4 opacity-30" />
+          <p>No links yet. Add your first link!</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function NewLinkForm({ onSave, onCancel, darkMode, allTags }) {
+  const [url, setUrl] = useState('');
+  const [title, setTitle] = useState('');
+  const [tagInput, setTagInput] = useState('');
+  const [selectedTags, setSelectedTags] = useState([]);
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (url.trim()) {
+      onSave({ url, title, tags: selectedTags });
+      setUrl('');
+      setTitle('');
+      setSelectedTags([]);
+    }
+  };
+
+  const addTag = (tag) => {
+    const trimmedTag = tag.trim();
+    if (trimmedTag && !selectedTags.includes(trimmedTag)) {
+      setSelectedTags([...selectedTags, trimmedTag]);
+    }
+    setTagInput('');
+  };
+
+  const removeTag = (tagToRemove) => {
+    setSelectedTags(selectedTags.filter(t => t !== tagToRemove));
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className={`mb-6 p-6 ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'} rounded-xl shadow-lg border animate-slideUp`}>
+      <input
+        type="url"
+        value={url}
+        onChange={(e) => setUrl(e.target.value)}
+        placeholder="https://example.com"
+        className={`w-full text-lg mb-3 px-3 py-2 border ${darkMode ? 'bg-slate-700 border-slate-600 text-white placeholder-slate-400' : 'border-slate-300'} rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 transition-all`}
+        autoFocus
+      />
+      <input
+        type="text"
+        value={title}
+        onChange={(e) => setTitle(e.target.value)}
+        placeholder="Link label (optional)"
+        className={`w-full mb-3 px-3 py-2 border ${darkMode ? 'bg-slate-700 border-slate-600 text-white placeholder-slate-400' : 'border-slate-300'} rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 transition-all`}
+      />
+
+      <div className="mt-4">
+        <label className={`block text-sm ${darkMode ? 'text-slate-300' : 'text-slate-600'} mb-2`}>Tags</label>
+        <div className="flex flex-wrap gap-2 mb-2">
+          {selectedTags.map(tag => (
+            <span key={tag} className="inline-flex items-center gap-1 px-3 py-1 bg-teal-100 text-teal-700 rounded-full text-sm">
+              <Tag size={12} />
+              {tag}
+              <button type="button" onClick={() => removeTag(tag)} className="hover:text-teal-900">
+                <X size={14} />
+              </button>
+            </span>
+          ))}
+        </div>
+        <div className="flex gap-2">
+          <input
+            type="text"
+            value={tagInput}
+            onChange={(e) => setTagInput(e.target.value)}
+            onKeyPress={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault();
+                addTag(tagInput);
+              }
+            }}
+            placeholder="Add tag and press Enter..."
+            list="link-tags"
+            className={`flex-1 px-3 py-2 border ${darkMode ? 'bg-slate-700 border-slate-600 text-white placeholder-slate-400' : 'border-slate-300'} rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 transition-all`}
+          />
+          <datalist id="link-tags">
+            {allTags.filter(t => !selectedTags.includes(t)).map(tag => (
+              <option key={tag} value={tag} />
+            ))}
+          </datalist>
+          <button
+            type="button"
+            onClick={() => addTag(tagInput)}
+            className="px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-all"
+          >
+            <Plus size={16} />
+          </button>
+        </div>
+      </div>
+
+      <div className="flex gap-2 mt-4">
+        <button type="submit" className="flex items-center gap-2 px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-all">
+          <Save size={16} />
+          Save
+        </button>
+        <button type="button" onClick={onCancel} className={`px-4 py-2 ${darkMode ? 'text-slate-300 hover:bg-slate-700' : 'text-slate-600 hover:bg-slate-100'} rounded-lg transition-all`}>
+          Cancel
+        </button>
+      </div>
+    </form>
+  );
+}
+
+function LinkCard({ link, updateLink, deleteLink, isHighlighted, darkMode, allTags, onDragStart, onDragOver, onDrop, onDragEnd, isDragging, isDragOver, style }) {
+  const [isEditingTitle, setIsEditingTitle] = useState(false);
+  const [editedTitle, setEditedTitle] = useState(link.title || '');
+  const [isEditingUrl, setIsEditingUrl] = useState(false);
+  const [editedUrl, setEditedUrl] = useState(link.url);
+  const [isEditingTags, setIsEditingTags] = useState(false);
+  const [tagInput, setTagInput] = useState('');
+  const [editingTags, setEditingTags] = useState(link.tags || []);
+
+  const saveTitle = () => {
+    updateLink(link.id, { title: editedTitle });
+    setIsEditingTitle(false);
+  };
+
+  const saveUrl = () => {
+    if (editedUrl.trim()) {
+      updateLink(link.id, { url: editedUrl });
+    }
+    setIsEditingUrl(false);
+  };
+
+  const saveTags = () => {
+    updateLink(link.id, { tags: editingTags });
+    setIsEditingTags(false);
+  };
+
+  const addTag = (tag) => {
+    const trimmedTag = tag.trim();
+    if (trimmedTag && !editingTags.includes(trimmedTag)) {
+      setEditingTags([...editingTags, trimmedTag]);
+    }
+    setTagInput('');
+  };
+
+  const removeTag = (tagToRemove) => {
+    setEditingTags(editingTags.filter(t => t !== tagToRemove));
+  };
+
+  return (
+    <div
+      id={`item-${link.id}`}
+      onDragOver={(e) => onDragOver(e, link)}
+      onDrop={(e) => onDrop(e, link)}
+      className={`task-card p-4 ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'} rounded-xl shadow-md border animate-slideUp group relative ${
+        isHighlighted ? 'animate-highlight ring-2 ring-teal-500' : ''
+      } ${isDragging ? 'opacity-50 scale-95' : ''} ${isDragOver ? 'border-teal-500 border-2' : ''}`}
+      style={style}
+    >
+      <div
+        draggable
+        onDragStart={(e) => onDragStart(e, link)}
+        onDragEnd={onDragEnd}
+        className={`absolute top-3 right-3 p-1.5 rounded cursor-move transition-all ${
+          darkMode ? 'text-slate-400 hover:bg-slate-700 hover:text-teal-400' : 'text-slate-500 hover:bg-slate-100 hover:text-teal-600'
+        }`}
+        title="Drag to reorder"
+      >
+        <Move size={18} />
+      </div>
+
+      <div className="mb-3 pr-8">
+        {isEditingTitle ? (
+          <input
+            type="text"
+            value={editedTitle}
+            onChange={(e) => setEditedTitle(e.target.value)}
+            onKeyPress={(e) => e.key === 'Enter' && saveTitle()}
+            onBlur={saveTitle}
+            placeholder="Link label..."
+            className={`w-full font-medium px-2 py-1 border ${darkMode ? 'bg-slate-700 border-slate-600 text-white' : 'bg-white border-slate-300'} rounded focus:outline-none focus:ring-2 focus:ring-teal-500`}
+            autoFocus
+          />
+        ) : link.title ? (
+          <div
+            onClick={() => setIsEditingTitle(true)}
+            className={`font-medium ${darkMode ? 'text-white' : 'text-slate-800'} cursor-pointer hover:text-teal-600 transition-colors`}
+          >
+            {link.title}
+          </div>
+        ) : (
+          <button
+            onClick={() => setIsEditingTitle(true)}
+            className={`text-sm ${darkMode ? 'text-slate-500 hover:text-teal-400' : 'text-slate-400 hover:text-teal-600'}`}
+          >
+            + Add label
+          </button>
+        )}
+      </div>
+
+      {isEditingUrl ? (
+        <div className="mb-3">
+          <input
+            type="url"
+            value={editedUrl}
+            onChange={(e) => setEditedUrl(e.target.value)}
+            onKeyPress={(e) => e.key === 'Enter' && saveUrl()}
+            onBlur={saveUrl}
+            className={`w-full text-sm px-2 py-1 border ${darkMode ? 'bg-slate-700 border-slate-600 text-white' : 'bg-white border-slate-300'} rounded focus:outline-none focus:ring-2 focus:ring-teal-500`}
+            autoFocus
+          />
+        </div>
+      ) : (
+        <a
+          href={link.url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className={`text-sm ${darkMode ? 'text-teal-400' : 'text-teal-600'} hover:underline mb-3 block truncate`}
+          onDoubleClick={(e) => {
+            e.preventDefault();
+            setIsEditingUrl(true);
+          }}
+        >
+          {link.url}
+        </a>
+      )}
+
+      {isEditingTags ? (
+        <div className="mb-3">
+          <div className="flex flex-wrap gap-1 mb-2">
+            {editingTags.map(tag => (
+              <span key={tag} className="inline-flex items-center gap-1 px-2 py-0.5 bg-teal-100 text-teal-700 rounded text-xs">
+                <Tag size={10} />
+                {tag}
+                <button onClick={() => removeTag(tag)} className="hover:text-teal-900">
+                  <X size={10} />
+                </button>
+              </span>
+            ))}
+          </div>
+          <div className="flex gap-2 mb-2">
+            <input
+              type="text"
+              value={tagInput}
+              onChange={(e) => setTagInput(e.target.value)}
+              onKeyPress={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  addTag(tagInput);
+                }
+              }}
+              placeholder="Add tag..."
+              list="edit-link-tags"
+              className={`flex-1 px-2 py-1 text-xs border ${darkMode ? 'bg-slate-700 border-slate-600 text-white' : 'bg-white border-slate-300'} rounded focus:outline-none focus:ring-1 focus:ring-teal-500`}
+            />
+            <datalist id="edit-link-tags">
+              {allTags.filter(t => !editingTags.includes(t)).map(tag => (
+                <option key={tag} value={tag} />
+              ))}
+            </datalist>
+            <button onClick={() => addTag(tagInput)} className="px-2 py-1 bg-teal-600 text-white rounded text-xs hover:bg-teal-700">
+              <Plus size={12} />
+            </button>
+          </div>
+          <div className="flex gap-2">
+            <button onClick={saveTags} className="px-2 py-1 bg-teal-600 text-white rounded text-xs hover:bg-teal-700">
+              Save
+            </button>
+            <button
+              onClick={() => {
+                setEditingTags(link.tags || []);
+                setIsEditingTags(false);
+              }}
+              className={`px-2 py-1 text-xs rounded ${darkMode ? 'text-slate-300 hover:bg-slate-700' : 'text-slate-600 hover:bg-slate-100'}`}
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      ) : (link.tags && link.tags.length > 0) ? (
+        <div className="flex flex-wrap gap-1 mb-3 group/tags relative">
+          {link.tags.map(tag => (
+            <span key={tag} className="inline-flex items-center gap-1 px-2 py-0.5 bg-teal-50 text-teal-700 rounded text-xs border border-teal-200">
+              <Tag size={10} />
+              {tag}
+            </span>
+          ))}
+          <button
+            onClick={() => {
+              setEditingTags(link.tags || []);
+              setIsEditingTags(true);
+            }}
+            className={`ml-1 px-2 py-0.5 text-xs rounded opacity-0 group-hover/tags:opacity-100 transition-opacity ${darkMode ? 'bg-slate-700 text-teal-400 hover:bg-slate-600' : 'bg-teal-50 text-teal-700 hover:bg-teal-100'}`}
+          >
+            <Edit2 size={10} />
+          </button>
+        </div>
+      ) : (
+        <button
+          onClick={() => {
+            setEditingTags([]);
+            setIsEditingTags(true);
+          }}
+          className={`text-xs ${darkMode ? 'text-slate-500 hover:text-teal-400' : 'text-slate-400 hover:text-teal-600'} mb-3`}
+        >
+          + Add tags
+        </button>
+      )}
+
+      <div className="flex justify-end">
+        <button
+          onClick={() => deleteLink(link.id)}
+          className={`${darkMode ? 'text-slate-500 hover:text-red-400' : 'text-slate-400 hover:text-red-600'} transition-all hover:scale-110`}
+        >
+          <Trash2 size={16} />
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// NOTES VIEW - With masonry and drag-drop
+function NotesView({
+  notes,
+  addNote,
+  updateNote,
+  deleteNote,
+  reorderNotes,
+  showNewNoteForm,
+  setShowNewNoteForm,
+  projects,
+  links,
+  getLinkedItem,
+  navigateToLinkedItem,
+  highlightedItemId,
+  darkMode,
+  allTags,
+  viewMode,
+  toggleViewMode
+}) {
+  const [filterTag, setFilterTag] = useState('all');
+  const [draggedItem, setDraggedItem] = useState(null);
+  const [dragOverItem, setDragOverItem] = useState(null);
+
+  const noteTags = [...new Set(notes.flatMap(n => n.tags || []))];
+
+  const filteredNotes = filterTag === 'all'
+    ? notes
+    : notes.filter(note => note.tags && note.tags.includes(filterTag));
+
+  const handleDragStart = (e, note) => {
+    setDraggedItem(note);
+    e.dataTransfer.effectAllowed = 'move';
+  };
+
+  const handleDragOver = (e, note) => {
+    e.preventDefault();
+    if (draggedItem && draggedItem.id !== note.id) {
+      setDragOverItem(note);
+    }
+  };
+
+  const handleDrop = (e, targetNote) => {
+    e.preventDefault();
+    if (!draggedItem || draggedItem.id === targetNote.id) return;
+
+    const notesCopy = [...notes];
+    const draggedIndex = notesCopy.findIndex(n => n.id === draggedItem.id);
+    const targetIndex = notesCopy.findIndex(n => n.id === targetNote.id);
+
+    const [removed] = notesCopy.splice(draggedIndex, 1);
+    notesCopy.splice(targetIndex, 0, removed);
+
+    reorderNotes(notesCopy);
+
+    setDraggedItem(null);
+    setDragOverItem(null);
+  };
+
+  const handleDragEnd = () => {
+    setDraggedItem(null);
+    setDragOverItem(null);
+  };
+
+  return (
+    <div className="max-w-7xl animate-fadeIn">
+      <div className="flex items-center justify-between mb-8">
+        <div>
+          <h2 className={`text-4xl font-bold ${darkMode ? 'text-white' : 'text-slate-800'} accent-font`}>Notes</h2>
+          <p className={`${darkMode ? 'text-slate-400' : 'text-slate-500'} mt-1`}>{notes.length} notes</p>
+        </div>
+        <div className="flex items-center gap-3">
+          <div className={`flex gap-1 p-1 rounded-lg ${darkMode ? 'bg-slate-700' : 'bg-slate-200'}`}>
+            <button
+              onClick={() => toggleViewMode('notes', 'list')}
+              className={`p-2 rounded transition-all ${viewMode === 'list' ? (darkMode ? 'bg-slate-600 shadow' : 'bg-white shadow') : (darkMode ? 'hover:bg-slate-600' : 'hover:bg-slate-300')}`}
+              title="List view"
+            >
+              <LayoutList size={18} className={darkMode ? 'text-slate-300' : 'text-slate-700'} />
+            </button>
+            <button
+              onClick={() => toggleViewMode('notes', 'grid')}
+              className={`p-2 rounded transition-all ${viewMode === 'grid' ? (darkMode ? 'bg-slate-600 shadow' : 'bg-white shadow') : (darkMode ? 'hover:bg-slate-600' : 'hover:bg-slate-300')}`}
+              title="Grid view"
+            >
+              <Grid size={18} className={darkMode ? 'text-slate-300' : 'text-slate-700'} />
+            </button>
+          </div>
+          <button
+            onClick={() => setShowNewNoteForm(true)}
+            className="flex items-center gap-2 px-6 py-3 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-all shadow-lg hover:shadow-xl hover:scale-105"
+          >
+            <Plus size={20} />
+            New Note
+          </button>
+        </div>
+      </div>
+
+      {noteTags.length > 0 && (
+        <div className="mb-6">
+          <div className="flex flex-wrap items-center gap-3">
+            <Filter size={18} className={darkMode ? 'text-slate-400' : 'text-slate-500'} />
+            <button
+              onClick={() => setFilterTag('all')}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                filterTag === 'all'
+                  ? 'bg-teal-600 text-white'
+                  : darkMode ? 'bg-slate-700 text-slate-300 hover:bg-slate-600' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+              }`}
+            >
+              All
+            </button>
+            {noteTags.map(tag => (
+              <button
+                key={tag}
+                onClick={() => setFilterTag(tag)}
+                className={`flex items-center gap-1 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                  filterTag === tag
+                    ? 'bg-teal-600 text-white'
+                    : darkMode ? 'bg-slate-700 text-slate-300 hover:bg-slate-600' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                }`}
+              >
+                <Tag size={14} />
+                {tag}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {showNewNoteForm && (
+        <NewNoteForm
+          onSave={addNote}
+          onCancel={() => setShowNewNoteForm(false)}
+          darkMode={darkMode}
+          allTags={allTags}
+        />
+      )}
+
+      {viewMode === 'grid' ? (
+        <div className="masonry mb-8">
+          {filteredNotes.map((note, index) => (
+            <div key={note.id} className="masonry-item">
+              <NoteCard
+                note={note}
+                updateNote={updateNote}
+                deleteNote={deleteNote}
+                isHighlighted={highlightedItemId === note.id}
+                darkMode={darkMode}
+                allTags={allTags}
+                onDragStart={handleDragStart}
+                onDragOver={handleDragOver}
+                onDrop={handleDrop}
+                onDragEnd={handleDragEnd}
+                isDragging={draggedItem?.id === note.id}
+                isDragOver={dragOverItem?.id === note.id}
+                style={{ animationDelay: `${index * 0.03}s` }}
+              />
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="space-y-4 mb-8">
+          {filteredNotes.map((note, index) => (
+            <NoteCard
+              key={note.id}
+              note={note}
+              updateNote={updateNote}
+              deleteNote={deleteNote}
+              isHighlighted={highlightedItemId === note.id}
+              darkMode={darkMode}
+              allTags={allTags}
+              onDragStart={handleDragStart}
+              onDragOver={handleDragOver}
+              onDrop={handleDrop}
+              onDragEnd={handleDragEnd}
+              isDragging={draggedItem?.id === note.id}
+              isDragOver={dragOverItem?.id === note.id}
+              style={{ animationDelay: `${index * 0.03}s` }}
+            />
+          ))}
+        </div>
+      )}
+
+      {filteredNotes.length === 0 && !showNewNoteForm && (
+        <div className={`text-center py-16 ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+          <StickyNote size={48} className="mx-auto mb-4 opacity-30" />
+          <p>No notes yet. Create your first note!</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function NewNoteForm({ onSave, onCancel, darkMode, allTags }) {
+  const [title, setTitle] = useState('');
+  const [content, setContent] = useState('');
+  const [tagInput, setTagInput] = useState('');
+  const [selectedTags, setSelectedTags] = useState([]);
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (title.trim()) {
+      onSave({ title, content, tags: selectedTags });
+      setTitle('');
+      setContent('');
+      setSelectedTags([]);
+    }
+  };
+
+  const addTag = (tag) => {
+    const trimmedTag = tag.trim();
+    if (trimmedTag && !selectedTags.includes(trimmedTag)) {
+      setSelectedTags([...selectedTags, trimmedTag]);
+    }
+    setTagInput('');
+  };
+
+  const removeTag = (tagToRemove) => {
+    setSelectedTags(selectedTags.filter(t => t !== tagToRemove));
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className={`mb-6 p-6 ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'} rounded-xl shadow-lg border animate-slideUp`}>
+      <input
+        type="text"
+        value={title}
+        onChange={(e) => setTitle(e.target.value)}
+        placeholder="Note title..."
+        className={`w-full text-lg font-medium mb-3 px-3 py-2 border ${darkMode ? 'bg-slate-700 border-slate-600 text-white placeholder-slate-400' : 'border-slate-300'} rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 transition-all`}
+        autoFocus
+      />
+      <RichTextEditor
+        value={content}
+        onChange={setContent}
+        placeholder="Note content..."
+        darkMode={darkMode}
+        rows={10}
+      />
+
+      <div className="mt-4">
+        <label className={`block text-sm ${darkMode ? 'text-slate-300' : 'text-slate-600'} mb-2`}>Tags</label>
+        <div className="flex flex-wrap gap-2 mb-2">
+          {selectedTags.map(tag => (
+            <span key={tag} className="inline-flex items-center gap-1 px-3 py-1 bg-teal-100 text-teal-700 rounded-full text-sm">
+              <Tag size={12} />
+              {tag}
+              <button type="button" onClick={() => removeTag(tag)} className="hover:text-teal-900">
+                <X size={14} />
+              </button>
+            </span>
+          ))}
+        </div>
+        <div className="flex gap-2">
+          <input
+            type="text"
+            value={tagInput}
+            onChange={(e) => setTagInput(e.target.value)}
+            onKeyPress={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault();
+                addTag(tagInput);
+              }
+            }}
+            placeholder="Add tag and press Enter..."
+            list="note-tags"
+            className={`flex-1 px-3 py-2 border ${darkMode ? 'bg-slate-700 border-slate-600 text-white placeholder-slate-400' : 'border-slate-300'} rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 transition-all`}
+          />
+          <datalist id="note-tags">
+            {allTags.filter(t => !selectedTags.includes(t)).map(tag => (
+              <option key={tag} value={tag} />
+            ))}
+          </datalist>
+          <button
+            type="button"
+            onClick={() => addTag(tagInput)}
+            className="px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-all"
+          >
+            <Plus size={16} />
+          </button>
+        </div>
+      </div>
+
+      <div className="flex gap-2 mt-4">
+        <button type="submit" className="flex items-center gap-2 px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-all">
+          <Save size={16} />
+          Save
+        </button>
+        <button type="button" onClick={onCancel} className={`px-4 py-2 ${darkMode ? 'text-slate-300 hover:bg-slate-700' : 'text-slate-600 hover:bg-slate-100'} rounded-lg transition-all`}>
+          Cancel
+        </button>
+      </div>
+    </form>
+  );
+}
+
+function NoteCard({ note, updateNote, deleteNote, isHighlighted, darkMode, allTags, onDragStart, onDragOver, onDrop, onDragEnd, isDragging, isDragOver, style }) {
+  const [isEditing, setIsEditing] = useState(false);
+  const [editedTitle, setEditedTitle] = useState(note.title);
+  const [editedContent, setEditedContent] = useState(note.content || '');
+  const [isEditingTags, setIsEditingTags] = useState(false);
+  const [tagInput, setTagInput] = useState('');
+  const [editingTags, setEditingTags] = useState(note.tags || []);
+
+  const saveNote = () => {
+    if (editedTitle.trim()) {
+      updateNote(note.id, { title: editedTitle, content: editedContent });
+    }
+    setIsEditing(false);
+  };
+
+  const saveTags = () => {
+    updateNote(note.id, { tags: editingTags });
+    setIsEditingTags(false);
+  };
+
+  const addTag = (tag) => {
+    const trimmedTag = tag.trim();
+    if (trimmedTag && !editingTags.includes(trimmedTag)) {
+      setEditingTags([...editingTags, trimmedTag]);
+    }
+    setTagInput('');
+  };
+
+  const removeTag = (tagToRemove) => {
+    setEditingTags(editingTags.filter(t => t !== tagToRemove));
+  };
+
+  return (
+    <div
+      id={`item-${note.id}`}
+      onDragOver={(e) => onDragOver(e, note)}
+      onDrop={(e) => onDrop(e, note)}
+      className={`task-card p-6 ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'} rounded-xl shadow-md border animate-slideUp group relative ${
+        isHighlighted ? 'animate-highlight ring-2 ring-teal-500' : ''
+      } ${isDragging ? 'opacity-50 scale-95' : ''} ${isDragOver ? 'border-teal-500 border-2' : ''}`}
+      style={style}
+    >
+      <div
+        draggable
+        onDragStart={(e) => onDragStart(e, note)}
+        onDragEnd={onDragEnd}
+        className={`absolute top-4 right-4 p-2 rounded cursor-move transition-all ${
+          darkMode ? 'text-slate-400 hover:bg-slate-700 hover:text-teal-400' : 'text-slate-500 hover:bg-slate-100 hover:text-teal-600'
+        }`}
+        title="Drag to reorder"
+      >
+        <Move size={20} />
+      </div>
+
+      {isEditing ? (
+        <div>
+          <input
+            type="text"
+            value={editedTitle}
+            onChange={(e) => setEditedTitle(e.target.value)}
+            className={`w-full text-xl font-semibold mb-3 px-2 py-1 border ${darkMode ? 'bg-slate-700 border-slate-600 text-white' : 'bg-white border-slate-300'} rounded focus:outline-none focus:ring-2 focus:ring-teal-500`}
+          />
+          <RichTextEditor
+            value={editedContent}
+            onChange={setEditedContent}
+            placeholder="Note content..."
+            darkMode={darkMode}
+            rows={10}
+          />
+          <div className="flex gap-2 mt-3">
+            <button
+              onClick={saveNote}
+              className="flex items-center gap-1 px-3 py-1 bg-teal-600 text-white rounded text-sm hover:bg-teal-700"
+            >
+              <Save size={14} />
+              Save
+            </button>
+            <button
+              onClick={() => setIsEditing(false)}
+              className={`px-3 py-1 text-sm rounded ${darkMode ? 'text-slate-300 hover:bg-slate-700' : 'text-slate-600 hover:bg-slate-100'}`}
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div>
+          <div className="flex items-start justify-between mb-3 pr-10">
+            <h3
+              onClick={() => setIsEditing(true)}
+              className={`text-xl font-semibold ${darkMode ? 'text-white' : 'text-slate-800'} cursor-pointer hover:text-teal-600 transition-colors`}
+            >
+              {note.title}
+            </h3>
+            <button
+              onClick={() => deleteNote(note.id)}
+              className={`${darkMode ? 'text-slate-500 hover:text-red-400' : 'text-slate-400 hover:text-red-600'} transition-all hover:scale-110`}
+            >
+              <Trash2 size={18} />
+            </button>
+          </div>
+
+          {note.content && (
+            <div
+              onClick={() => setIsEditing(true)}
+              className={`${darkMode ? 'text-slate-300' : 'text-slate-600'} text-sm mb-3 cursor-pointer rich-text-editor`}
+              dangerouslySetInnerHTML={{ __html: note.content }}
+            />
+          )}
+
+          {isEditingTags ? (
+            <div className="mb-3">
+              <div className="flex flex-wrap gap-1 mb-2">
+                {editingTags.map(tag => (
+                  <span key={tag} className="inline-flex items-center gap-1 px-2 py-1 bg-teal-100 text-teal-700 rounded text-xs">
+                    <Tag size={10} />
+                    {tag}
+                    <button onClick={() => removeTag(tag)} className="hover:text-teal-900">
+                      <X size={10} />
+                    </button>
+                  </span>
+                ))}
+              </div>
+              <div className="flex gap-2 mb-2">
+                <input
+                  type="text"
+                  value={tagInput}
+                  onChange={(e) => setTagInput(e.target.value)}
+                  onKeyPress={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      addTag(tagInput);
+                    }
+                  }}
+                  placeholder="Add tag..."
+                  list="edit-note-tags"
+                  className={`flex-1 px-2 py-1 text-xs border ${darkMode ? 'bg-slate-700 border-slate-600 text-white' : 'bg-white border-slate-300'} rounded focus:outline-none focus:ring-1 focus:ring-teal-500`}
+                />
+                <datalist id="edit-note-tags">
+                  {allTags.filter(t => !editingTags.includes(t)).map(tag => (
+                    <option key={tag} value={tag} />
+                  ))}
+                </datalist>
+                <button onClick={() => addTag(tagInput)} className="px-2 py-1 bg-teal-600 text-white rounded text-xs hover:bg-teal-700">
+                  <Plus size={12} />
+                </button>
+              </div>
+              <div className="flex gap-2">
+                <button onClick={saveTags} className="px-2 py-1 bg-teal-600 text-white rounded text-xs hover:bg-teal-700">
+                  Save
+                </button>
+                <button
+                  onClick={() => {
+                    setEditingTags(note.tags || []);
+                    setIsEditingTags(false);
+                  }}
+                  className={`px-2 py-1 text-xs rounded ${darkMode ? 'text-slate-300 hover:bg-slate-700' : 'text-slate-600 hover:bg-slate-100'}`}
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          ) : (note.tags && note.tags.length > 0) ? (
+            <div className="flex flex-wrap gap-1 group/tags relative">
+              {note.tags.map(tag => (
+                <span key={tag} className="inline-flex items-center gap-1 px-2 py-1 bg-teal-50 text-teal-700 rounded text-xs border border-teal-200">
+                  <Tag size={10} />
+                  {tag}
+                </span>
+              ))}
+              <button
+                onClick={() => {
+                  setEditingTags(note.tags || []);
+                  setIsEditingTags(true);
+                }}
+                className={`ml-1 px-2 py-1 text-xs rounded opacity-0 group-hover/tags:opacity-100 transition-opacity ${darkMode ? 'bg-slate-700 text-teal-400 hover:bg-slate-600' : 'bg-teal-50 text-teal-700 hover:bg-teal-100'}`}
+              >
+                <Edit2 size={10} />
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={() => {
+                setEditingTags([]);
+                setIsEditingTags(true);
+              }}
+              className={`text-xs ${darkMode ? 'text-slate-500 hover:text-teal-400' : 'text-slate-400 hover:text-teal-600'}`}
+            >
+              + Add tags
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// CALENDAR VIEW - Simple event list for now
+function CalendarView({
+  events,
+  addEvent,
+  updateEvent,
+  deleteEvent,
+  showNewEventForm,
+  setShowNewEventForm,
+  selectedDate,
+  setSelectedDate,
+  darkMode,
+  allTags
+}) {
+  return (
+    <div className="max-w-4xl animate-fadeIn">
+      <div className="flex items-center justify-between mb-8">
+        <div>
+          <h2 className={`text-4xl font-bold ${darkMode ? 'text-white' : 'text-slate-800'} accent-font`}>Calendar</h2>
+          <p className={`${darkMode ? 'text-slate-400' : 'text-slate-500'} mt-1`}>{events.length} events</p>
+        </div>
+        <button
+          onClick={() => setShowNewEventForm(true)}
+          className="flex items-center gap-2 px-6 py-3 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-all shadow-lg hover:shadow-xl hover:scale-105"
+        >
+          <Plus size={20} />
+          New Event
+        </button>
+      </div>
+
+      {showNewEventForm && (
+        <NewEventForm
+          onSave={addEvent}
+          onCancel={() => setShowNewEventForm(false)}
+          darkMode={darkMode}
+          allTags={allTags}
+        />
+      )}
+
+      <div className="space-y-4">
+        {events.length === 0 && !showNewEventForm ? (
+          <div className={`text-center py-16 ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+            <Calendar size={48} className="mx-auto mb-4 opacity-30" />
+            <p>No events yet. Add your first event!</p>
+          </div>
+        ) : (
+          events.map((event, index) => (
+            <EventCard
+              key={event.id}
+              event={event}
+              updateEvent={updateEvent}
+              deleteEvent={deleteEvent}
+              darkMode={darkMode}
+              allTags={allTags}
+              style={{ animationDelay: `${index * 0.03}s` }}
+            />
+          ))
+        )}
+      </div>
+    </div>
+  );
+}
+
+function NewEventForm({ onSave, onCancel, darkMode, allTags }) {
+  const [title, setTitle] = useState('');
+  const [date, setDate] = useState('');
+  const [time, setTime] = useState('');
+  const [description, setDescription] = useState('');
+  const [tagInput, setTagInput] = useState('');
+  const [selectedTags, setSelectedTags] = useState([]);
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (title.trim() && date) {
+      onSave({ title, date, time, description, tags: selectedTags });
+      setTitle('');
+      setDate('');
+      setTime('');
+      setDescription('');
+      setSelectedTags([]);
+    }
+  };
+
+  const addTag = (tag) => {
+    const trimmedTag = tag.trim();
+    if (trimmedTag && !selectedTags.includes(trimmedTag)) {
+      setSelectedTags([...selectedTags, trimmedTag]);
+    }
+    setTagInput('');
+  };
+
+  const removeTag = (tagToRemove) => {
+    setSelectedTags(selectedTags.filter(t => t !== tagToRemove));
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className={`mb-6 p-6 ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'} rounded-xl shadow-lg border animate-slideUp`}>
+      <input
+        type="text"
+        value={title}
+        onChange={(e) => setTitle(e.target.value)}
+        placeholder="Event title..."
+        className={`w-full text-lg font-medium mb-3 px-3 py-2 border ${darkMode ? 'bg-slate-700 border-slate-600 text-white placeholder-slate-400' : 'border-slate-300'} rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 transition-all`}
+        autoFocus
+      />
+      <div className="grid grid-cols-2 gap-3 mb-3">
+        <input
+          type="date"
+          value={date}
+          onChange={(e) => setDate(e.target.value)}
+          className={`px-3 py-2 border ${darkMode ? 'bg-slate-700 border-slate-600 text-white' : 'border-slate-300'} rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 transition-all`}
+        />
+        <input
+          type="time"
+          value={time}
+          onChange={(e) => setTime(e.target.value)}
+          className={`px-3 py-2 border ${darkMode ? 'bg-slate-700 border-slate-600 text-white' : 'border-slate-300'} rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 transition-all`}
+        />
+      </div>
+      <RichTextEditor
+        value={description}
+        onChange={setDescription}
+        placeholder="Description (optional)..."
+        darkMode={darkMode}
+        rows={6}
+      />
+
+      <div className="mt-4">
+        <label className={`block text-sm ${darkMode ? 'text-slate-300' : 'text-slate-600'} mb-2`}>Tags</label>
+        <div className="flex flex-wrap gap-2 mb-2">
+          {selectedTags.map(tag => (
+            <span key={tag} className="inline-flex items-center gap-1 px-3 py-1 bg-teal-100 text-teal-700 rounded-full text-sm">
+              <Tag size={12} />
+              {tag}
+              <button type="button" onClick={() => removeTag(tag)} className="hover:text-teal-900">
+                <X size={14} />
+              </button>
+            </span>
+          ))}
+        </div>
+        <div className="flex gap-2">
+          <input
+            type="text"
+            value={tagInput}
+            onChange={(e) => setTagInput(e.target.value)}
+            onKeyPress={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault();
+                addTag(tagInput);
+              }
+            }}
+            placeholder="Add tag and press Enter..."
+            list="event-tags"
+            className={`flex-1 px-3 py-2 border ${darkMode ? 'bg-slate-700 border-slate-600 text-white placeholder-slate-400' : 'border-slate-300'} rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 transition-all`}
+          />
+          <datalist id="event-tags">
+            {allTags.filter(t => !selectedTags.includes(t)).map(tag => (
+              <option key={tag} value={tag} />
+            ))}
+          </datalist>
+          <button
+            type="button"
+            onClick={() => addTag(tagInput)}
+            className="px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-all"
+          >
+            <Plus size={16} />
+          </button>
+        </div>
+      </div>
+
+      <div className="flex gap-2 mt-4">
+        <button type="submit" className="flex items-center gap-2 px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-all">
+          <Save size={16} />
+          Save
+        </button>
+        <button type="button" onClick={onCancel} className={`px-4 py-2 ${darkMode ? 'text-slate-300 hover:bg-slate-700' : 'text-slate-600 hover:bg-slate-100'} rounded-lg transition-all`}>
+          Cancel
+        </button>
+      </div>
+    </form>
+  );
+}
+
+function EventCard({ event, updateEvent, deleteEvent, darkMode, allTags, style }) {
+  const [isEditing, setIsEditing] = useState(false);
+  const [editedTitle, setEditedTitle] = useState(event.title);
+  const [editedDate, setEditedDate] = useState(event.date);
+  const [editedTime, setEditedTime] = useState(event.time || '');
+  const [editedDescription, setEditedDescription] = useState(event.description || '');
+  const [isEditingTags, setIsEditingTags] = useState(false);
+  const [tagInput, setTagInput] = useState('');
+  const [editingTags, setEditingTags] = useState(event.tags || []);
+
+  const saveEvent = () => {
+    if (editedTitle.trim() && editedDate) {
+      updateEvent(event.id, {
+        title: editedTitle,
+        date: editedDate,
+        time: editedTime,
+        description: editedDescription
+      });
+    }
+    setIsEditing(false);
+  };
+
+  const saveTags = () => {
+    updateEvent(event.id, { tags: editingTags });
+    setIsEditingTags(false);
+  };
+
+  const addTag = (tag) => {
+    const trimmedTag = tag.trim();
+    if (trimmedTag && !editingTags.includes(trimmedTag)) {
+      setEditingTags([...editingTags, trimmedTag]);
+    }
+    setTagInput('');
+  };
+
+  const removeTag = (tagToRemove) => {
+    setEditingTags(editingTags.filter(t => t !== tagToRemove));
+  };
+
+  const formattedDate = new Date(event.date).toLocaleDateString('en-US', {
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric'
+  });
+
+  return (
+    <div
+      className={`task-card p-6 ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'} rounded-xl shadow-md border animate-slideUp`}
+      style={style}
+    >
+      {isEditing ? (
+        <div>
+          <input
+            type="text"
+            value={editedTitle}
+            onChange={(e) => setEditedTitle(e.target.value)}
+            className={`w-full text-xl font-semibold mb-3 px-2 py-1 border ${darkMode ? 'bg-slate-700 border-slate-600 text-white' : 'bg-white border-slate-300'} rounded focus:outline-none focus:ring-2 focus:ring-teal-500`}
+          />
+          <div className="grid grid-cols-2 gap-3 mb-3">
+            <input
+              type="date"
+              value={editedDate}
+              onChange={(e) => setEditedDate(e.target.value)}
+              className={`px-3 py-2 border ${darkMode ? 'bg-slate-700 border-slate-600 text-white' : 'border-slate-300'} rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500`}
+            />
+            <input
+              type="time"
+              value={editedTime}
+              onChange={(e) => setEditedTime(e.target.value)}
+              className={`px-3 py-2 border ${darkMode ? 'bg-slate-700 border-slate-600 text-white' : 'border-slate-300'} rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500`}
+            />
+          </div>
+          <RichTextEditor
+            value={editedDescription}
+            onChange={setEditedDescription}
+            placeholder="Description..."
+            darkMode={darkMode}
+            rows={6}
+          />
+          <div className="flex gap-2 mt-3">
+            <button onClick={saveEvent} className="flex items-center gap-1 px-3 py-1 bg-teal-600 text-white rounded text-sm hover:bg-teal-700">
+              <Save size={14} />
+              Save
+            </button>
+            <button
+              onClick={() => setIsEditing(false)}
+              className={`px-3 py-1 text-sm rounded ${darkMode ? 'text-slate-300 hover:bg-slate-700' : 'text-slate-600 hover:bg-slate-100'}`}
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div>
+          <div className="flex items-start justify-between mb-3">
+            <div className="flex-1">
+              <h3
+                onClick={() => setIsEditing(true)}
+                className={`text-xl font-semibold ${darkMode ? 'text-white' : 'text-slate-800'} cursor-pointer hover:text-teal-600 transition-colors mb-2`}
+              >
+                {event.title}
+              </h3>
+              <div className={`flex items-center gap-2 text-sm ${darkMode ? 'text-slate-400' : 'text-slate-600'}`}>
+                <Calendar size={16} />
+                <span>{formattedDate}</span>
+                {event.time && (
+                  <>
+                    <Clock size={16} />
+                    <span>{event.time}</span>
+                  </>
+                )}
+              </div>
+            </div>
+            <button
+              onClick={() => deleteEvent(event.id)}
+              className={`${darkMode ? 'text-slate-500 hover:text-red-400' : 'text-slate-400 hover:text-red-600'} transition-all hover:scale-110`}
+            >
+              <Trash2 size={18} />
+            </button>
+          </div>
+
+          {event.description && (
+            <div
+              onClick={() => setIsEditing(true)}
+              className={`${darkMode ? 'text-slate-300' : 'text-slate-600'} text-sm mb-3 cursor-pointer rich-text-editor`}
+              dangerouslySetInnerHTML={{ __html: event.description }}
+            />
+          )}
+
+          {isEditingTags ? (
+            <div className="mb-3 mt-4">
+              <div className="flex flex-wrap gap-1 mb-2">
+                {editingTags.map(tag => (
+                  <span key={tag} className="inline-flex items-center gap-1 px-2 py-1 bg-teal-100 text-teal-700 rounded text-xs">
+                    <Tag size={10} />
+                    {tag}
+                    <button onClick={() => removeTag(tag)} className="hover:text-teal-900">
+                      <X size={10} />
+                    </button>
+                  </span>
+                ))}
+              </div>
+              <div className="flex gap-2 mb-2">
+                <input
+                  type="text"
+                  value={tagInput}
+                  onChange={(e) => setTagInput(e.target.value)}
+                  onKeyPress={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      addTag(tagInput);
+                    }
+                  }}
+                  placeholder="Add tag..."
+                  list="edit-event-tags"
+                  className={`flex-1 px-2 py-1 text-xs border ${darkMode ? 'bg-slate-700 border-slate-600 text-white' : 'bg-white border-slate-300'} rounded focus:outline-none focus:ring-1 focus:ring-teal-500`}
+                />
+                <datalist id="edit-event-tags">
+                  {allTags.filter(t => !editingTags.includes(t)).map(tag => (
+                    <option key={tag} value={tag} />
+                  ))}
+                </datalist>
+                <button onClick={() => addTag(tagInput)} className="px-2 py-1 bg-teal-600 text-white rounded text-xs hover:bg-teal-700">
+                  <Plus size={12} />
+                </button>
+              </div>
+              <div className="flex gap-2">
+                <button onClick={saveTags} className="px-2 py-1 bg-teal-600 text-white rounded text-xs hover:bg-teal-700">
+                  Save
+                </button>
+                <button
+                  onClick={() => {
+                    setEditingTags(event.tags || []);
+                    setIsEditingTags(false);
+                  }}
+                  className={`px-2 py-1 text-xs rounded ${darkMode ? 'text-slate-300 hover:bg-slate-700' : 'text-slate-600 hover:bg-slate-100'}`}
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          ) : (event.tags && event.tags.length > 0) ? (
+            <div className="flex flex-wrap gap-1 mt-4 group/tags relative">
+              {event.tags.map(tag => (
+                <span key={tag} className="inline-flex items-center gap-1 px-2 py-1 bg-teal-50 text-teal-700 rounded text-xs border border-teal-200">
+                  <Tag size={10} />
+                  {tag}
+                </span>
+              ))}
+              <button
+                onClick={() => {
+                  setEditingTags(event.tags || []);
+                  setIsEditingTags(true);
+                }}
+                className={`ml-1 px-2 py-1 text-xs rounded opacity-0 group-hover/tags:opacity-100 transition-opacity ${darkMode ? 'bg-slate-700 text-teal-400 hover:bg-slate-600' : 'bg-teal-50 text-teal-700 hover:bg-teal-100'}`}
+              >
+                <Edit2 size={10} />
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={() => {
+                setEditingTags([]);
+                setIsEditingTags(true);
+              }}
+              className={`text-xs ${darkMode ? 'text-slate-500 hover:text-teal-400' : 'text-slate-400 hover:text-teal-600'} mt-4`}
+            >
+              + Add tags
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// TAGS VIEW - Shows all items with a specific tag
+function TagsView({
+  projects,
+  links,
+  notes,
+  events,
+  navigateToLinkedItem,
+  darkMode,
+  allTags
+}) {
+  const [selectedTag, setSelectedTag] = useState(allTags[0] || '');
+  const [viewMode, setViewMode] = useState('grid');
+
+  const getItemsWithTag = (tag) => {
+    const items = [];
+
+    projects.forEach(p => {
+      if (p.tags && p.tags.includes(tag)) {
+        items.push({ ...p, type: 'project', icon: List });
+      }
+    });
+
+    links.forEach(l => {
+      if (l.tags && l.tags.includes(tag)) {
+        items.push({ ...l, type: 'link', icon: Link2 });
+      }
+    });
+
+    notes.forEach(n => {
+      if (n.tags && n.tags.includes(tag)) {
+        items.push({ ...n, type: 'note', icon: StickyNote });
+      }
+    });
+
+    events.forEach(e => {
+      if (e.tags && e.tags.includes(tag)) {
+        items.push({ ...e, type: 'event', icon: Calendar });
+      }
+    });
+
+    return items;
+  };
+
+  const itemsWithTag = selectedTag ? getItemsWithTag(selectedTag) : [];
+
+  return (
+    <div className="max-w-7xl animate-fadeIn">
+      <div className="flex items-center justify-between mb-8">
+        <div>
+          <h2 className={`text-4xl font-bold ${darkMode ? 'text-white' : 'text-slate-800'} accent-font`}>Tags</h2>
+          <p className={`${darkMode ? 'text-slate-400' : 'text-slate-500'} mt-1`}>{allTags.length} tags</p>
+        </div>
+      </div>
+
+      {allTags.length === 0 ? (
+        <div className={`text-center py-16 ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+          <Tag size={48} className="mx-auto mb-4 opacity-30" />
+          <p>No tags yet. Add tags to your items to see them here!</p>
+        </div>
+      ) : (
+        <>
+          <div className="mb-6">
+            <div className="flex flex-wrap gap-2">
+              {allTags.map(tag => (
+                <button
+                  key={tag}
+                  onClick={() => setSelectedTag(tag)}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-all ${
+                    selectedTag === tag
+                      ? 'bg-teal-600 text-white shadow-lg scale-105'
+                      : darkMode
+                        ? 'bg-slate-700 text-slate-300 hover:bg-slate-600'
+                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                  }`}
+                >
+                  <Tag size={16} />
+                  <span className="font-medium">{tag}</span>
+                  <span
+                    className={`px-2 py-0.5 rounded-full text-xs ${
+                      selectedTag === tag ? 'bg-white/20' : darkMode ? 'bg-slate-600' : 'bg-slate-200'
+                    }`}
+                  >
+                    {getItemsWithTag(tag).length}
+                  </span>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {selectedTag && (
+            <div>
+              <h3 className={`text-2xl font-semibold ${darkMode ? 'text-white' : 'text-slate-800'} mb-6`}>
+                Items tagged with "{selectedTag}"
+              </h3>
+
+              {itemsWithTag.length === 0 ? (
+                <div className={`text-center py-16 ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                  <p>No items with this tag</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {itemsWithTag.map((item, index) => (
+                    <button
+                      key={`${item.type}-${item.id}`}
+                      onClick={() => navigateToLinkedItem({ id: item.id, type: item.type })}
+                      className={`text-left p-4 ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'} rounded-lg border hover:shadow-lg transition-all animate-slideUp hover:scale-105`}
+                      style={{ animationDelay: `${index * 0.03}s` }}
+                    >
+                      <div className="flex items-start gap-3 mb-2">
+                        <item.icon size={20} className="text-teal-600 flex-shrink-0 mt-1" />
+                        <div className="flex-1">
+                          <div className={`font-semibold ${darkMode ? 'text-white' : 'text-slate-800'} mb-1`}>
+                            {item.title || item.url}
+                          </div>
+                          <div className={`text-xs uppercase font-medium ${darkMode ? 'text-slate-500' : 'text-slate-400'}`}>
+                            {item.type}
+                          </div>
+                        </div>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+// Update the main App component render to use all views properly - this replaces the placeholder sections
+
+// This export is already at the top, so we're just making sure everything is connected
