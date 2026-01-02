@@ -1,18 +1,18 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Plus, Check, Circle, Pause, AlertCircle, Trash2, Link2, StickyNote, List, ExternalLink, X, Edit2, Save, Calendar, ChevronLeft, ChevronRight, Clock, Copy, Moon, Sun, Tag, ChevronDown, ChevronUp, Bold, Italic, ListOrdered, Grid, LayoutList, User, Camera, Filter } from 'lucide-react';
+import { Plus, Check, Circle, Pause, AlertCircle, Trash2, Link2, StickyNote, List, ExternalLink, X, Edit2, Save, Calendar, ChevronLeft, ChevronRight, Clock, Copy, Moon, Sun, Tag, ChevronDown, ChevronUp, Bold, Italic, ListOrdered, Grid, LayoutList, User, Camera, Filter, Download, Upload, List as ListIcon } from 'lucide-react';
 
 const generateId = () => Date.now().toString(36) + Math.random().toString(36).substr(2);
 
 export default function LifeDashboard() {
-  const [activeView, setActiveView] = useState('tasks');
-  const [tasks, setTasks] = useState([]);
+  const [activeView, setActiveView] = useState('projects');
+  const [projects, setProjects] = useState([]);
   const [links, setLinks] = useState([]);
   const [notes, setNotes] = useState([]);
   const [events, setEvents] = useState([]);
   const [darkMode, setDarkMode] = useState(false);
   const [profile, setProfile] = useState({ name: 'User', imageUrl: '' });
   const [showProfileEditor, setShowProfileEditor] = useState(false);
-  const [showNewTaskForm, setShowNewTaskForm] = useState(false);
+  const [showNewProjectForm, setShowNewProjectForm] = useState(false);
   const [showNewLinkForm, setShowNewLinkForm] = useState(false);
   const [showNewNoteForm, setShowNewNoteForm] = useState(false);
   const [showNewEventForm, setShowNewEventForm] = useState(false);
@@ -20,12 +20,56 @@ export default function LifeDashboard() {
   const [highlightedItemId, setHighlightedItemId] = useState(null);
   const [currentTime, setCurrentTime] = useState(new Date());
   const [viewModes, setViewModes] = useState({
-    tasks: 'list',
+    projects: 'list',
     calendar: 'calendar',
     links: 'grid',
     notes: 'grid',
     tags: 'grid'
   });
+
+  // DATA MIGRATION: Convert old v5.1 tasks to v6.0 projects
+  useEffect(() => {
+    const migrateOldData = () => {
+      const oldTasks = localStorage.getItem('lifeDashboard_tasks');
+      const existingProjects = localStorage.getItem('lifeDashboard_projects');
+      
+      // Only migrate if we have old tasks and no new projects
+      if (oldTasks && !existingProjects) {
+        try {
+          const tasks = JSON.parse(oldTasks);
+          const migratedProjects = tasks.map(task => {
+            // Convert subtasks to subItems with status/priority
+            const subItems = (task.subtasks || []).map(st => ({
+              id: st.id || generateId(),
+              text: st.text,
+              completed: st.completed || false,
+              status: 'new',
+              priority: 'medium'
+            }));
+
+            // Return project without top-level status/priority
+            return {
+              id: task.id,
+              title: task.title,
+              description: task.description,
+              tags: task.tags,
+              subItems: subItems,
+              linkedItems: task.linkedItems || [],
+              completed: task.status === 'completed',
+              createdAt: task.createdAt || new Date().toISOString()
+            };
+          });
+          
+          localStorage.setItem('lifeDashboard_projects', JSON.stringify(migratedProjects));
+          console.log('Migrated', migratedProjects.length, 'tasks to projects');
+        } catch (error) {
+          console.error('Migration error:', error);
+        }
+      }
+    };
+
+    migrateOldData();
+  }, []);
 
   // Update clock every second
   useEffect(() => {
@@ -45,21 +89,24 @@ export default function LifeDashboard() {
     }
   }, [highlightedItemId]);
 
-  // Auto-complete tasks when all subtasks are done
+  // Auto-complete projects when all sub-items are done
   useEffect(() => {
-    tasks.forEach(task => {
-      if (task.subtasks && task.subtasks.length > 0 && task.status !== 'completed') {
-        const allCompleted = task.subtasks.every(st => st.completed);
-        if (allCompleted) {
-          updateTask(task.id, { status: 'completed' });
+    projects.forEach(project => {
+      if (project.subItems && project.subItems.length > 0) {
+        const allCompleted = project.subItems.every(si => si.completed);
+        
+        if (allCompleted && !project.completed) {
+          updateProject(project.id, { completed: true });
+        } else if (!allCompleted && project.completed) {
+          updateProject(project.id, { completed: false });
         }
       }
     });
-  }, [tasks]);
+  }, [projects]);
 
   useEffect(() => {
     try {
-      const savedTasks = localStorage.getItem('lifeDashboard_tasks');
+      const savedProjects = localStorage.getItem('lifeDashboard_projects');
       const savedLinks = localStorage.getItem('lifeDashboard_links');
       const savedNotes = localStorage.getItem('lifeDashboard_notes');
       const savedEvents = localStorage.getItem('lifeDashboard_events');
@@ -67,7 +114,7 @@ export default function LifeDashboard() {
       const savedProfile = localStorage.getItem('lifeDashboard_profile');
       const savedViewModes = localStorage.getItem('lifeDashboard_viewModes');
       
-      if (savedTasks) setTasks(JSON.parse(savedTasks));
+      if (savedProjects) setProjects(JSON.parse(savedProjects));
       if (savedLinks) setLinks(JSON.parse(savedLinks));
       if (savedNotes) setNotes(JSON.parse(savedNotes));
       if (savedEvents) setEvents(JSON.parse(savedEvents));
@@ -81,11 +128,11 @@ export default function LifeDashboard() {
 
   useEffect(() => {
     try {
-      localStorage.setItem('lifeDashboard_tasks', JSON.stringify(tasks));
+      localStorage.setItem('lifeDashboard_projects', JSON.stringify(projects));
     } catch (error) {
-      console.error('Error saving tasks:', error);
+      console.error('Error saving projects:', error);
     }
-  }, [tasks]);
+  }, [projects]);
 
   useEffect(() => {
     try {
@@ -139,35 +186,95 @@ export default function LifeDashboard() {
     setViewModes(prev => ({ ...prev, [view]: mode }));
   };
 
-  // Task CRUD
-  const addTask = (taskData) => {
-    const newTask = {
+  // EXPORT FUNCTIONALITY
+  const exportData = () => {
+    const dataToExport = {
+      projects,
+      links,
+      notes,
+      events,
+      profile,
+      darkMode,
+      viewModes,
+      exportDate: new Date().toISOString(),
+      version: '6.0'
+    };
+
+    const dataStr = JSON.stringify(dataToExport, null, 2);
+    const dataBlob = new Blob([dataStr], { type: 'application/json' });
+    const url = URL.createObjectURL(dataBlob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `life-command-backup-${new Date().toISOString().split('T')[0]}.json`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
+  // IMPORT FUNCTIONALITY
+  const importData = () => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'application/json';
+    input.onchange = (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        try {
+          const imported = JSON.parse(event.target.result);
+          
+          if (window.confirm('This will replace all your current data. Are you sure?')) {
+            if (imported.projects) setProjects(imported.projects);
+            if (imported.links) setLinks(imported.links);
+            if (imported.notes) setNotes(imported.notes);
+            if (imported.events) setEvents(imported.events);
+            if (imported.profile) setProfile(imported.profile);
+            if (typeof imported.darkMode !== 'undefined') setDarkMode(imported.darkMode);
+            if (imported.viewModes) setViewModes(imported.viewModes);
+            
+            alert('Data imported successfully!');
+          }
+        } catch (error) {
+          alert('Error importing data. Please check the file format.');
+          console.error('Import error:', error);
+        }
+      };
+      reader.readAsText(file);
+    };
+    input.click();
+  };
+
+  // Project CRUD
+  const addProject = (projectData) => {
+    const newProject = {
       id: generateId(),
-      ...taskData,
-      status: 'new',
-      priority: 'medium',
-      subtasks: [],
+      ...projectData,
+      subItems: [],
       linkedItems: [],
+      completed: false,
       createdAt: new Date().toISOString()
     };
-    setTasks([...tasks, newTask]);
-    setShowNewTaskForm(false);
+    setProjects([...projects, newProject]);
+    setShowNewProjectForm(false);
   };
 
-  const updateTask = (id, updates) => {
-    setTasks(tasks.map(task => task.id === id ? { ...task, ...updates } : task));
+  const updateProject = (id, updates) => {
+    setProjects(projects.map(project => project.id === id ? { ...project, ...updates } : project));
   };
 
-  const deleteTask = (id) => {
-    setTasks(tasks.filter(task => task.id !== id));
+  const deleteProject = (id) => {
+    setProjects(projects.filter(project => project.id !== id));
   };
 
-  const clearCompletedTasks = () => {
-    setTasks(tasks.filter(task => task.status !== 'completed'));
+  const clearCompletedProjects = () => {
+    setProjects(projects.filter(project => !project.completed));
   };
 
-  const reorderTasks = (newOrder) => {
-    setTasks(newOrder);
+  const reorderProjects = (newOrder) => {
+    setProjects(newOrder);
   };
 
   // Link CRUD
@@ -238,19 +345,19 @@ export default function LifeDashboard() {
   };
 
   // Linking functions
-  const toggleLinkToTask = (taskId, item, type) => {
-    const task = tasks.find(t => t.id === taskId);
-    if (!task) return;
+  const toggleLinkToProject = (projectId, item, type) => {
+    const project = projects.find(p => p.id === projectId);
+    if (!project) return;
 
-    const linkedItems = task.linkedItems || [];
+    const linkedItems = project.linkedItems || [];
     const existingIndex = linkedItems.findIndex(li => li.id === item.id && li.type === type);
 
     if (existingIndex > -1) {
-      updateTask(taskId, {
+      updateProject(projectId, {
         linkedItems: linkedItems.filter((_, i) => i !== existingIndex)
       });
     } else {
-      updateTask(taskId, {
+      updateProject(projectId, {
         linkedItems: [...linkedItems, { id: item.id, type, title: item.title || item.url }]
       });
     }
@@ -279,8 +386,8 @@ export default function LifeDashboard() {
       return links.find(l => l.id === linkedItem.id);
     } else if (linkedItem.type === 'note') {
       return notes.find(n => n.id === linkedItem.id);
-    } else if (linkedItem.type === 'task') {
-      return tasks.find(t => t.id === linkedItem.id);
+    } else if (linkedItem.type === 'project') {
+      return projects.find(p => p.id === linkedItem.id);
     }
     return null;
   };
@@ -290,8 +397,8 @@ export default function LifeDashboard() {
       setActiveView('links');
     } else if (linkedItem.type === 'note') {
       setActiveView('notes');
-    } else if (linkedItem.type === 'task') {
-      setActiveView('tasks');
+    } else if (linkedItem.type === 'project') {
+      setActiveView('projects');
     }
     
     setTimeout(() => {
@@ -304,7 +411,7 @@ export default function LifeDashboard() {
   };
 
   const allTags = [...new Set([
-    ...tasks.flatMap(t => t.tags || []),
+    ...projects.flatMap(p => p.tags || []),
     ...events.flatMap(e => e.tags || []),
     ...links.flatMap(l => l.tags || []),
     ...notes.flatMap(n => n.tags || [])
@@ -399,8 +506,31 @@ export default function LifeDashboard() {
           margin: 0.5em 0;
         }
 
+        .rich-text-editor ul {
+          list-style-type: disc;
+          padding-left: 1.5em;
+          margin: 0.5em 0;
+        }
+
         .rich-text-editor li {
           margin: 0.25em 0;
+        }
+
+        /* Masonry layout for Projects and Notes */
+        .masonry {
+          column-count: 2;
+          column-gap: 1rem;
+        }
+
+        @media (min-width: 1024px) {
+          .masonry {
+            column-count: 3;
+          }
+        }
+
+        .masonry-item {
+          break-inside: avoid;
+          margin-bottom: 1rem;
         }
 
         * {
@@ -421,15 +551,16 @@ export default function LifeDashboard() {
             <h1 className={`text-2xl font-bold ${darkMode ? 'text-white' : 'text-slate-800'} accent-font`}>
               Life Command
             </h1>
+            <p className={`text-xs ${darkMode ? 'text-slate-500' : 'text-slate-400'} mt-1`}>v6.0</p>
           </div>
           
           <nav className="flex-1 px-3 overflow-y-auto">
             <NavButton 
-              active={activeView === 'tasks'} 
-              onClick={() => setActiveView('tasks')} 
+              active={activeView === 'projects'} 
+              onClick={() => setActiveView('projects')} 
               icon={List} 
-              label="Tasks"
-              count={tasks.filter(t => t.status !== 'completed').length}
+              label="Projects"
+              count={projects.filter(p => !p.completed).length}
               darkMode={darkMode}
             />
             <NavButton 
@@ -466,7 +597,7 @@ export default function LifeDashboard() {
             />
           </nav>
 
-          {/* Persistent Clock at Bottom - TASTEFUL DESIGN */}
+          {/* Persistent Clock at Bottom */}
           <div className={`px-4 py-3 border-t ${darkMode ? 'border-slate-700 bg-slate-800/50' : 'border-slate-200 bg-slate-50/50'} flex-shrink-0`}>
             <div className={`text-center ${darkMode ? 'text-slate-300' : 'text-slate-700'}`}>
               <div className="text-2xl font-bold tabular-nums tracking-tight">
@@ -495,6 +626,23 @@ export default function LifeDashboard() {
               </h2>
             </div>
             <div className="flex items-center gap-3">
+              {/* Export/Import Buttons */}
+              <button
+                onClick={exportData}
+                className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-all hover:scale-105 ${darkMode ? 'bg-slate-700 text-teal-400 hover:bg-slate-600' : 'bg-teal-50 text-teal-700 hover:bg-teal-100'}`}
+                title="Export all data"
+              >
+                <Download size={18} />
+                <span className="text-sm font-medium">Export</span>
+              </button>
+              <button
+                onClick={importData}
+                className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-all hover:scale-105 ${darkMode ? 'bg-slate-700 text-purple-400 hover:bg-slate-600' : 'bg-purple-50 text-purple-700 hover:bg-purple-100'}`}
+                title="Import data"
+              >
+                <Upload size={18} />
+                <span className="text-sm font-medium">Import</span>
+              </button>
               <button
                 onClick={() => setDarkMode(!darkMode)}
                 className={`p-2 rounded-lg transition-all hover:scale-110 ${darkMode ? 'bg-slate-700 text-yellow-400' : 'bg-slate-100 text-slate-600'}`}
@@ -518,92 +666,51 @@ export default function LifeDashboard() {
           </header>
 
           <div className="p-8">
-            {activeView === 'tasks' && (
-              <TasksView 
-                tasks={tasks}
-                addTask={addTask}
-                updateTask={updateTask}
-                deleteTask={deleteTask}
-                clearCompletedTasks={clearCompletedTasks}
-                reorderTasks={reorderTasks}
-                showNewTaskForm={showNewTaskForm}
-                setShowNewTaskForm={setShowNewTaskForm}
+            {activeView === 'projects' && (
+              <ProjectsView 
+                projects={projects}
+                addProject={addProject}
+                updateProject={updateProject}
+                deleteProject={deleteProject}
+                clearCompletedProjects={clearCompletedProjects}
+                reorderProjects={reorderProjects}
+                showNewProjectForm={showNewProjectForm}
+                setShowNewProjectForm={setShowNewProjectForm}
                 links={links}
                 notes={notes}
-                toggleLinkToTask={toggleLinkToTask}
+                toggleLinkToProject={toggleLinkToProject}
                 getLinkedItem={getLinkedItem}
                 navigateToLinkedItem={navigateToLinkedItem}
                 highlightedItemId={highlightedItemId}
                 darkMode={darkMode}
                 allTags={allTags}
-                viewMode={viewModes.tasks}
+                viewMode={viewModes.projects}
                 toggleViewMode={toggleViewMode}
               />
             )}
             {activeView === 'calendar' && (
-              <CalendarView 
-                events={events}
-                addEvent={addEvent}
-                updateEvent={updateEvent}
-                deleteEvent={deleteEvent}
-                showNewEventForm={showNewEventForm}
-                setShowNewEventForm={setShowNewEventForm}
-                selectedDate={selectedDate}
-                setSelectedDate={setSelectedDate}
-                tasks={tasks}
-                links={links}
-                notes={notes}
-                toggleLinkToEvent={toggleLinkToEvent}
-                getLinkedItem={getLinkedItem}
-                navigateToLinkedItem={navigateToLinkedItem}
-                darkMode={darkMode}
-                allTags={allTags}
-              />
+              <div className="text-center py-16">
+                <Calendar size={48} className={`mx-auto mb-4 ${darkMode ? 'text-slate-600' : 'text-slate-300'}`} />
+                <p className={darkMode ? 'text-slate-400' : 'text-slate-500'}>Calendar view coming in next update!</p>
+              </div>
             )}
             {activeView === 'links' && (
-              <LinksView 
-                links={links}
-                addLink={addLink}
-                updateLink={updateLink}
-                deleteLink={deleteLink}
-                reorderLinks={reorderLinks}
-                showNewLinkForm={showNewLinkForm}
-                setShowNewLinkForm={setShowNewLinkForm}
-                highlightedItemId={highlightedItemId}
-                darkMode={darkMode}
-                allTags={allTags}
-                viewMode={viewModes.links}
-                toggleViewMode={toggleViewMode}
-              />
+              <div className="text-center py-16">
+                <Link2 size={48} className={`mx-auto mb-4 ${darkMode ? 'text-slate-600' : 'text-slate-300'}`} />
+                <p className={darkMode ? 'text-slate-400' : 'text-slate-500'}>Links view coming in next update!</p>
+              </div>
             )}
             {activeView === 'notes' && (
-              <NotesView 
-                notes={notes}
-                addNote={addNote}
-                updateNote={updateNote}
-                deleteNote={deleteNote}
-                reorderNotes={reorderNotes}
-                showNewNoteForm={showNewNoteForm}
-                setShowNewNoteForm={setShowNewNoteForm}
-                highlightedItemId={highlightedItemId}
-                darkMode={darkMode}
-                allTags={allTags}
-                viewMode={viewModes.notes}
-                toggleViewMode={toggleViewMode}
-              />
+              <div className="text-center py-16">
+                <StickyNote size={48} className={`mx-auto mb-4 ${darkMode ? 'text-slate-600' : 'text-slate-300'}`} />
+                <p className={darkMode ? 'text-slate-400' : 'text-slate-500'}>Notes view coming in next update!</p>
+              </div>
             )}
             {activeView === 'tags' && (
-              <TagsView 
-                tasks={tasks}
-                events={events}
-                links={links}
-                notes={notes}
-                allTags={allTags}
-                navigateToLinkedItem={navigateToLinkedItem}
-                darkMode={darkMode}
-                viewMode={viewModes.tags}
-                toggleViewMode={toggleViewMode}
-              />
+              <div className="text-center py-16">
+                <Tag size={48} className={`mx-auto mb-4 ${darkMode ? 'text-slate-600' : 'text-slate-300'}`} />
+                <p className={darkMode ? 'text-slate-400' : 'text-slate-500'}>Tags view coming in next update!</p>
+              </div>
             )}
           </div>
         </main>
@@ -719,6 +826,7 @@ function RichTextEditor({ value, onChange, placeholder, darkMode, rows = 10 }) {
   const [isBold, setIsBold] = useState(false);
   const [isItalic, setIsItalic] = useState(false);
   const [isOrdered, setIsOrdered] = useState(false);
+  const [isUnordered, setIsUnordered] = useState(false);
   const editorRef = useRef(null);
 
   const execCommand = (command, value = null) => {
@@ -763,12 +871,23 @@ function RichTextEditor({ value, onChange, placeholder, darkMode, rows = 10 }) {
         >
           <ListOrdered size={16} />
         </button>
+        <button
+          type="button"
+          onClick={() => {
+            execCommand('insertUnorderedList');
+            setIsUnordered(!isUnordered);
+          }}
+          className={`p-2 rounded transition-all hover:scale-110 ${isUnordered ? 'bg-teal-600 text-white' : darkMode ? 'hover:bg-slate-600 text-slate-300' : 'hover:bg-slate-200'}`}
+        >
+          <ListIcon size={16} />
+        </button>
       </div>
       <div
         ref={editorRef}
         contentEditable
         onInput={handleInput}
         dangerouslySetInnerHTML={{ __html: value }}
+        dir="ltr"
         className={`p-3 min-h-[${rows * 24}px] focus:outline-none ${darkMode ? 'bg-slate-700 text-white' : 'bg-white text-slate-900'} rich-text-editor`}
         style={{ minHeight: `${rows * 24}px` }}
         data-placeholder={placeholder}
@@ -779,6 +898,375 @@ function RichTextEditor({ value, onChange, placeholder, darkMode, rows = 10 }) {
           color: ${darkMode ? '#94a3b8' : '#64748b'};
         }
       `}</style>
+    </div>
+  );
+}
+
+// PROJECTS VIEW - Complete with Sub Items, Status/Priority, Progress Bars, Filtering
+function ProjectsView({ 
+  projects, 
+  addProject, 
+  updateProject, 
+  deleteProject, 
+  clearCompletedProjects,
+  reorderProjects,
+  showNewProjectForm,
+  setShowNewProjectForm,
+  links,
+  notes,
+  toggleLinkToProject,
+  getLinkedItem,
+  navigateToLinkedItem,
+  highlightedItemId,
+  darkMode,
+  allTags,
+  viewMode,
+  toggleViewMode
+}) {
+  const [filterType, setFilterType] = useState('none');
+  const [filterValue, setFilterValue] = useState('all');
+  const [draggedItem, setDraggedItem] = useState(null);
+  const [dragOverItem, setDragOverItem] = useState(null);
+  
+  const activeProjects = projects.filter(p => !p.completed);
+  const completedProjects = projects.filter(p => p.completed);
+  
+  const [showLinkModal, setShowLinkModal] = useState(false);
+  const [linkingProjectId, setLinkingProjectId] = useState(null);
+
+  const openLinkModal = (projectId) => {
+    setLinkingProjectId(projectId);
+    setShowLinkModal(true);
+  };
+
+  const handleToggleLink = (item, type) => {
+    if (linkingProjectId) {
+      toggleLinkToProject(linkingProjectId, item, type);
+    }
+  };
+
+  const currentProject = projects.find(p => p.id === linkingProjectId);
+
+  // Get unique values for filters
+  const allStatuses = ['new', 'working', 'paused', 'stuck'];
+  const allPriorities = ['urgent', 'high', 'medium', 'low'];
+  const projectTags = [...new Set(activeProjects.flatMap(p => p.tags || []))];
+
+  // FILTER LOGIC - Shows individual sub-items, not projects
+  let filteredData = [];
+  
+  if (filterType === 'none' || filterValue === 'all') {
+    // Show all projects
+    filteredData = activeProjects.map(p => ({ project: p, subItems: p.subItems || [] }));
+  } else if (filterType === 'priority') {
+    // Show projects with sub-items matching priority
+    activeProjects.forEach(project => {
+      const matchingSubItems = (project.subItems || []).filter(si => si.priority === filterValue);
+      if (matchingSubItems.length > 0) {
+        filteredData.push({ project, subItems: matchingSubItems });
+      }
+    });
+  } else if (filterType === 'status') {
+    // Show projects with sub-items matching status
+    activeProjects.forEach(project => {
+      const matchingSubItems = (project.subItems || []).filter(si => si.status === filterValue);
+      if (matchingSubItems.length > 0) {
+        filteredData.push({ project, subItems: matchingSubItems });
+      }
+    });
+  } else if (filterType === 'tag') {
+    // Show projects matching tag
+    filteredData = activeProjects
+      .filter(p => p.tags && p.tags.includes(filterValue))
+      .map(p => ({ project: p, subItems: p.subItems || [] }));
+  }
+
+  // Drag handlers
+  const handleDragStart = (e, project) => {
+    setDraggedItem(project);
+    e.dataTransfer.effectAllowed = 'move';
+  };
+
+  const handleDragOver = (e, project) => {
+    e.preventDefault();
+    if (draggedItem && draggedItem.id !== project.id) {
+      setDragOverItem(project);
+    }
+  };
+
+  const handleDrop = (e, targetProject) => {
+    e.preventDefault();
+    if (!draggedItem || draggedItem.id === targetProject.id) return;
+
+    const allProjectsCopy = [...projects];
+    const draggedIndex = allProjectsCopy.findIndex(p => p.id === draggedItem.id);
+    const targetIndex = allProjectsCopy.findIndex(p => p.id === targetProject.id);
+
+    const [removed] = allProjectsCopy.splice(draggedIndex, 1);
+    allProjectsCopy.splice(targetIndex, 0, removed);
+
+    reorderProjects(allProjectsCopy);
+
+    setDraggedItem(null);
+    setDragOverItem(null);
+  };
+
+  const handleDragEnd = () => {
+    setDraggedItem(null);
+    setDragOverItem(null);
+  };
+
+  return (
+    <div className="max-w-7xl animate-fadeIn">
+      <div className="flex items-center justify-between mb-8">
+        <div>
+          <h2 className={`text-4xl font-bold ${darkMode ? 'text-white' : 'text-slate-800'} accent-font`}>Projects</h2>
+          <p className={`${darkMode ? 'text-slate-400' : 'text-slate-500'} mt-1`}>{activeProjects.length} active • {completedProjects.length} completed</p>
+        </div>
+        <div className="flex items-center gap-3">
+          <div className={`flex gap-1 p-1 rounded-lg ${darkMode ? 'bg-slate-700' : 'bg-slate-200'}`}>
+            <button
+              onClick={() => toggleViewMode('projects', 'list')}
+              className={`p-2 rounded transition-all ${viewMode === 'list' ? (darkMode ? 'bg-slate-600 shadow' : 'bg-white shadow') : (darkMode ? 'hover:bg-slate-600' : 'hover:bg-slate-300')}`}
+              title="List view"
+            >
+              <LayoutList size={18} className={darkMode ? 'text-slate-300' : 'text-slate-700'} />
+            </button>
+            <button
+              onClick={() => toggleViewMode('projects', 'grid')}
+              className={`p-2 rounded transition-all ${viewMode === 'grid' ? (darkMode ? 'bg-slate-600 shadow' : 'bg-white shadow') : (darkMode ? 'hover:bg-slate-600' : 'hover:bg-slate-300')}`}
+              title="Grid view"
+            >
+              <Grid size={18} className={darkMode ? 'text-slate-300' : 'text-slate-700'} />
+            </button>
+          </div>
+          <button
+            onClick={() => setShowNewProjectForm(true)}
+            className="flex items-center gap-2 px-6 py-3 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-all shadow-lg hover:shadow-xl hover:scale-105"
+          >
+            <Plus size={20} />
+            New Project
+          </button>
+        </div>
+      </div>
+
+      {/* Filter Controls */}
+      <div className="mb-6">
+        <div className="flex flex-wrap items-center gap-3 mb-3">
+          <Filter size={18} className={darkMode ? 'text-slate-400' : 'text-slate-500'} />
+          <select
+            value={filterType}
+            onChange={(e) => {
+              setFilterType(e.target.value);
+              setFilterValue('all');
+            }}
+            className={`px-4 py-2 rounded-lg border transition-all ${
+              darkMode ? 'bg-slate-800 border-slate-700 text-white' : 'bg-white border-slate-200'
+            }`}
+          >
+            <option value="none">No Filter</option>
+            <option value="priority">Filter by Priority</option>
+            <option value="status">Filter by Status</option>
+            <option value="tag">Filter by Tag</option>
+          </select>
+
+          {filterType === 'priority' && (
+            <div className="flex gap-2">
+              <button
+                onClick={() => setFilterValue('all')}
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                  filterValue === 'all' 
+                    ? 'bg-teal-600 text-white' 
+                    : darkMode ? 'bg-slate-700 text-slate-300 hover:bg-slate-600' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                }`}
+              >
+                All
+              </button>
+              {allPriorities.map(priority => (
+                <button
+                  key={priority}
+                  onClick={() => setFilterValue(priority)}
+                  className={`px-4 py-2 rounded-lg text-sm font-medium capitalize transition-all ${
+                    filterValue === priority 
+                      ? 'bg-teal-600 text-white' 
+                      : darkMode ? 'bg-slate-700 text-slate-300 hover:bg-slate-600' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                  }`}
+                >
+                  {priority}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {filterType === 'status' && (
+            <div className="flex gap-2">
+              <button
+                onClick={() => setFilterValue('all')}
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                  filterValue === 'all' 
+                    ? 'bg-teal-600 text-white' 
+                    : darkMode ? 'bg-slate-700 text-slate-300 hover:bg-slate-600' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                }`}
+              >
+                All
+              </button>
+              {allStatuses.map(status => (
+                <button
+                  key={status}
+                  onClick={() => setFilterValue(status)}
+                  className={`px-4 py-2 rounded-lg text-sm font-medium capitalize transition-all ${
+                    filterValue === status 
+                      ? 'bg-teal-600 text-white' 
+                      : darkMode ? 'bg-slate-700 text-slate-300 hover:bg-slate-600' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                  }`}
+                >
+                  {status === 'working' ? 'Working on it' : status}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {filterType === 'tag' && (
+            <div className="flex gap-2 flex-wrap">
+              <button
+                onClick={() => setFilterValue('all')}
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                  filterValue === 'all' 
+                    ? 'bg-teal-600 text-white' 
+                    : darkMode ? 'bg-slate-700 text-slate-300 hover:bg-slate-600' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                }`}
+              >
+                All
+              </button>
+              {projectTags.map(tag => (
+                <button
+                  key={tag}
+                  onClick={() => setFilterValue(tag)}
+                  className={`flex items-center gap-1 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                    filterValue === tag 
+                      ? 'bg-teal-600 text-white' 
+                      : darkMode ? 'bg-slate-700 text-slate-300 hover:bg-slate-600' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                  }`}
+                >
+                  <Tag size={14} />
+                  {tag}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {filterType !== 'none' && filterValue !== 'all' && (
+          <div className={`text-sm ${darkMode ? 'text-slate-400' : 'text-slate-600'}`}>
+            Showing {filteredData.length} project{filteredData.length !== 1 ? 's' : ''} with {filterType} = "{filterValue}"
+          </div>
+        )}
+      </div>
+
+      {showNewProjectForm && (
+        <NewProjectForm 
+          onSave={addProject} 
+          onCancel={() => setShowNewProjectForm(false)}
+          darkMode={darkMode}
+          allTags={allTags}
+        />
+      )}
+
+      {/* Projects Grid/List */}
+      {viewMode === 'grid' ? (
+        <div className="masonry mb-8">
+          {filteredData.map(({ project, subItems }, index) => (
+            <div key={project.id} className="masonry-item">
+              <ProjectCard 
+                project={project}
+                visibleSubItems={subItems}
+                showingFilteredSubItems={filterType !== 'none' && filterValue !== 'all' && (filterType === 'priority' || filterType === 'status')}
+                updateProject={updateProject}
+                deleteProject={deleteProject}
+                getLinkedItem={getLinkedItem}
+                navigateToLinkedItem={navigateToLinkedItem}
+                onOpenLinkModal={() => openLinkModal(project.id)}
+                isHighlighted={highlightedItemId === project.id}
+                darkMode={darkMode}
+                allTags={allTags}
+                onDragStart={handleDragStart}
+                onDragOver={handleDragOver}
+                onDrop={handleDrop}
+                onDragEnd={handleDragEnd}
+                isDragging={draggedItem?.id === project.id}
+                isDragOver={dragOverItem?.id === project.id}
+                style={{ animationDelay: `${index * 0.03}s` }}
+              />
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="space-y-4 mb-8">
+          {filteredData.map(({ project, subItems }, index) => (
+            <ProjectCard 
+              key={project.id}
+              project={project}
+              visibleSubItems={subItems}
+              showingFilteredSubItems={filterType !== 'none' && filterValue !== 'all' && (filterType === 'priority' || filterType === 'status')}
+              updateProject={updateProject}
+              deleteProject={deleteProject}
+              getLinkedItem={getLinkedItem}
+              navigateToLinkedItem={navigateToLinkedItem}
+              onOpenLinkModal={() => openLinkModal(project.id)}
+              isHighlighted={highlightedItemId === project.id}
+              darkMode={darkMode}
+              allTags={allTags}
+              onDragStart={handleDragStart}
+              onDragOver={handleDragOver}
+              onDrop={handleDrop}
+              onDragEnd={handleDragEnd}
+              isDragging={draggedItem?.id === project.id}
+              isDragOver={dragOverItem?.id === project.id}
+              style={{ animationDelay: `${index * 0.03}s` }}
+            />
+          ))}
+        </div>
+      )}
+
+      {filteredData.length === 0 && !showNewProjectForm && (
+        <div className={`text-center py-16 ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+          <List size={48} className="mx-auto mb-4 opacity-30" />
+          <p>No projects match your filter. Try changing the filter or add a new project!</p>
+        </div>
+      )}
+
+      {completedProjects.length > 0 && (
+        <div className={`mt-12 pt-8 border-t ${darkMode ? 'border-slate-700' : 'border-slate-200'}`}>
+          <div className="flex items-center justify-between mb-4">
+            <h3 className={`text-xl font-semibold ${darkMode ? 'text-slate-200' : 'text-slate-700'}`}>Completed</h3>
+            <button
+              onClick={clearCompletedProjects}
+              className={`text-sm ${darkMode ? 'text-slate-400 hover:text-red-400' : 'text-slate-500 hover:text-red-600'} transition-colors`}
+            >
+              Clear All
+            </button>
+          </div>
+          <div className="space-y-2 opacity-60">
+            {completedProjects.map(project => (
+              <div key={project.id} className={`p-4 ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'} rounded-lg border`}>
+                <div className="flex items-center gap-3">
+                  <Check className="text-green-600" size={20} />
+                  <span className={`line-through ${darkMode ? 'text-slate-400' : 'text-slate-600'}`}>{project.title}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <LinkItemsModal
+        isOpen={showLinkModal}
+        onClose={() => setShowLinkModal(false)}
+        items={{ projects: null, links, notes }}
+        onToggleLink={handleToggleLink}
+        linkedItems={currentProject?.linkedItems || []}
+        darkMode={darkMode}
+      />
     </div>
   );
 }
@@ -877,326 +1365,7 @@ function LinkItemsModal({ isOpen, onClose, items, onToggleLink, linkedItems, dar
   );
 }
 
-// TASKS VIEW - Complete with all fixes and features
-
-function TasksView({ 
-  tasks, 
-  addTask, 
-  updateTask, 
-  deleteTask, 
-  clearCompletedTasks,
-  reorderTasks,
-  showNewTaskForm,
-  setShowNewTaskForm,
-  links,
-  notes,
-  toggleLinkToTask,
-  getLinkedItem,
-  navigateToLinkedItem,
-  highlightedItemId,
-  darkMode,
-  allTags,
-  viewMode,
-  toggleViewMode
-}) {
-  const [filterType, setFilterType] = useState('none'); // none, priority, status, tag
-  const [filterValue, setFilterValue] = useState('all');
-  const [draggedItem, setDraggedItem] = useState(null);
-  const [dragOverItem, setDragOverItem] = useState(null);
-  
-  const activeTasks = tasks.filter(t => t.status !== 'completed');
-  const completedTasks = tasks.filter(t => t.status !== 'completed');
-  
-  const [showLinkModal, setShowLinkModal] = useState(false);
-  const [linkingTaskId, setLinkingTaskId] = useState(null);
-
-  const openLinkModal = (taskId) => {
-    setLinkingTaskId(taskId);
-    setShowLinkModal(true);
-  };
-
-  const handleToggleLink = (item, type) => {
-    if (linkingTaskId) {
-      toggleLinkToTask(linkingTaskId, item, type);
-    }
-  };
-
-  const currentTask = tasks.find(t => t.id === linkingTaskId);
-
-  // Get all unique values for filters
-  const taskTags = [...new Set(activeTasks.flatMap(t => t.tags || []))];
-  const priorities = ['urgent', 'high', 'medium', 'low'];
-  const statuses = ['stuck', 'paused', 'working', 'new'];
-
-  // Apply filter
-  let filteredTasks = activeTasks;
-  if (filterType === 'priority' && filterValue !== 'all') {
-    filteredTasks = activeTasks.filter(t => t.priority === filterValue);
-  } else if (filterType === 'status' && filterValue !== 'all') {
-    filteredTasks = activeTasks.filter(t => t.status === filterValue);
-  } else if (filterType === 'tag' && filterValue !== 'all') {
-    filteredTasks = activeTasks.filter(t => t.tags && t.tags.includes(filterValue));
-  }
-
-  // Drag and drop handlers
-  const handleDragStart = (e, task) => {
-    setDraggedItem(task);
-    e.dataTransfer.effectAllowed = 'move';
-  };
-
-  const handleDragOver = (e, task) => {
-    e.preventDefault();
-    if (draggedItem && draggedItem.id !== task.id) {
-      setDragOverItem(task);
-    }
-  };
-
-  const handleDrop = (e, targetTask) => {
-    e.preventDefault();
-    if (!draggedItem || draggedItem.id === targetTask.id) return;
-
-    const allTasksCopy = [...tasks];
-    const draggedIndex = allTasksCopy.findIndex(t => t.id === draggedItem.id);
-    const targetIndex = allTasksCopy.findIndex(t => t.id === targetTask.id);
-
-    const [removed] = allTasksCopy.splice(draggedIndex, 1);
-    allTasksCopy.splice(targetIndex, 0, removed);
-
-    reorderTasks(allTasksCopy);
-
-    setDraggedItem(null);
-    setDragOverItem(null);
-  };
-
-  const handleDragEnd = () => {
-    setDraggedItem(null);
-    setDragOverItem(null);
-  };
-
-  return (
-    <div className="max-w-6xl animate-fadeIn">
-      <div className="flex items-center justify-between mb-8">
-        <div>
-          <h2 className={`text-4xl font-bold ${darkMode ? 'text-white' : 'text-slate-800'} accent-font`}>Tasks</h2>
-          <p className={`${darkMode ? 'text-slate-400' : 'text-slate-500'} mt-1`}>{activeTasks.length} active • {completedTasks.length} completed</p>
-        </div>
-        <div className="flex items-center gap-3">
-          <div className="flex gap-1 p-1 bg-slate-200 dark:bg-slate-700 rounded-lg">
-            <button
-              onClick={() => toggleViewMode('tasks', 'list')}
-              className={`p-2 rounded transition-all ${viewMode === 'list' ? 'bg-white dark:bg-slate-600 shadow' : 'hover:bg-slate-300 dark:hover:bg-slate-600'}`}
-              title="List view"
-            >
-              <LayoutList size={18} className={darkMode ? 'text-slate-300' : 'text-slate-700'} />
-            </button>
-            <button
-              onClick={() => toggleViewMode('tasks', 'grid')}
-              className={`p-2 rounded transition-all ${viewMode === 'grid' ? 'bg-white dark:bg-slate-600 shadow' : 'hover:bg-slate-300 dark:hover:bg-slate-600'}`}
-              title="Grid view"
-            >
-              <Grid size={18} className={darkMode ? 'text-slate-300' : 'text-slate-700'} />
-            </button>
-          </div>
-          <button
-            onClick={() => setShowNewTaskForm(true)}
-            className="flex items-center gap-2 px-6 py-3 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-all shadow-lg hover:shadow-xl hover:scale-105"
-          >
-            <Plus size={20} />
-            New Task
-          </button>
-        </div>
-      </div>
-
-      {/* Filter Controls */}
-      <div className="mb-6">
-        <div className="flex flex-wrap items-center gap-3 mb-3">
-          <Filter size={18} className={darkMode ? 'text-slate-400' : 'text-slate-500'} />
-          <select
-            value={filterType}
-            onChange={(e) => {
-              setFilterType(e.target.value);
-              setFilterValue('all');
-            }}
-            className={`px-4 py-2 rounded-lg border transition-all ${
-              darkMode ? 'bg-slate-800 border-slate-700 text-white' : 'bg-white border-slate-200'
-            }`}
-          >
-            <option value="none">No Filter</option>
-            <option value="priority">Filter by Priority</option>
-            <option value="status">Filter by Status</option>
-            <option value="tag">Filter by Tag</option>
-          </select>
-
-          {filterType === 'priority' && (
-            <div className="flex gap-2">
-              <button
-                onClick={() => setFilterValue('all')}
-                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-                  filterValue === 'all' 
-                    ? 'bg-teal-600 text-white' 
-                    : darkMode ? 'bg-slate-700 text-slate-300 hover:bg-slate-600' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                }`}
-              >
-                All
-              </button>
-              {priorities.map(priority => (
-                <button
-                  key={priority}
-                  onClick={() => setFilterValue(priority)}
-                  className={`px-4 py-2 rounded-lg text-sm font-medium capitalize transition-all ${
-                    filterValue === priority 
-                      ? 'bg-teal-600 text-white' 
-                      : darkMode ? 'bg-slate-700 text-slate-300 hover:bg-slate-600' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                  }`}
-                >
-                  {priority}
-                </button>
-              ))}
-            </div>
-          )}
-
-          {filterType === 'status' && (
-            <div className="flex gap-2">
-              <button
-                onClick={() => setFilterValue('all')}
-                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-                  filterValue === 'all' 
-                    ? 'bg-teal-600 text-white' 
-                    : darkMode ? 'bg-slate-700 text-slate-300 hover:bg-slate-600' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                }`}
-              >
-                All
-              </button>
-              {statuses.map(status => (
-                <button
-                  key={status}
-                  onClick={() => setFilterValue(status)}
-                  className={`px-4 py-2 rounded-lg text-sm font-medium capitalize transition-all ${
-                    filterValue === status 
-                      ? 'bg-teal-600 text-white' 
-                      : darkMode ? 'bg-slate-700 text-slate-300 hover:bg-slate-600' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                  }`}
-                >
-                  {status === 'working' ? 'Working on it' : status}
-                </button>
-              ))}
-            </div>
-          )}
-
-          {filterType === 'tag' && (
-            <div className="flex gap-2 flex-wrap">
-              <button
-                onClick={() => setFilterValue('all')}
-                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-                  filterValue === 'all' 
-                    ? 'bg-teal-600 text-white' 
-                    : darkMode ? 'bg-slate-700 text-slate-300 hover:bg-slate-600' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                }`}
-              >
-                All
-              </button>
-              {taskTags.map(tag => (
-                <button
-                  key={tag}
-                  onClick={() => setFilterValue(tag)}
-                  className={`flex items-center gap-1 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-                    filterValue === tag 
-                      ? 'bg-teal-600 text-white' 
-                      : darkMode ? 'bg-slate-700 text-slate-300 hover:bg-slate-600' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                  }`}
-                >
-                  <Tag size={14} />
-                  {tag}
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-
-        {filterType !== 'none' && filterValue !== 'all' && (
-          <div className={`text-sm ${darkMode ? 'text-slate-400' : 'text-slate-600'}`}>
-            Showing {filteredTasks.length} task{filteredTasks.length !== 1 ? 's' : ''} with {filterType} = "{filterValue}"
-          </div>
-        )}
-      </div>
-
-      {showNewTaskForm && (
-        <NewTaskForm 
-          onSave={addTask} 
-          onCancel={() => setShowNewTaskForm(false)}
-          darkMode={darkMode}
-          allTags={allTags}
-        />
-      )}
-
-      <div className={viewMode === 'grid' ? 'grid grid-cols-1 md:grid-cols-2 gap-4 mb-8' : 'space-y-4 mb-8'}>
-        {filteredTasks.map((task, index) => (
-          <TaskCard 
-            key={task.id} 
-            task={task} 
-            updateTask={updateTask}
-            deleteTask={deleteTask}
-            getLinkedItem={getLinkedItem}
-            navigateToLinkedItem={navigateToLinkedItem}
-            onOpenLinkModal={() => openLinkModal(task.id)}
-            isHighlighted={highlightedItemId === task.id}
-            darkMode={darkMode}
-            allTags={allTags}
-            onDragStart={handleDragStart}
-            onDragOver={handleDragOver}
-            onDrop={handleDrop}
-            onDragEnd={handleDragEnd}
-            isDragging={draggedItem?.id === task.id}
-            isDragOver={dragOverItem?.id === task.id}
-            style={{ animationDelay: `${index * 0.03}s` }}
-          />
-        ))}
-      </div>
-
-      {filteredTasks.length === 0 && !showNewTaskForm && (
-        <div className={`text-center py-16 ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>
-          <List size={48} className="mx-auto mb-4 opacity-30" />
-          <p>No tasks match your filter. Try changing the filter or add a new task!</p>
-        </div>
-      )}
-
-      {completedTasks.length > 0 && (
-        <div className={`mt-12 pt-8 border-t ${darkMode ? 'border-slate-700' : 'border-slate-200'}`}>
-          <div className="flex items-center justify-between mb-4">
-            <h3 className={`text-xl font-semibold ${darkMode ? 'text-slate-200' : 'text-slate-700'}`}>Completed</h3>
-            <button
-              onClick={clearCompletedTasks}
-              className={`text-sm ${darkMode ? 'text-slate-400 hover:text-red-400' : 'text-slate-500 hover:text-red-600'} transition-colors`}
-            >
-              Clear All
-            </button>
-          </div>
-          <div className="space-y-2 opacity-60">
-            {completedTasks.map(task => (
-              <div key={task.id} className={`p-4 ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'} rounded-lg border`}>
-                <div className="flex items-center gap-3">
-                  <Check className="text-green-600" size={20} />
-                  <span className={`line-through ${darkMode ? 'text-slate-400' : 'text-slate-600'}`}>{task.title}</span>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      <LinkItemsModal
-        isOpen={showLinkModal}
-        onClose={() => setShowLinkModal(false)}
-        items={{ tasks: null, links, notes }}
-        onToggleLink={handleToggleLink}
-        linkedItems={currentTask?.linkedItems || []}
-        darkMode={darkMode}
-      />
-    </div>
-  );
-}
-
-function NewTaskForm({ onSave, onCancel, darkMode, allTags }) {
+function NewProjectForm({ onSave, onCancel, darkMode, allTags }) {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [tagInput, setTagInput] = useState('');
@@ -1230,7 +1399,7 @@ function NewTaskForm({ onSave, onCancel, darkMode, allTags }) {
         type="text"
         value={title}
         onChange={(e) => setTitle(e.target.value)}
-        placeholder="Task title..."
+        placeholder="Project title..."
         className={`w-full text-lg font-medium mb-3 px-3 py-2 border ${darkMode ? 'bg-slate-700 border-slate-600 text-white placeholder-slate-400' : 'border-slate-300'} rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 transition-all`}
         autoFocus
       />
@@ -1310,15 +1479,17 @@ function NewTaskForm({ onSave, onCancel, darkMode, allTags }) {
   );
 }
 
-function TaskCard({ 
-  task, 
-  updateTask, 
-  deleteTask, 
-  getLinkedItem, 
-  navigateToLinkedItem, 
-  onOpenLinkModal, 
-  isHighlighted, 
-  darkMode, 
+function ProjectCard({ 
+  project,
+  visibleSubItems,
+  showingFilteredSubItems,
+  updateProject,
+  deleteProject,
+  getLinkedItem,
+  navigateToLinkedItem,
+  onOpenLinkModal,
+  isHighlighted,
+  darkMode,
   allTags,
   onDragStart,
   onDragOver,
@@ -1326,21 +1497,25 @@ function TaskCard({
   onDragEnd,
   isDragging,
   isDragOver,
-  style 
+  style
 }) {
-  const [showSubtasks, setShowSubtasks] = useState(true);
-  const [newSubtask, setNewSubtask] = useState('');
-  const [editingSubtaskId, setEditingSubtaskId] = useState(null);
-  const [editingSubtaskText, setEditingSubtaskText] = useState('');
+  const [showSubItems, setShowSubItems] = useState(true);
+  const [newSubItemText, setNewSubItemText] = useState('');
+  const [editingSubItemId, setEditingSubItemId] = useState(null);
+  const [editingSubItemText, setEditingSubItemText] = useState('');
   const [isEditingDescription, setIsEditingDescription] = useState(false);
-  const [editedDescription, setEditedDescription] = useState(task.description || '');
+  const [editedDescription, setEditedDescription] = useState(project.description || '');
+  const [isEditingTitle, setIsEditingTitle] = useState(false);
+  const [editedTitle, setEditedTitle] = useState(project.title);
+  const [isEditingTags, setIsEditingTags] = useState(false);
+  const [tagInput, setTagInput] = useState('');
+  const [selectedTags, setSelectedTags] = useState(project.tags || []);
 
   const statusConfig = {
     new: { label: 'New', color: 'bg-blue-100 text-blue-700 border-blue-200', icon: Circle },
-    working: { label: 'Working on it', color: 'bg-purple-100 text-purple-700 border-purple-200', icon: Circle },
+    working: { label: 'Working', color: 'bg-purple-100 text-purple-700 border-purple-200', icon: Circle },
     paused: { label: 'Paused', color: 'bg-amber-100 text-amber-700 border-amber-200', icon: Pause },
     stuck: { label: 'Stuck', color: 'bg-red-100 text-red-700 border-red-200', icon: AlertCircle },
-    completed: { label: 'Completed', color: 'bg-green-100 text-green-700 border-green-200', icon: Check },
   };
 
   const priorityConfig = {
@@ -1350,71 +1525,110 @@ function TaskCard({
     low: { label: 'Low', color: 'bg-slate-400 text-white' },
   };
 
-  const addSubtask = () => {
-    if (newSubtask.trim()) {
-      const subtasks = task.subtasks || [];
-      updateTask(task.id, {
-        subtasks: [...subtasks, { id: generateId(), text: newSubtask, completed: false }]
+  const allSubItems = project.subItems || [];
+  const totalSubItems = allSubItems.length;
+  const completedSubItems = allSubItems.filter(si => si.completed).length;
+  const progressPercent = totalSubItems > 0 ? Math.round((completedSubItems / totalSubItems) * 100) : 0;
+
+  const addSubItem = () => {
+    if (newSubItemText.trim()) {
+      const subItems = project.subItems || [];
+      updateProject(project.id, {
+        subItems: [...subItems, {
+          id: generateId(),
+          text: newSubItemText,
+          completed: false,
+          status: 'new',
+          priority: 'medium'
+        }]
       });
-      setNewSubtask('');
+      setNewSubItemText('');
     }
   };
 
-  const toggleSubtask = (subtaskId) => {
-    const subtasks = task.subtasks || [];
-    updateTask(task.id, {
-      subtasks: subtasks.map(st => 
-        st.id === subtaskId ? { ...st, completed: !st.completed } : st
+  const toggleSubItem = (subItemId) => {
+    const subItems = project.subItems || [];
+    updateProject(project.id, {
+      subItems: subItems.map(si => 
+        si.id === subItemId ? { ...si, completed: !si.completed } : si
       )
     });
   };
 
-  const deleteSubtask = (subtaskId) => {
-    const subtasks = task.subtasks || [];
-    updateTask(task.id, {
-      subtasks: subtasks.filter(st => st.id !== subtaskId)
+  const deleteSubItem = (subItemId) => {
+    const subItems = project.subItems || [];
+    updateProject(project.id, {
+      subItems: subItems.filter(si => si.id !== subItemId)
     });
   };
 
-  const startEditingSubtask = (subtask) => {
-    setEditingSubtaskId(subtask.id);
-    setEditingSubtaskText(subtask.text);
+  const updateSubItem = (subItemId, updates) => {
+    const subItems = project.subItems || [];
+    updateProject(project.id, {
+      subItems: subItems.map(si => 
+        si.id === subItemId ? { ...si, ...updates } : si
+      )
+    });
   };
 
-  const saveSubtaskEdit = () => {
-    if (editingSubtaskText.trim()) {
-      const subtasks = task.subtasks || [];
-      updateTask(task.id, {
-        subtasks: subtasks.map(st =>
-          st.id === editingSubtaskId ? { ...st, text: editingSubtaskText } : st
-        )
-      });
+  const startEditingSubItem = (subItem) => {
+    setEditingSubItemId(subItem.id);
+    setEditingSubItemText(subItem.text);
+  };
+
+  const saveSubItemEdit = () => {
+    if (editingSubItemText.trim()) {
+      updateSubItem(editingSubItemId, { text: editingSubItemText });
     }
-    setEditingSubtaskId(null);
-    setEditingSubtaskText('');
+    setEditingSubItemId(null);
+    setEditingSubItemText('');
   };
 
-  const copySubtask = (text) => {
+  const copySubItem = (text) => {
     navigator.clipboard.writeText(text);
   };
 
   const saveDescription = () => {
-    updateTask(task.id, { description: editedDescription });
+    updateProject(project.id, { description: editedDescription });
     setIsEditingDescription(false);
   };
 
   const deleteDescription = () => {
-    updateTask(task.id, { description: '' });
+    updateProject(project.id, { description: '' });
     setEditedDescription('');
+  };
+
+  const saveTitle = () => {
+    if (editedTitle.trim()) {
+      updateProject(project.id, { title: editedTitle });
+    }
+    setIsEditingTitle(false);
+  };
+
+  const saveTags = () => {
+    updateProject(project.id, { tags: selectedTags });
+    setIsEditingTags(false);
+  };
+
+  const addTag = (tag) => {
+    const trimmedTag = tag.trim();
+    if (trimmedTag && !selectedTags.includes(trimmedTag)) {
+      setSelectedTags([...selectedTags, trimmedTag]);
+    }
+    setTagInput('');
+  };
+
+  const removeTag = (tagToRemove) => {
+    setSelectedTags(selectedTags.filter(t => t !== tagToRemove));
   };
 
   return (
     <div 
-      id={`item-${task.id}`}
+      id={`item-${project.id}`}
       draggable
-      onDragStart={(e) => onDragStart(e, task)}
-      onDragOver={(e) => onDragOver(e, task)}
-      onDrop={(e) => onDrop(e, task)}
+      onDragStart={(e) => onDragStart(e, project)}
+      onDragOver={(e) => onDragOver(e, project)}
+      onDrop={(e) => onDrop(e, project)}
       onDragEnd={onDragEnd}
       className={`task-card p-6 ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'} rounded-xl shadow-md border animate-slideUp cursor-move group ${
         isHighlighted ? 'animate-highlight ring-2 ring-teal-500' : ''
@@ -1423,9 +1637,46 @@ function TaskCard({
     >
       <div className="flex items-start justify-between mb-4">
         <div className="flex-1">
-          <h3 className={`text-xl font-semibold ${darkMode ? 'text-white' : 'text-slate-800'} mb-2`}>{task.title}</h3>
+          {/* EDITABLE TITLE */}
+          {isEditingTitle ? (
+            <div className="mb-2">
+              <input
+                type="text"
+                value={editedTitle}
+                onChange={(e) => setEditedTitle(e.target.value)}
+                onKeyPress={(e) => e.key === 'Enter' && saveTitle()}
+                onBlur={saveTitle}
+                className={`w-full text-xl font-semibold px-2 py-1 border ${darkMode ? 'bg-slate-700 border-slate-600 text-white' : 'bg-white border-slate-300'} rounded focus:outline-none focus:ring-2 focus:ring-teal-500`}
+                autoFocus
+              />
+            </div>
+          ) : (
+            <h3 
+              onClick={() => setIsEditingTitle(true)}
+              className={`text-xl font-semibold ${darkMode ? 'text-white' : 'text-slate-800'} mb-2 cursor-pointer hover:text-teal-600 transition-colors`}
+            >
+              {project.title}
+            </h3>
+          )}
+
+          {/* Progress Bar */}
+          {totalSubItems > 0 && (
+            <div className="mb-3">
+              <div className="flex items-center justify-between mb-1">
+                <span className={`text-xs font-medium ${darkMode ? 'text-slate-400' : 'text-slate-600'}`}>
+                  Progress: {completedSubItems}/{totalSubItems} ({progressPercent}%)
+                </span>
+              </div>
+              <div className={`w-full h-2 ${darkMode ? 'bg-slate-700' : 'bg-slate-200'} rounded-full overflow-hidden`}>
+                <div 
+                  className="h-full bg-teal-600 transition-all duration-300"
+                  style={{ width: `${progressPercent}%` }}
+                />
+              </div>
+            </div>
+          )}
           
-          {/* EDITABLE DESCRIPTION - DYNAMIC HEIGHT */}
+          {/* EDITABLE DESCRIPTION */}
           {isEditingDescription ? (
             <div className="mb-3">
               <RichTextEditor
@@ -1451,15 +1702,11 @@ function TaskCard({
                 </button>
               </div>
             </div>
-          ) : task.description ? (
+          ) : project.description ? (
             <div className="relative group/desc mb-3">
               <div 
                 className={`${darkMode ? 'text-slate-300' : 'text-slate-600'} text-sm rich-text-editor`}
-                dangerouslySetInnerHTML={{ __html: task.description }}
-                style={{ 
-                  maxHeight: 'none',
-                  overflow: 'visible'
-                }}
+                dangerouslySetInnerHTML={{ __html: project.description }}
               />
               <div className="absolute top-0 right-0 flex gap-1 opacity-0 group-hover/desc:opacity-100 transition-opacity">
                 <button
@@ -1487,147 +1734,233 @@ function TaskCard({
             </button>
           )}
 
-          {task.tags && task.tags.length > 0 && (
-            <div className="flex flex-wrap gap-1 mb-3">
-              {task.tags.map(tag => (
+          {/* EDITABLE TAGS */}
+          {isEditingTags ? (
+            <div className="mb-3">
+              <div className="flex flex-wrap gap-2 mb-2">
+                {selectedTags.map(tag => (
+                  <span key={tag} className="inline-flex items-center gap-1 px-2 py-1 bg-teal-100 text-teal-700 rounded text-xs">
+                    <Tag size={10} />
+                    {tag}
+                    <button onClick={() => removeTag(tag)} className="hover:text-teal-900">
+                      <X size={12} />
+                    </button>
+                  </span>
+                ))}
+              </div>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={tagInput}
+                  onChange={(e) => setTagInput(e.target.value)}
+                  onKeyPress={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      addTag(tagInput);
+                    }
+                  }}
+                  placeholder="Add tag..."
+                  list="edit-tags"
+                  className={`flex-1 px-2 py-1 text-sm border ${darkMode ? 'bg-slate-700 border-slate-600 text-white' : 'bg-white border-slate-300'} rounded focus:outline-none focus:ring-1 focus:ring-teal-500`}
+                />
+                <datalist id="edit-tags">
+                  {allTags.filter(t => !selectedTags.includes(t)).map(tag => (
+                    <option key={tag} value={tag} />
+                  ))}
+                </datalist>
+                <button
+                  onClick={() => addTag(tagInput)}
+                  className="px-2 py-1 bg-teal-600 text-white rounded text-sm hover:bg-teal-700"
+                >
+                  <Plus size={14} />
+                </button>
+              </div>
+              <div className="flex gap-2 mt-2">
+                <button
+                  onClick={saveTags}
+                  className="px-3 py-1 bg-teal-600 text-white rounded text-sm hover:bg-teal-700"
+                >
+                  Save
+                </button>
+                <button
+                  onClick={() => {
+                    setSelectedTags(project.tags || []);
+                    setIsEditingTags(false);
+                  }}
+                  className={`px-3 py-1 text-sm rounded ${darkMode ? 'text-slate-300 hover:bg-slate-700' : 'text-slate-600 hover:bg-slate-100'}`}
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          ) : (project.tags && project.tags.length > 0) ? (
+            <div className="flex flex-wrap gap-1 mb-3 group/tags relative">
+              {project.tags.map(tag => (
                 <span key={tag} className="inline-flex items-center gap-1 px-2 py-1 bg-teal-50 text-teal-700 rounded text-xs border border-teal-200">
                   <Tag size={10} />
                   {tag}
                 </span>
               ))}
+              <button
+                onClick={() => {
+                  setSelectedTags(project.tags || []);
+                  setIsEditingTags(true);
+                }}
+                className={`ml-1 px-2 py-1 text-xs rounded opacity-0 group-hover/tags:opacity-100 transition-opacity ${darkMode ? 'bg-slate-700 text-teal-400 hover:bg-slate-600' : 'bg-teal-50 text-teal-700 hover:bg-teal-100'}`}
+              >
+                <Edit2 size={10} />
+              </button>
             </div>
+          ) : (
+            <button
+              onClick={() => setIsEditingTags(true)}
+              className={`text-sm ${darkMode ? 'text-slate-500 hover:text-teal-400' : 'text-slate-400 hover:text-teal-600'} mb-3`}
+            >
+              + Add tags
+            </button>
           )}
         </div>
         <button
-          onClick={() => deleteTask(task.id)}
+          onClick={() => deleteProject(project.id)}
           className={`${darkMode ? 'text-slate-500 hover:text-red-400' : 'text-slate-400 hover:text-red-600'} transition-all ml-4 hover:scale-110`}
         >
           <Trash2 size={18} />
         </button>
       </div>
 
-      <div className="flex flex-wrap items-center gap-2 mb-4">
-        <div className="flex gap-1 flex-wrap">
-          {Object.entries(statusConfig).map(([key, config]) => (
-            <button
-              key={key}
-              onClick={() => updateTask(task.id, { status: key })}
-              className={`status-badge px-3 py-1 rounded-full text-xs font-medium border ${
-                task.status === key ? config.color : darkMode ? 'bg-slate-700 text-slate-400 border-slate-600' : 'bg-slate-50 text-slate-500 border-slate-200'
-              }`}
-            >
-              {config.label}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      <div className="flex items-center gap-2 mb-4">
-        <span className={`text-xs ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>Priority:</span>
-        <div className="flex gap-1">
-          {Object.entries(priorityConfig).map(([key, config]) => (
-            <button
-              key={key}
-              onClick={() => updateTask(task.id, { priority: key })}
-              className={`px-2 py-1 rounded text-xs font-medium transition-all ${
-                task.priority === key ? config.color + ' scale-105' : darkMode ? 'bg-slate-700 text-slate-400' : 'bg-slate-100 text-slate-500'
-              }`}
-            >
-              {config.label}
-            </button>
-          ))}
-        </div>
-      </div>
-
+      {/* SUB ITEMS */}
       <div className={`mb-4 pb-4 border-b ${darkMode ? 'border-slate-700' : 'border-slate-100'}`}>
         <button
-          onClick={() => setShowSubtasks(!showSubtasks)}
+          onClick={() => setShowSubItems(!showSubItems)}
           className={`flex items-center gap-2 text-sm font-medium ${darkMode ? 'text-slate-300' : 'text-slate-700'} mb-2 transition-all hover:text-teal-600`}
         >
-          {showSubtasks ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-          Subtasks {task.subtasks && task.subtasks.length > 0 && `(${task.subtasks.filter(st => st.completed).length}/${task.subtasks.length})`}
+          {showSubItems ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+          Sub Items {totalSubItems > 0 && `(${completedSubItems}/${totalSubItems})`}
         </button>
         
-        {showSubtasks && (
+        {showingFilteredSubItems && (
+          <div className={`text-xs ${darkMode ? 'text-teal-400' : 'text-teal-600'} mb-2`}>
+            Showing filtered sub-items only
+          </div>
+        )}
+        
+        {showSubItems && (
           <div className="space-y-2">
-            {task.subtasks && task.subtasks.map(subtask => (
-              <div key={subtask.id} className="flex items-center gap-2 group">
+            {visibleSubItems.map(subItem => (
+              <div key={subItem.id} className="flex items-start gap-2 group/subitem">
                 <button
-                  onClick={() => toggleSubtask(subtask.id)}
-                  className={`flex-shrink-0 w-5 h-5 rounded border-2 flex items-center justify-center transition-all ${
-                    subtask.completed 
+                  onClick={() => toggleSubItem(subItem.id)}
+                  className={`flex-shrink-0 w-5 h-5 rounded border-2 flex items-center justify-center transition-all mt-0.5 ${
+                    subItem.completed 
                       ? 'bg-teal-600 border-teal-600 scale-110' 
                       : darkMode ? 'border-slate-600 hover:border-teal-500' : 'border-slate-300 hover:border-teal-500'
                   }`}
                 >
-                  {subtask.completed && <Check size={12} className="text-white" />}
+                  {subItem.completed && <Check size={12} className="text-white" />}
                 </button>
                 
-                {editingSubtaskId === subtask.id ? (
-                  <input
-                    type="text"
-                    value={editingSubtaskText}
-                    onChange={(e) => setEditingSubtaskText(e.target.value)}
-                    onKeyPress={(e) => e.key === 'Enter' && saveSubtaskEdit()}
-                    onBlur={saveSubtaskEdit}
-                    onClick={(e) => e.stopPropagation()}
-                    onMouseDown={(e) => e.stopPropagation()}
-                    className={`flex-1 px-2 py-1 text-sm border ${darkMode ? 'bg-slate-700 border-slate-600 text-white' : 'border-slate-300'} rounded focus:outline-none focus:ring-1 focus:ring-teal-500`}
-                    autoFocus
-                  />
-                ) : (
-                  <span 
-                    onClick={() => startEditingSubtask(subtask)}
-                    className={`flex-1 text-sm cursor-pointer ${
-                      subtask.completed 
-                        ? darkMode ? 'line-through text-slate-500' : 'line-through text-slate-400'
-                        : darkMode ? 'text-slate-300' : 'text-slate-700'
-                    }`}
-                  >
-                    {subtask.text}
-                  </span>
-                )}
-                
-                <button
-                  onClick={() => copySubtask(subtask.text)}
-                  className={`opacity-0 group-hover:opacity-100 transition-all ${darkMode ? 'text-slate-500 hover:text-teal-400' : 'text-slate-400 hover:text-teal-600'}`}
-                  title="Copy subtask"
-                >
-                  <Copy size={14} />
-                </button>
-                <button
-                  onClick={() => deleteSubtask(subtask.id)}
-                  className={`opacity-0 group-hover:opacity-100 transition-all ${darkMode ? 'text-slate-500 hover:text-red-400' : 'text-slate-400 hover:text-red-600'}`}
-                >
-                  <X size={14} />
-                </button>
+                <div className="flex-1">
+                  {editingSubItemId === subItem.id ? (
+                    <input
+                      type="text"
+                      value={editingSubItemText}
+                      onChange={(e) => setEditingSubItemText(e.target.value)}
+                      onKeyPress={(e) => e.key === 'Enter' && saveSubItemEdit()}
+                      onBlur={saveSubItemEdit}
+                      onMouseDown={(e) => e.stopPropagation()}
+                      className={`w-full px-2 py-1 text-sm border ${darkMode ? 'bg-slate-700 border-slate-600 text-white' : 'border-slate-300'} rounded focus:outline-none focus:ring-1 focus:ring-teal-500`}
+                      autoFocus
+                    />
+                  ) : (
+                    <div>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span 
+                          onClick={() => startEditingSubItem(subItem)}
+                          className={`text-sm cursor-pointer flex-1 ${
+                            subItem.completed 
+                              ? darkMode ? 'line-through text-slate-500' : 'line-through text-slate-400'
+                              : darkMode ? 'text-slate-300' : 'text-slate-700'
+                          }`}
+                        >
+                          {subItem.text}
+                        </span>
+                        
+                        {/* Status Badge */}
+                        <select
+                          value={subItem.status}
+                          onChange={(e) => updateSubItem(subItem.id, { status: e.target.value })}
+                          onClick={(e) => e.stopPropagation()}
+                          className={`text-xs px-2 py-0.5 rounded border ${
+                            statusConfig[subItem.status].color
+                          } cursor-pointer font-medium`}
+                        >
+                          <option value="new">New</option>
+                          <option value="working">Working</option>
+                          <option value="paused">Paused</option>
+                          <option value="stuck">Stuck</option>
+                        </select>
+
+                        {/* Priority Badge */}
+                        <select
+                          value={subItem.priority}
+                          onChange={(e) => updateSubItem(subItem.id, { priority: e.target.value })}
+                          onClick={(e) => e.stopPropagation()}
+                          className={`text-xs px-2 py-0.5 rounded ${
+                            priorityConfig[subItem.priority].color
+                          } cursor-pointer font-medium`}
+                        >
+                          <option value="urgent">Urgent</option>
+                          <option value="high">High</option>
+                          <option value="medium">Medium</option>
+                          <option value="low">Low</option>
+                        </select>
+
+                        <button
+                          onClick={() => copySubItem(subItem.text)}
+                          className={`opacity-0 group-hover/subitem:opacity-100 transition-all ${darkMode ? 'text-slate-500 hover:text-teal-400' : 'text-slate-400 hover:text-teal-600'}`}
+                          title="Copy sub-item"
+                        >
+                          <Copy size={14} />
+                        </button>
+                        <button
+                          onClick={() => deleteSubItem(subItem.id)}
+                          className={`opacity-0 group-hover/subitem:opacity-100 transition-all ${darkMode ? 'text-slate-500 hover:text-red-400' : 'text-slate-400 hover:text-red-600'}`}
+                        >
+                          <X size={14} />
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
             ))}
             
-            <div className="flex gap-2 mt-2">
-              <input
-                type="text"
-                value={newSubtask}
-                onChange={(e) => setNewSubtask(e.target.value)}
-                onKeyPress={(e) => e.key === 'Enter' && addSubtask()}
-                placeholder="Add subtask..."
-                className={`flex-1 px-2 py-1 text-sm border ${darkMode ? 'bg-slate-700 border-slate-600 text-white placeholder-slate-500' : 'border-slate-300'} rounded focus:outline-none focus:ring-1 focus:ring-teal-500 transition-all`}
-              />
-              <button
-                onClick={addSubtask}
-                className="px-3 py-1 bg-teal-600 text-white rounded text-sm hover:bg-teal-700 transition-all hover:scale-105"
-              >
-                <Plus size={14} />
-              </button>
-            </div>
+            {!showingFilteredSubItems && (
+              <div className="flex gap-2 mt-2">
+                <input
+                  type="text"
+                  value={newSubItemText}
+                  onChange={(e) => setNewSubItemText(e.target.value)}
+                  onKeyPress={(e) => e.key === 'Enter' && addSubItem()}
+                  placeholder="Add sub-item..."
+                  className={`flex-1 px-2 py-1 text-sm border ${darkMode ? 'bg-slate-700 border-slate-600 text-white placeholder-slate-500' : 'border-slate-300'} rounded focus:outline-none focus:ring-1 focus:ring-teal-500 transition-all`}
+                />
+                <button
+                  onClick={addSubItem}
+                  className="px-3 py-1 bg-teal-600 text-white rounded text-sm hover:bg-teal-700 transition-all hover:scale-105"
+                >
+                  <Plus size={14} />
+                </button>
+              </div>
+            )}
           </div>
         )}
       </div>
 
-      {task.linkedItems && task.linkedItems.length > 0 && (
+      {project.linkedItems && project.linkedItems.length > 0 && (
         <div className={`mb-3 pt-3 border-t ${darkMode ? 'border-slate-700' : 'border-slate-100'}`}>
           <div className="flex flex-wrap gap-2">
-            {task.linkedItems.map(linkedItem => {
+            {project.linkedItems.map(linkedItem => {
               const item = getLinkedItem(linkedItem);
               if (!item) return null;
               
@@ -1656,1666 +1989,6 @@ function TaskCard({
         <Link2 size={16} />
         <span className="text-sm font-medium">Link Items</span>
       </button>
-    </div>
-  );
-}
-
-
-// Calendar View (same as before, works well)
-function CalendarView({ 
-  events, 
-  addEvent, 
-  updateEvent, 
-  deleteEvent,
-  showNewEventForm,
-  setShowNewEventForm,
-  selectedDate,
-  setSelectedDate,
-  tasks,
-  links,
-  notes,
-  toggleLinkToEvent,
-  getLinkedItem,
-  navigateToLinkedItem,
-  darkMode,
-  allTags
-}) {
-  const [currentMonth, setCurrentMonth] = useState(new Date());
-  const [showLinkModal, setShowLinkModal] = useState(false);
-  const [linkingEventId, setLinkingEventId] = useState(null);
-  
-  const monthStart = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1);
-  const monthEnd = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 0);
-  const startDate = new Date(monthStart);
-  startDate.setDate(startDate.getDate() - monthStart.getDay());
-  const endDate = new Date(monthEnd);
-  endDate.setDate(endDate.getDate() + (6 - monthEnd.getDay()));
-  
-  const days = [];
-  let day = new Date(startDate);
-  while (day <= endDate) {
-    days.push(new Date(day));
-    day.setDate(day.getDate() + 1);
-  }
-
-  const nextMonth = () => {
-    setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1));
-  };
-
-  const prevMonth = () => {
-    setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1));
-  };
-
-  const getEventsForDate = (date) => {
-    return events.filter(event => {
-      const eventDateStr = event.date;
-      const checkDateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
-      return eventDateStr === checkDateStr;
-    });
-  };
-
-  const handleDateClick = (date) => {
-    setSelectedDate(date);
-    setShowNewEventForm(true);
-  };
-
-  const openLinkModal = (eventId) => {
-    setLinkingEventId(eventId);
-    setShowLinkModal(true);
-  };
-
-  const handleToggleLink = (item, type) => {
-    if (linkingEventId) {
-      toggleLinkToEvent(linkingEventId, item, type);
-    }
-  };
-
-  const currentEvent = events.find(e => e.id === linkingEventId);
-
-  return (
-    <div className="max-w-7xl animate-fadeIn">
-      <div className="flex items-center justify-between mb-8">
-        <div>
-          <h2 className={`text-4xl font-bold ${darkMode ? 'text-white' : 'text-slate-800'} accent-font`}>Calendar</h2>
-          <p className={`${darkMode ? 'text-slate-400' : 'text-slate-500'} mt-1`}>{events.length} events scheduled</p>
-        </div>
-        <button
-          onClick={() => {
-            setSelectedDate(new Date());
-            setShowNewEventForm(true);
-          }}
-          className="flex items-center gap-2 px-6 py-3 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-all shadow-lg hover:shadow-xl hover:scale-105"
-        >
-          <Plus size={20} />
-          New Event
-        </button>
-      </div>
-
-      {showNewEventForm && (
-        <NewEventForm 
-          onSave={addEvent} 
-          onCancel={() => {
-            setShowNewEventForm(false);
-            setSelectedDate(null);
-          }}
-          initialDate={selectedDate}
-          darkMode={darkMode}
-          allTags={allTags}
-        />
-      )}
-
-      <div className={`${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'} rounded-xl shadow-lg border p-6 mb-6`}>
-        <div className="flex items-center justify-between mb-6">
-          <button
-            onClick={prevMonth}
-            className={`p-2 ${darkMode ? 'hover:bg-slate-700' : 'hover:bg-slate-100'} rounded-lg transition-all hover:scale-110`}
-          >
-            <ChevronLeft size={24} className={darkMode ? 'text-white' : ''} />
-          </button>
-          <h3 className={`text-2xl font-bold ${darkMode ? 'text-white' : 'text-slate-800'}`}>
-            {currentMonth.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
-          </h3>
-          <button
-            onClick={nextMonth}
-            className={`p-2 ${darkMode ? 'hover:bg-slate-700' : 'hover:bg-slate-100'} rounded-lg transition-all hover:scale-110`}
-          >
-            <ChevronRight size={24} className={darkMode ? 'text-white' : ''} />
-          </button>
-        </div>
-
-        <div className="grid grid-cols-7 gap-2">
-          {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
-            <div key={day} className={`text-center font-semibold ${darkMode ? 'text-slate-400' : 'text-slate-600'} text-sm py-2`}>
-              {day}
-            </div>
-          ))}
-          
-          {days.map((day, index) => {
-            const isCurrentMonth = day.getMonth() === currentMonth.getMonth();
-            const isToday = day.toDateString() === new Date().toDateString();
-            const dayEvents = getEventsForDate(day);
-            
-            return (
-              <div
-                key={index}
-                onClick={() => handleDateClick(day)}
-                className={`min-h-[100px] p-2 border rounded-lg cursor-pointer transition-all hover:scale-105 ${
-                  darkMode 
-                    ? isCurrentMonth ? 'bg-slate-700 border-slate-600' : 'bg-slate-800 border-slate-700'
-                    : isCurrentMonth ? 'bg-white border-slate-200' : 'bg-slate-50 border-slate-100'
-                } ${isToday ? 'ring-2 ring-teal-500' : ''} hover:border-teal-300 hover:shadow-md`}
-              >
-                <div className={`text-sm font-medium mb-1 ${
-                  isToday ? 'text-teal-600 font-bold' : 
-                  darkMode ? (isCurrentMonth ? 'text-slate-200' : 'text-slate-500') :
-                  (isCurrentMonth ? 'text-slate-700' : 'text-slate-400')
-                }`}>
-                  {day.getDate()}
-                </div>
-                <div className="space-y-1">
-                  {dayEvents.slice(0, 2).map(event => (
-                    <div
-                      key={event.id}
-                      className={`text-xs px-2 py-1 rounded transition-all ${
-                        event.color === 'blue' ? 'bg-blue-100 text-blue-700' :
-                        event.color === 'green' ? 'bg-green-100 text-green-700' :
-                        event.color === 'purple' ? 'bg-purple-100 text-purple-700' :
-                        event.color === 'red' ? 'bg-red-100 text-red-700' :
-                        'bg-teal-100 text-teal-700'
-                      }`}
-                    >
-                      <div className="font-medium truncate">{event.title}</div>
-                    </div>
-                  ))}
-                  {dayEvents.length > 2 && (
-                    <div className={`text-xs ${darkMode ? 'text-slate-400' : 'text-slate-500'} px-2`}>
-                      +{dayEvents.length - 2} more
-                    </div>
-                  )}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-
-      <div className="space-y-4">
-        <h3 className={`text-xl font-semibold ${darkMode ? 'text-slate-200' : 'text-slate-700'}`}>All Events</h3>
-        {events
-          .sort((a, b) => {
-            if (a.date < b.date) return -1;
-            if (a.date > b.date) return 1;
-            return 0;
-          })
-          .map((event, index) => (
-            <EventCard
-              key={event.id}
-              event={event}
-              updateEvent={updateEvent}
-              deleteEvent={deleteEvent}
-              getLinkedItem={getLinkedItem}
-              navigateToLinkedItem={navigateToLinkedItem}
-              onOpenLinkModal={() => openLinkModal(event.id)}
-              darkMode={darkMode}
-              allTags={allTags}
-              style={{ animationDelay: `${index * 0.03}s` }}
-            />
-          ))}
-      </div>
-
-      <LinkItemsModal
-        isOpen={showLinkModal}
-        onClose={() => setShowLinkModal(false)}
-        items={{ tasks, links, notes }}
-        onToggleLink={handleToggleLink}
-        linkedItems={currentEvent?.linkedItems || []}
-        darkMode={darkMode}
-      />
-    </div>
-  );
-}
-
-function NewEventForm({ onSave, onCancel, initialDate, darkMode, allTags }) {
-  const [title, setTitle] = useState('');
-  const formatDateForInput = (date) => {
-    if (!date) date = new Date();
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
-  };
-  const [date, setDate] = useState(formatDateForInput(initialDate));
-  const [startTime, setStartTime] = useState('09:00');
-  const [endTime, setEndTime] = useState('10:00');
-  const [description, setDescription] = useState('');
-  const [color, setColor] = useState('teal');
-  const [tagInput, setTagInput] = useState('');
-  const [selectedTags, setSelectedTags] = useState([]);
-
-  const colors = {
-    teal: 'bg-teal-100 border-teal-300',
-    blue: 'bg-blue-100 border-blue-300',
-    green: 'bg-green-100 border-green-300',
-    purple: 'bg-purple-100 border-purple-300',
-    red: 'bg-red-100 border-red-300',
-  };
-
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    if (title.trim() && date) {
-      onSave({ title, date, startTime, endTime, description, color, tags: selectedTags });
-    }
-  };
-
-  const addTag = (tag) => {
-    const trimmedTag = tag.trim();
-    if (trimmedTag && !selectedTags.includes(trimmedTag)) {
-      setSelectedTags([...selectedTags, trimmedTag]);
-    }
-    setTagInput('');
-  };
-
-  const removeTag = (tagToRemove) => {
-    setSelectedTags(selectedTags.filter(t => t !== tagToRemove));
-  };
-
-  return (
-    <form onSubmit={handleSubmit} className={`mb-6 p-6 ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'} rounded-xl shadow-lg border animate-slideUp`}>
-      <input
-        type="text"
-        value={title}
-        onChange={(e) => setTitle(e.target.value)}
-        placeholder="Event title..."
-        className={`w-full text-lg font-medium mb-3 px-3 py-2 border ${darkMode ? 'bg-slate-700 border-slate-600 text-white placeholder-slate-400' : 'border-slate-300'} rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500`}
-        autoFocus
-      />
-      
-      <div className="grid grid-cols-2 gap-3 mb-3">
-        <div>
-          <label className={`block text-sm ${darkMode ? 'text-slate-300' : 'text-slate-600'} mb-1`}>Date</label>
-          <input
-            type="date"
-            value={date}
-            onChange={(e) => setDate(e.target.value)}
-            className={`w-full px-3 py-2 border ${darkMode ? 'bg-slate-700 border-slate-600 text-white' : 'border-slate-300'} rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500`}
-          />
-        </div>
-        <div>
-          <label className={`block text-sm ${darkMode ? 'text-slate-300' : 'text-slate-600'} mb-1`}>Color</label>
-          <div className="flex gap-2 pt-2">
-            {Object.entries(colors).map(([colorName, colorClass]) => (
-              <button
-                key={colorName}
-                type="button"
-                onClick={() => setColor(colorName)}
-                className={`w-8 h-8 rounded-full border-2 ${colorClass} transition-all ${
-                  color === colorName ? 'ring-2 ring-teal-500 ring-offset-2 scale-110' : ''
-                }`}
-              />
-            ))}
-          </div>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-2 gap-3 mb-3">
-        <div>
-          <label className={`block text-sm ${darkMode ? 'text-slate-300' : 'text-slate-600'} mb-1`}>Start Time</label>
-          <input
-            type="time"
-            value={startTime}
-            onChange={(e) => setStartTime(e.target.value)}
-            className={`w-full px-3 py-2 border ${darkMode ? 'bg-slate-700 border-slate-600 text-white' : 'border-slate-300'} rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500`}
-          />
-        </div>
-        <div>
-          <label className={`block text-sm ${darkMode ? 'text-slate-300' : 'text-slate-600'} mb-1`}>End Time</label>
-          <input
-            type="time"
-            value={endTime}
-            onChange={(e) => setEndTime(e.target.value)}
-            className={`w-full px-3 py-2 border ${darkMode ? 'bg-slate-700 border-slate-600 text-white' : 'border-slate-300'} rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500`}
-          />
-        </div>
-      </div>
-
-      <textarea
-        value={description}
-        onChange={(e) => setDescription(e.target.value)}
-        placeholder="Description (optional)"
-        className={`w-full px-3 py-2 border ${darkMode ? 'bg-slate-700 border-slate-600 text-white placeholder-slate-400' : 'border-slate-300'} rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 resize-none mb-3`}
-        rows={3}
-      />
-
-      <div className="mb-3">
-        <label className={`block text-sm ${darkMode ? 'text-slate-300' : 'text-slate-600'} mb-2`}>Tags</label>
-        <div className="flex flex-wrap gap-2 mb-2">
-          {selectedTags.map(tag => (
-            <span key={tag} className="inline-flex items-center gap-1 px-3 py-1 bg-teal-100 text-teal-700 rounded-full text-sm">
-              <Tag size={12} />
-              {tag}
-              <button
-                type="button"
-                onClick={() => removeTag(tag)}
-                className="hover:text-teal-900"
-              >
-                <X size={14} />
-              </button>
-            </span>
-          ))}
-        </div>
-        <div className="flex gap-2">
-          <input
-            type="text"
-            value={tagInput}
-            onChange={(e) => setTagInput(e.target.value)}
-            onKeyPress={(e) => {
-              if (e.key === 'Enter') {
-                e.preventDefault();
-                addTag(tagInput);
-              }
-            }}
-            placeholder="Add tag..."
-            list="event-tags"
-            className={`flex-1 px-3 py-2 border ${darkMode ? 'bg-slate-700 border-slate-600 text-white placeholder-slate-400' : 'border-slate-300'} rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500`}
-          />
-          <datalist id="event-tags">
-            {allTags.filter(t => !selectedTags.includes(t)).map(tag => (
-              <option key={tag} value={tag} />
-            ))}
-          </datalist>
-          <button
-            type="button"
-            onClick={() => addTag(tagInput)}
-            className="px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700"
-          >
-            <Plus size={16} />
-          </button>
-        </div>
-      </div>
-      
-      <div className="flex gap-2">
-        <button
-          type="submit"
-          className="flex items-center gap-2 px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700"
-        >
-          <Save size={16} />
-          Save Event
-        </button>
-        <button
-          type="button"
-          onClick={onCancel}
-          className={`px-4 py-2 ${darkMode ? 'text-slate-300 hover:bg-slate-700' : 'text-slate-600 hover:bg-slate-100'} rounded-lg`}
-        >
-          Cancel
-        </button>
-      </div>
-    </form>
-  );
-}
-
-function EventCard({ event, updateEvent, deleteEvent, getLinkedItem, navigateToLinkedItem, onOpenLinkModal, darkMode, allTags, style }) {
-  const [isEditing, setIsEditing] = useState(false);
-  const [editedEvent, setEditedEvent] = useState(event);
-
-  const formatDisplayDate = (dateStr) => {
-    const [year, month, day] = dateStr.split('-');
-    const date = new Date(year, month - 1, day);
-    return date.toLocaleDateString('en-US', { 
-      weekday: 'long', 
-      year: 'numeric', 
-      month: 'long', 
-      day: 'numeric' 
-    });
-  };
-
-  const handleSave = () => {
-    updateEvent(event.id, editedEvent);
-    setIsEditing(false);
-  };
-
-  if (isEditing) {
-    return (
-      <div className={`p-6 ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'} rounded-xl shadow-md border animate-slideUp`} style={style}>
-        <input
-          type="text"
-          value={editedEvent.title}
-          onChange={(e) => setEditedEvent({ ...editedEvent, title: e.target.value })}
-          placeholder="Event title"
-          className={`w-full mb-3 px-3 py-2 border ${darkMode ? 'bg-slate-700 border-slate-600 text-white' : 'border-slate-300'} rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 font-medium`}
-        />
-        <div className="grid grid-cols-2 gap-3 mb-3">
-          <input
-            type="date"
-            value={editedEvent.date}
-            onChange={(e) => setEditedEvent({ ...editedEvent, date: e.target.value })}
-            className={`px-3 py-2 border ${darkMode ? 'bg-slate-700 border-slate-600 text-white' : 'border-slate-300'} rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500`}
-          />
-          <input
-            type="time"
-            value={editedEvent.startTime || ''}
-            onChange={(e) => setEditedEvent({ ...editedEvent, startTime: e.target.value })}
-            className={`px-3 py-2 border ${darkMode ? 'bg-slate-700 border-slate-600 text-white' : 'border-slate-300'} rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500`}
-          />
-        </div>
-        <textarea
-          value={editedEvent.description || ''}
-          onChange={(e) => setEditedEvent({ ...editedEvent, description: e.target.value })}
-          placeholder="Description"
-          className={`w-full mb-3 px-3 py-2 border ${darkMode ? 'bg-slate-700 border-slate-600 text-white placeholder-slate-400' : 'border-slate-300'} rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 resize-none`}
-          rows={3}
-        />
-        <div className="flex gap-2">
-          <button
-            onClick={handleSave}
-            className="flex items-center gap-2 px-3 py-1.5 bg-teal-600 text-white rounded-lg hover:bg-teal-700 text-sm"
-          >
-            <Save size={14} />
-            Save
-          </button>
-          <button
-            onClick={() => setIsEditing(false)}
-            className={`px-3 py-1.5 ${darkMode ? 'text-slate-300 hover:bg-slate-700' : 'text-slate-600 hover:bg-slate-100'} rounded-lg text-sm`}
-          >
-            Cancel
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className={`task-card p-6 ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'} rounded-xl shadow-md border animate-slideUp`} style={style}>
-      <div className="flex items-start justify-between mb-4">
-        <div className="flex-1">
-          <div className={`inline-block px-3 py-1 rounded-full text-xs font-medium mb-2 ${
-            event.color === 'blue' ? 'bg-blue-100 text-blue-700' :
-            event.color === 'green' ? 'bg-green-100 text-green-700' :
-            event.color === 'purple' ? 'bg-purple-100 text-purple-700' :
-            event.color === 'red' ? 'bg-red-100 text-red-700' :
-            'bg-teal-100 text-teal-700'
-          }`}>
-            {formatDisplayDate(event.date)}
-          </div>
-          <h3 className={`text-xl font-semibold ${darkMode ? 'text-white' : 'text-slate-800'} mb-2`}>{event.title}</h3>
-          {event.startTime && (
-            <div className={`flex items-center gap-2 ${darkMode ? 'text-slate-300' : 'text-slate-600'} text-sm mb-2`}>
-              <Clock size={16} />
-              <span>{event.startTime}{event.endTime && ` - ${event.endTime}`}</span>
-            </div>
-          )}
-          {event.description && (
-            <p className={`${darkMode ? 'text-slate-300' : 'text-slate-600'} text-sm mb-3`}>{event.description}</p>
-          )}
-          {event.tags && event.tags.length > 0 && (
-            <div className="flex flex-wrap gap-1 mb-3">
-              {event.tags.map(tag => (
-                <span key={tag} className="inline-flex items-center gap-1 px-2 py-1 bg-teal-50 text-teal-700 rounded text-xs border border-teal-200">
-                  <Tag size={10} />
-                  {tag}
-                </span>
-              ))}
-            </div>
-          )}
-        </div>
-        <div className="flex gap-2 ml-4">
-          <button
-            onClick={() => setIsEditing(true)}
-            className={`${darkMode ? 'text-slate-500 hover:text-teal-400' : 'text-slate-400 hover:text-teal-600'} transition-all hover:scale-110`}
-          >
-            <Edit2 size={18} />
-          </button>
-          <button
-            onClick={() => deleteEvent(event.id)}
-            className={`${darkMode ? 'text-slate-500 hover:text-red-400' : 'text-slate-400 hover:text-red-600'} transition-all hover:scale-110`}
-          >
-            <Trash2 size={18} />
-          </button>
-        </div>
-      </div>
-
-      {event.linkedItems && event.linkedItems.length > 0 && (
-        <div className={`mb-3 pt-3 border-t ${darkMode ? 'border-slate-700' : 'border-slate-100'}`}>
-          <div className="flex flex-wrap gap-2">
-            {event.linkedItems.map(linkedItem => {
-              const item = getLinkedItem(linkedItem);
-              if (!item) return null;
-              
-              return (
-                <button
-                  key={linkedItem.id}
-                  onClick={() => navigateToLinkedItem(linkedItem)}
-                  className="flex items-center gap-1 px-3 py-1.5 bg-teal-50 text-teal-700 rounded-lg text-sm border border-teal-200 hover:bg-teal-100 transition-all hover:scale-105"
-                >
-                  {linkedItem.type === 'link' ? <Link2 size={14} /> : 
-                   linkedItem.type === 'note' ? <StickyNote size={14} /> : 
-                   <List size={14} />}
-                  <span className="truncate max-w-[150px]">{linkedItem.title}</span>
-                  <ExternalLink size={12} />
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-      <button
-        onClick={onOpenLinkModal}
-        className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-all hover:scale-105 ${
-          darkMode ? 'bg-slate-700 text-teal-400 hover:bg-slate-600' : 'bg-teal-50 text-teal-700 hover:bg-teal-100'
-        }`}
-      >
-        <Link2 size={16} />
-        <span className="text-sm font-medium">Link Items</span>
-      </button>
-    </div>
-  );
-}
-
-// Links View - WITH LABELS, TAG EDITING, AND FILTERING
-function LinksView({ links, addLink, updateLink, deleteLink, reorderLinks, showNewLinkForm, setShowNewLinkForm, highlightedItemId, darkMode, allTags, viewMode, toggleViewMode }) {
-  const [filterType, setFilterType] = useState('none');
-  const [filterValue, setFilterValue] = useState('all');
-  const [draggedItem, setDraggedItem] = useState(null);
-  const [dragOverItem, setDragOverItem] = useState(null);
-  
-  const categories = [...new Set(links.map(l => l.category).filter(Boolean))];
-  const linkTags = [...new Set(links.flatMap(l => l.tags || []))];
-
-  let filteredLinks = links;
-  if (filterType === 'category' && filterValue !== 'all') {
-    filteredLinks = links.filter(l => l.category === filterValue);
-  } else if (filterType === 'tag' && filterValue !== 'all') {
-    filteredLinks = links.filter(l => l.tags && l.tags.includes(filterValue));
-  }
-
-  const handleDragStart = (e, link) => {
-    setDraggedItem(link);
-    e.dataTransfer.effectAllowed = 'move';
-  };
-
-  const handleDragOver = (e, link) => {
-    e.preventDefault();
-    if (draggedItem && draggedItem.id !== link.id) {
-      setDragOverItem(link);
-    }
-  };
-
-  const handleDrop = (e, targetLink) => {
-    e.preventDefault();
-    if (!draggedItem || draggedItem.id === targetLink.id) return;
-
-    const allLinksCopy = [...links];
-    const draggedIndex = allLinksCopy.findIndex(l => l.id === draggedItem.id);
-    const targetIndex = allLinksCopy.findIndex(l => l.id === targetLink.id);
-
-    const [removed] = allLinksCopy.splice(draggedIndex, 1);
-    allLinksCopy.splice(targetIndex, 0, removed);
-
-    reorderLinks(allLinksCopy);
-
-    setDraggedItem(null);
-    setDragOverItem(null);
-  };
-
-  const handleDragEnd = () => {
-    setDraggedItem(null);
-    setDragOverItem(null);
-  };
-
-  return (
-    <div className="max-w-6xl animate-fadeIn">
-      <div className="flex items-center justify-between mb-8">
-        <div>
-          <h2 className={`text-4xl font-bold ${darkMode ? 'text-white' : 'text-slate-800'} accent-font`}>Links</h2>
-          <p className={`${darkMode ? 'text-slate-400' : 'text-slate-500'} mt-1`}>{links.length} saved</p>
-        </div>
-        <div className="flex items-center gap-3">
-          <div className="flex gap-1 p-1 bg-slate-200 dark:bg-slate-700 rounded-lg">
-            <button
-              onClick={() => toggleViewMode('links', 'list')}
-              className={`p-2 rounded transition-all ${viewMode === 'list' ? 'bg-white dark:bg-slate-600 shadow' : 'hover:bg-slate-300 dark:hover:bg-slate-600'}`}
-            >
-              <LayoutList size={18} className={darkMode ? 'text-slate-300' : 'text-slate-700'} />
-            </button>
-            <button
-              onClick={() => toggleViewMode('links', 'grid')}
-              className={`p-2 rounded transition-all ${viewMode === 'grid' ? 'bg-white dark:bg-slate-600 shadow' : 'hover:bg-slate-300 dark:hover:bg-slate-600'}`}
-            >
-              <Grid size={18} className={darkMode ? 'text-slate-300' : 'text-slate-700'} />
-            </button>
-          </div>
-          <button
-            onClick={() => setShowNewLinkForm(true)}
-            className="flex items-center gap-2 px-6 py-3 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-all shadow-lg hover:shadow-xl hover:scale-105"
-          >
-            <Plus size={20} />
-            New Link
-          </button>
-        </div>
-      </div>
-
-      {/* Filter Controls */}
-      <div className="mb-6">
-        <div className="flex flex-wrap items-center gap-3 mb-3">
-          <Filter size={18} className={darkMode ? 'text-slate-400' : 'text-slate-500'} />
-          <select
-            value={filterType}
-            onChange={(e) => {
-              setFilterType(e.target.value);
-              setFilterValue('all');
-            }}
-            className={`px-4 py-2 rounded-lg border ${darkMode ? 'bg-slate-800 border-slate-700 text-white' : 'bg-white border-slate-200'}`}
-          >
-            <option value="none">No Filter</option>
-            <option value="category">Filter by Category</option>
-            <option value="tag">Filter by Tag</option>
-          </select>
-
-          {filterType === 'category' && categories.length > 0 && (
-            <div className="flex gap-2 flex-wrap">
-              <button
-                onClick={() => setFilterValue('all')}
-                className={`px-4 py-2 rounded-lg text-sm font-medium ${filterValue === 'all' ? 'bg-teal-600 text-white' : darkMode ? 'bg-slate-700 text-slate-300 hover:bg-slate-600' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
-              >
-                All
-              </button>
-              {categories.map(cat => (
-                <button
-                  key={cat}
-                  onClick={() => setFilterValue(cat)}
-                  className={`px-4 py-2 rounded-lg text-sm font-medium ${filterValue === cat ? 'bg-teal-600 text-white' : darkMode ? 'bg-slate-700 text-slate-300 hover:bg-slate-600' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
-                >
-                  {cat}
-                </button>
-              ))}
-            </div>
-          )}
-
-          {filterType === 'tag' && linkTags.length > 0 && (
-            <div className="flex gap-2 flex-wrap">
-              <button
-                onClick={() => setFilterValue('all')}
-                className={`px-4 py-2 rounded-lg text-sm font-medium ${filterValue === 'all' ? 'bg-teal-600 text-white' : darkMode ? 'bg-slate-700 text-slate-300 hover:bg-slate-600' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
-              >
-                All
-              </button>
-              {linkTags.map(tag => (
-                <button
-                  key={tag}
-                  onClick={() => setFilterValue(tag)}
-                  className={`flex items-center gap-1 px-4 py-2 rounded-lg text-sm font-medium ${filterValue === tag ? 'bg-teal-600 text-white' : darkMode ? 'bg-slate-700 text-slate-300 hover:bg-slate-600' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
-                >
-                  <Tag size={14} />
-                  {tag}
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
-
-      {showNewLinkForm && (
-        <NewLinkForm 
-          onSave={addLink} 
-          onCancel={() => setShowNewLinkForm(false)}
-          existingCategories={categories}
-          darkMode={darkMode}
-          allTags={allTags}
-        />
-      )}
-
-      <div className={viewMode === 'grid' ? 'grid grid-cols-1 md:grid-cols-2 gap-4' : 'space-y-4'}>
-        {filteredLinks.map((link, index) => (
-          <LinkCard 
-            key={link.id} 
-            link={link} 
-            updateLink={updateLink}
-            deleteLink={deleteLink}
-            isHighlighted={highlightedItemId === link.id}
-            darkMode={darkMode}
-            allTags={allTags}
-            existingCategories={categories}
-            onDragStart={handleDragStart}
-            onDragOver={handleDragOver}
-            onDrop={handleDrop}
-            onDragEnd={handleDragEnd}
-            isDragging={draggedItem?.id === link.id}
-            isDragOver={dragOverItem?.id === link.id}
-            style={{ animationDelay: `${index * 0.03}s` }}
-          />
-        ))}
-      </div>
-
-      {filteredLinks.length === 0 && !showNewLinkForm && (
-        <div className={`text-center py-16 ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>
-          <Link2 size={48} className="mx-auto mb-4 opacity-30" />
-          <p>No links match your filter!</p>
-        </div>
-      )}
-    </div>
-  );
-}
-
-function NewLinkForm({ onSave, onCancel, existingCategories, darkMode, allTags }) {
-  const [url, setUrl] = useState('');
-  const [title, setTitle] = useState('');
-  const [category, setCategory] = useState('');
-  const [description, setDescription] = useState('');
-  const [tagInput, setTagInput] = useState('');
-  const [selectedTags, setSelectedTags] = useState([]);
-
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    if (url.trim()) {
-      let finalUrl = url.trim();
-      if (!finalUrl.match(/^https?:\/\//i)) {
-        finalUrl = 'https://' + finalUrl;
-      }
-      onSave({ url: finalUrl, title, category, description, tags: selectedTags });
-    }
-  };
-
-  const addTag = (tag) => {
-    const trimmedTag = tag.trim();
-    if (trimmedTag && !selectedTags.includes(trimmedTag)) {
-      setSelectedTags([...selectedTags, trimmedTag]);
-    }
-    setTagInput('');
-  };
-
-  const removeTag = (tagToRemove) => {
-    setSelectedTags(selectedTags.filter(t => t !== tagToRemove));
-  };
-
-  return (
-    <form onSubmit={handleSubmit} className={`mb-6 p-6 ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'} rounded-xl shadow-lg border animate-slideUp`}>
-      <div className="mb-3">
-        <label className={`block text-sm font-medium ${darkMode ? 'text-slate-300' : 'text-slate-700'} mb-2`}>URL *</label>
-        <input
-          type="text"
-          value={url}
-          onChange={(e) => setUrl(e.target.value)}
-          placeholder="example.com or https://example.com"
-          className={`w-full px-3 py-2 border ${darkMode ? 'bg-slate-700 border-slate-600 text-white placeholder-slate-400' : 'border-slate-300'} rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500`}
-          autoFocus
-        />
-      </div>
-
-      <div className="mb-3">
-        <label className={`block text-sm font-medium ${darkMode ? 'text-slate-300' : 'text-slate-700'} mb-2`}>Title</label>
-        <input
-          type="text"
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-          placeholder="Optional title"
-          className={`w-full px-3 py-2 border ${darkMode ? 'bg-slate-700 border-slate-600 text-white placeholder-slate-400' : 'border-slate-300'} rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500`}
-        />
-      </div>
-
-      <div className="mb-3">
-        <label className={`block text-sm font-medium ${darkMode ? 'text-slate-300' : 'text-slate-700'} mb-2`}>Category</label>
-        <input
-          type="text"
-          value={category}
-          onChange={(e) => setCategory(e.target.value)}
-          placeholder="Optional category"
-          list="categories"
-          className={`w-full px-3 py-2 border ${darkMode ? 'bg-slate-700 border-slate-600 text-white placeholder-slate-400' : 'border-slate-300'} rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500`}
-        />
-        <datalist id="categories">
-          {existingCategories.map(cat => (
-            <option key={cat} value={cat} />
-          ))}
-        </datalist>
-      </div>
-
-      <div className="mb-3">
-        <label className={`block text-sm font-medium ${darkMode ? 'text-slate-300' : 'text-slate-700'} mb-2`}>Description</label>
-        <textarea
-          value={description}
-          onChange={(e) => setDescription(e.target.value)}
-          placeholder="Optional description"
-          className={`w-full px-3 py-2 border ${darkMode ? 'bg-slate-700 border-slate-600 text-white placeholder-slate-400' : 'border-slate-300'} rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 resize-none`}
-          rows={2}
-        />
-      </div>
-
-      <div className="mb-3">
-        <label className={`block text-sm font-medium ${darkMode ? 'text-slate-300' : 'text-slate-700'} mb-2`}>Tags</label>
-        <div className="flex flex-wrap gap-2 mb-2">
-          {selectedTags.map(tag => (
-            <span key={tag} className="inline-flex items-center gap-1 px-3 py-1 bg-teal-100 text-teal-700 rounded-full text-sm">
-              <Tag size={12} />
-              {tag}
-              <button
-                type="button"
-                onClick={() => removeTag(tag)}
-                className="hover:text-teal-900"
-              >
-                <X size={14} />
-              </button>
-            </span>
-          ))}
-        </div>
-        <div className="flex gap-2">
-          <input
-            type="text"
-            value={tagInput}
-            onChange={(e) => setTagInput(e.target.value)}
-            onKeyPress={(e) => {
-              if (e.key === 'Enter') {
-                e.preventDefault();
-                addTag(tagInput);
-              }
-            }}
-            placeholder="Add tag..."
-            list="link-tags"
-            className={`flex-1 px-3 py-2 border ${darkMode ? 'bg-slate-700 border-slate-600 text-white placeholder-slate-400' : 'border-slate-300'} rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500`}
-          />
-          <datalist id="link-tags">
-            {allTags.filter(t => !selectedTags.includes(t)).map(tag => (
-              <option key={tag} value={tag} />
-            ))}
-          </datalist>
-          <button
-            type="button"
-            onClick={() => addTag(tagInput)}
-            className="px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700"
-          >
-            <Plus size={16} />
-          </button>
-        </div>
-      </div>
-
-      <div className="flex gap-2">
-        <button
-          type="submit"
-          className="flex items-center gap-2 px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700"
-        >
-          <Save size={16} />
-          Save
-        </button>
-        <button
-          type="button"
-          onClick={onCancel}
-          className={`px-4 py-2 ${darkMode ? 'text-slate-300 hover:bg-slate-700' : 'text-slate-600 hover:bg-slate-100'} rounded-lg`}
-        >
-          Cancel
-        </button>
-      </div>
-    </form>
-  );
-}
-
-function LinkCard({ link, updateLink, deleteLink, isHighlighted, darkMode, allTags, existingCategories, onDragStart, onDragOver, onDrop, onDragEnd, isDragging, isDragOver, style }) {
-  const [isEditing, setIsEditing] = useState(false);
-  const [editedLink, setEditedLink] = useState(link);
-  const [tagInput, setTagInput] = useState('');
-  const [selectedTags, setSelectedTags] = useState(link.tags || []);
-
-  const handleSave = () => {
-    let finalUrl = editedLink.url.trim();
-    if (!finalUrl.match(/^https?:\/\//i)) {
-      finalUrl = 'https://' + finalUrl;
-    }
-    updateLink(link.id, { ...editedLink, url: finalUrl, tags: selectedTags });
-    setIsEditing(false);
-  };
-
-  const addTag = (tag) => {
-    const trimmedTag = tag.trim();
-    if (trimmedTag && !selectedTags.includes(trimmedTag)) {
-      setSelectedTags([...selectedTags, trimmedTag]);
-    }
-    setTagInput('');
-  };
-
-  const removeTag = (tagToRemove) => {
-    setSelectedTags(selectedTags.filter(t => t !== tagToRemove));
-  };
-
-  if (isEditing) {
-    return (
-      <div className={`p-6 ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'} rounded-xl shadow-md border animate-slideUp`} style={style}>
-        <div className="mb-3">
-          <label className={`block text-sm font-medium ${darkMode ? 'text-slate-300' : 'text-slate-700'} mb-2`}>URL</label>
-          <input
-            type="text"
-            value={editedLink.url}
-            onChange={(e) => setEditedLink({ ...editedLink, url: e.target.value })}
-            className={`w-full px-3 py-2 border ${darkMode ? 'bg-slate-700 border-slate-600 text-white' : 'border-slate-300'} rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500`}
-          />
-        </div>
-        <div className="mb-3">
-          <label className={`block text-sm font-medium ${darkMode ? 'text-slate-300' : 'text-slate-700'} mb-2`}>Title</label>
-          <input
-            type="text"
-            value={editedLink.title || ''}
-            onChange={(e) => setEditedLink({ ...editedLink, title: e.target.value })}
-            placeholder="Title"
-            className={`w-full px-3 py-2 border ${darkMode ? 'bg-slate-700 border-slate-600 text-white placeholder-slate-400' : 'border-slate-300'} rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500`}
-          />
-        </div>
-        <div className="mb-3">
-          <label className={`block text-sm font-medium ${darkMode ? 'text-slate-300' : 'text-slate-700'} mb-2`}>Category</label>
-          <input
-            type="text"
-            value={editedLink.category || ''}
-            onChange={(e) => setEditedLink({ ...editedLink, category: e.target.value })}
-            placeholder="Category"
-            list="edit-categories"
-            className={`w-full px-3 py-2 border ${darkMode ? 'bg-slate-700 border-slate-600 text-white placeholder-slate-400' : 'border-slate-300'} rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500`}
-          />
-          <datalist id="edit-categories">
-            {existingCategories.map(cat => (
-              <option key={cat} value={cat} />
-            ))}
-          </datalist>
-        </div>
-        <div className="mb-3">
-          <label className={`block text-sm font-medium ${darkMode ? 'text-slate-300' : 'text-slate-700'} mb-2`}>Tags</label>
-          <div className="flex flex-wrap gap-2 mb-2">
-            {selectedTags.map(tag => (
-              <span key={tag} className="inline-flex items-center gap-1 px-2 py-1 bg-teal-100 text-teal-700 rounded-full text-sm">
-                <Tag size={12} />
-                {tag}
-                <button
-                  type="button"
-                  onClick={() => removeTag(tag)}
-                  className="hover:text-teal-900"
-                >
-                  <X size={14} />
-                </button>
-              </span>
-            ))}
-          </div>
-          <div className="flex gap-2">
-            <input
-              type="text"
-              value={tagInput}
-              onChange={(e) => setTagInput(e.target.value)}
-              onKeyPress={(e) => {
-                if (e.key === 'Enter') {
-                  e.preventDefault();
-                  addTag(tagInput);
-                }
-              }}
-              placeholder="Add tag..."
-              list="edit-link-tags"
-              className={`flex-1 px-3 py-2 border ${darkMode ? 'bg-slate-700 border-slate-600 text-white placeholder-slate-400' : 'border-slate-300'} rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500`}
-            />
-            <datalist id="edit-link-tags">
-              {allTags.filter(t => !selectedTags.includes(t)).map(tag => (
-                <option key={tag} value={tag} />
-              ))}
-            </datalist>
-            <button
-              type="button"
-              onClick={() => addTag(tagInput)}
-              className="px-3 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700"
-            >
-              <Plus size={16} />
-            </button>
-          </div>
-        </div>
-        <div className="flex gap-2 mt-4">
-          <button
-            onClick={handleSave}
-            className="flex items-center gap-2 px-3 py-1.5 bg-teal-600 text-white rounded-lg hover:bg-teal-700 text-sm"
-          >
-            <Save size={14} />
-            Save
-          </button>
-          <button
-            onClick={() => setIsEditing(false)}
-            className={`px-3 py-1.5 ${darkMode ? 'text-slate-300 hover:bg-slate-700' : 'text-slate-600 hover:bg-slate-100'} rounded-lg text-sm`}
-          >
-            Cancel
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div 
-      id={`item-${link.id}`}
-      draggable
-      onDragStart={(e) => onDragStart(e, link)}
-      onDragOver={(e) => onDragOver(e, link)}
-      onDrop={(e) => onDrop(e, link)}
-      onDragEnd={onDragEnd}
-      className={`task-card p-6 ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'} rounded-xl shadow-md border animate-slideUp cursor-move ${
-        isHighlighted ? 'animate-highlight ring-2 ring-teal-500' : ''
-      } ${isDragging ? 'opacity-50 scale-95' : ''} ${isDragOver ? 'border-teal-500 border-2' : ''}`} 
-      style={style}
-    >
-      <div className="flex items-start justify-between mb-3">
-        <div className="flex-1">
-          {link.title && (
-            <h3 className={`font-semibold ${darkMode ? 'text-white' : 'text-slate-800'} mb-1`}>{link.title}</h3>
-          )}
-          <a 
-            href={link.url} 
-            target="_blank" 
-            rel="noopener noreferrer"
-            className="text-teal-600 hover:text-teal-700 text-sm flex items-center gap-1 break-all transition-all hover:scale-105"
-          >
-            {link.url}
-            <ExternalLink size={14} />
-          </a>
-        </div>
-        <div className="flex gap-2 ml-4">
-          <button
-            onClick={() => setIsEditing(true)}
-            className={`${darkMode ? 'text-slate-500 hover:text-teal-400' : 'text-slate-400 hover:text-teal-600'} transition-all hover:scale-110`}
-          >
-            <Edit2 size={16} />
-          </button>
-          <button
-            onClick={() => deleteLink(link.id)}
-            className={`${darkMode ? 'text-slate-500 hover:text-red-400' : 'text-slate-400 hover:text-red-600'} transition-all hover:scale-110`}
-          >
-            <Trash2 size={16} />
-          </button>
-        </div>
-      </div>
-      
-      {link.description && (
-        <p className={`text-sm ${darkMode ? 'text-slate-300' : 'text-slate-600'} mb-3`}>{link.description}</p>
-      )}
-      
-      <div className="flex flex-wrap gap-2">
-        {link.category && (
-          <span className={`inline-block px-3 py-1 ${darkMode ? 'bg-slate-700 text-slate-300' : 'bg-slate-100 text-slate-600'} rounded-full text-xs font-medium`}>
-            {link.category}
-          </span>
-        )}
-        {link.tags && link.tags.map(tag => (
-          <span key={tag} className="inline-flex items-center gap-1 px-2 py-1 bg-teal-50 text-teal-700 rounded text-xs border border-teal-200">
-            <Tag size={10} />
-            {tag}
-          </span>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-// Notes View - WITH DRAG AND DROP
-function NotesView({ notes, addNote, updateNote, deleteNote, reorderNotes, showNewNoteForm, setShowNewNoteForm, highlightedItemId, darkMode, allTags, viewMode, toggleViewMode }) {
-  const [draggedItem, setDraggedItem] = useState(null);
-  const [dragOverItem, setDragOverItem] = useState(null);
-
-  const handleDragStart = (e, note) => {
-    setDraggedItem(note);
-    e.dataTransfer.effectAllowed = 'move';
-  };
-
-  const handleDragOver = (e, note) => {
-    e.preventDefault();
-    if (draggedItem && draggedItem.id !== note.id) {
-      setDragOverItem(note);
-    }
-  };
-
-  const handleDrop = (e, targetNote) => {
-    e.preventDefault();
-    if (!draggedItem || draggedItem.id === targetNote.id) return;
-
-    const allNotesCopy = [...notes];
-    const draggedIndex = allNotesCopy.findIndex(n => n.id === draggedItem.id);
-    const targetIndex = allNotesCopy.findIndex(n => n.id === targetNote.id);
-
-    const [removed] = allNotesCopy.splice(draggedIndex, 1);
-    allNotesCopy.splice(targetIndex, 0, removed);
-
-    reorderNotes(allNotesCopy);
-
-    setDraggedItem(null);
-    setDragOverItem(null);
-  };
-
-  const handleDragEnd = () => {
-    setDraggedItem(null);
-    setDragOverItem(null);
-  };
-
-  return (
-    <div className="max-w-6xl animate-fadeIn">
-      <div className="flex items-center justify-between mb-8">
-        <div>
-          <h2 className={`text-4xl font-bold ${darkMode ? 'text-white' : 'text-slate-800'} accent-font`}>Notes</h2>
-          <p className={`${darkMode ? 'text-slate-400' : 'text-slate-500'} mt-1`}>{notes.length} notes</p>
-        </div>
-        <div className="flex items-center gap-3">
-          <div className="flex gap-1 p-1 bg-slate-200 dark:bg-slate-700 rounded-lg">
-            <button
-              onClick={() => toggleViewMode('notes', 'list')}
-              className={`p-2 rounded transition-all ${viewMode === 'list' ? 'bg-white dark:bg-slate-600 shadow' : 'hover:bg-slate-300 dark:hover:bg-slate-600'}`}
-            >
-              <LayoutList size={18} className={darkMode ? 'text-slate-300' : 'text-slate-700'} />
-            </button>
-            <button
-              onClick={() => toggleViewMode('notes', 'grid')}
-              className={`p-2 rounded transition-all ${viewMode === 'grid' ? 'bg-white dark:bg-slate-600 shadow' : 'hover:bg-slate-300 dark:hover:bg-slate-600'}`}
-            >
-              <Grid size={18} className={darkMode ? 'text-slate-300' : 'text-slate-700'} />
-            </button>
-          </div>
-          <button
-            onClick={() => setShowNewNoteForm(true)}
-            className="flex items-center gap-2 px-6 py-3 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-all shadow-lg hover:shadow-xl hover:scale-105"
-          >
-            <Plus size={20} />
-            New Note
-          </button>
-        </div>
-      </div>
-
-      {showNewNoteForm && (
-        <NewNoteForm 
-          onSave={addNote} 
-          onCancel={() => setShowNewNoteForm(false)}
-          darkMode={darkMode}
-          existingTags={allTags}
-        />
-      )}
-
-      <div className={viewMode === 'grid' ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4' : 'space-y-4'}>
-        {notes.map((note, index) => (
-          <NoteCard 
-            key={note.id} 
-            note={note} 
-            updateNote={updateNote}
-            deleteNote={deleteNote}
-            isHighlighted={highlightedItemId === note.id}
-            darkMode={darkMode}
-            existingTags={allTags}
-            onDragStart={handleDragStart}
-            onDragOver={handleDragOver}
-            onDrop={handleDrop}
-            onDragEnd={handleDragEnd}
-            isDragging={draggedItem?.id === note.id}
-            isDragOver={dragOverItem?.id === note.id}
-            style={{ animationDelay: `${index * 0.03}s` }}
-          />
-        ))}
-      </div>
-
-      {notes.length === 0 && !showNewNoteForm && (
-        <div className={`text-center py-16 ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>
-          <StickyNote size={48} className="mx-auto mb-4 opacity-30" />
-          <p>No notes yet. Capture your thoughts!</p>
-        </div>
-      )}
-    </div>
-  );
-}
-
-function NewNoteForm({ onSave, onCancel, darkMode, existingTags }) {
-  const [title, setTitle] = useState('');
-  const [content, setContent] = useState('');
-  const [color, setColor] = useState('yellow');
-  const [tagInput, setTagInput] = useState('');
-  const [selectedTags, setSelectedTags] = useState([]);
-
-  const colors = {
-    yellow: 'bg-yellow-100 border-yellow-300',
-    blue: 'bg-blue-100 border-blue-300',
-    green: 'bg-green-100 border-green-300',
-    pink: 'bg-pink-100 border-pink-300',
-    purple: 'bg-purple-100 border-purple-300',
-  };
-
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    if (title.trim() || content.trim()) {
-      onSave({ title, content, color, tags: selectedTags });
-      setTitle('');
-      setContent('');
-      setColor('yellow');
-      setSelectedTags([]);
-    }
-  };
-
-  const addTag = (tag) => {
-    const trimmedTag = tag.trim();
-    if (trimmedTag && !selectedTags.includes(trimmedTag)) {
-      setSelectedTags([...selectedTags, trimmedTag]);
-    }
-    setTagInput('');
-  };
-
-  const removeTag = (tagToRemove) => {
-    setSelectedTags(selectedTags.filter(t => t !== tagToRemove));
-  };
-
-  return (
-    <form onSubmit={handleSubmit} className={`mb-6 p-6 ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'} rounded-xl shadow-lg border animate-slideUp`}>
-      <input
-        type="text"
-        value={title}
-        onChange={(e) => setTitle(e.target.value)}
-        placeholder="Note title..."
-        className={`w-full text-lg font-medium mb-3 px-3 py-2 border ${darkMode ? 'bg-slate-700 border-slate-600 text-white placeholder-slate-400' : 'border-slate-300'} rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500`}
-        autoFocus
-      />
-      
-      <RichTextEditor
-        value={content}
-        onChange={setContent}
-        placeholder="Your thoughts..."
-        darkMode={darkMode}
-        rows={10}
-      />
-
-      <div className="flex items-center gap-2 mt-4 mb-4">
-        <span className={`text-sm ${darkMode ? 'text-slate-300' : 'text-slate-600'}`}>Color:</span>
-        {Object.entries(colors).map(([colorName, colorClass]) => (
-          <button
-            key={colorName}
-            type="button"
-            onClick={() => setColor(colorName)}
-            className={`w-8 h-8 rounded-full border-2 ${colorClass} transition-all ${
-              color === colorName ? 'ring-2 ring-teal-500 ring-offset-2 scale-110' : ''
-            }`}
-          />
-        ))}
-      </div>
-
-      <div className="mb-4">
-        <label className={`block text-sm ${darkMode ? 'text-slate-300' : 'text-slate-600'} mb-2`}>Tags</label>
-        <div className="flex flex-wrap gap-2 mb-2">
-          {selectedTags.map(tag => (
-            <span key={tag} className="inline-flex items-center gap-1 px-3 py-1 bg-teal-100 text-teal-700 rounded-full text-sm">
-              <Tag size={12} />
-              {tag}
-              <button
-                type="button"
-                onClick={() => removeTag(tag)}
-                className="hover:text-teal-900"
-              >
-                <X size={14} />
-              </button>
-            </span>
-          ))}
-        </div>
-        <div className="flex gap-2">
-          <input
-            type="text"
-            value={tagInput}
-            onChange={(e) => setTagInput(e.target.value)}
-            onKeyPress={(e) => {
-              if (e.key === 'Enter') {
-                e.preventDefault();
-                addTag(tagInput);
-              }
-            }}
-            placeholder="Add tag..."
-            list="note-tags"
-            className={`flex-1 px-3 py-2 border ${darkMode ? 'bg-slate-700 border-slate-600 text-white placeholder-slate-400' : 'border-slate-300'} rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500`}
-          />
-          <datalist id="note-tags">
-            {existingTags.filter(t => !selectedTags.includes(t)).map(tag => (
-              <option key={tag} value={tag} />
-            ))}
-          </datalist>
-          <button
-            type="button"
-            onClick={() => addTag(tagInput)}
-            className="px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700"
-          >
-            <Plus size={16} />
-          </button>
-        </div>
-      </div>
-      
-      <div className="flex gap-2">
-        <button
-          type="submit"
-          className="flex items-center gap-2 px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700"
-        >
-          <Save size={16} />
-          Save
-        </button>
-        <button
-          type="button"
-          onClick={onCancel}
-          className={`px-4 py-2 ${darkMode ? 'text-slate-300 hover:bg-slate-700' : 'text-slate-600 hover:bg-slate-100'} rounded-lg`}
-        >
-          Cancel
-        </button>
-      </div>
-    </form>
-  );
-}
-
-function NoteCard({ note, updateNote, deleteNote, isHighlighted, darkMode, existingTags, onDragStart, onDragOver, onDrop, onDragEnd, isDragging, isDragOver, style }) {
-  const [isEditing, setIsEditing] = useState(false);
-  const [editedNote, setEditedNote] = useState(note);
-  const [tagInput, setTagInput] = useState('');
-  const [selectedTags, setSelectedTags] = useState(note.tags || []);
-
-  const colors = {
-    yellow: 'bg-yellow-100 border-yellow-300',
-    blue: 'bg-blue-100 border-blue-300',
-    green: 'bg-green-100 border-green-300',
-    pink: 'bg-pink-100 border-pink-300',
-    purple: 'bg-purple-100 border-purple-300',
-  };
-
-  const handleSave = () => {
-    updateNote(note.id, { ...editedNote, tags: selectedTags });
-    setIsEditing(false);
-  };
-
-  const copyToClipboard = () => {
-    const tempDiv = document.createElement('div');
-    tempDiv.innerHTML = note.content;
-    const text = `${note.title}\n\n${tempDiv.textContent || tempDiv.innerText}`;
-    navigator.clipboard.writeText(text);
-  };
-
-  const addTag = (tag) => {
-    const trimmedTag = tag.trim();
-    if (trimmedTag && !selectedTags.includes(trimmedTag)) {
-      setSelectedTags([...selectedTags, trimmedTag]);
-    }
-    setTagInput('');
-  };
-
-  const removeTag = (tagToRemove) => {
-    setSelectedTags(selectedTags.filter(t => t !== tagToRemove));
-  };
-
-  if (isEditing) {
-    return (
-      <div className={`p-6 rounded-xl shadow-md border-2 ${colors[note.color || 'yellow']} animate-slideUp`} style={style}>
-        <input
-          type="text"
-          value={editedNote.title || ''}
-          onChange={(e) => setEditedNote({ ...editedNote, title: e.target.value })}
-          placeholder="Title"
-          className="w-full mb-2 px-2 py-1 bg-white/50 border border-slate-300 rounded focus:outline-none focus:ring-2 focus:ring-teal-500"
-        />
-        <RichTextEditor
-          value={editedNote.content || ''}
-          onChange={(content) => setEditedNote({ ...editedNote, content })}
-          placeholder="Content"
-          darkMode={false}
-          rows={10}
-        />
-        <div className="mt-3 mb-3">
-          <div className="flex flex-wrap gap-2 mb-2">
-            {selectedTags.map(tag => (
-              <span key={tag} className="inline-flex items-center gap-1 px-2 py-1 bg-white/70 rounded-full text-xs">
-                <Tag size={10} />
-                {tag}
-                <button
-                  type="button"
-                  onClick={() => removeTag(tag)}
-                  className="hover:text-red-600"
-                >
-                  <X size={12} />
-                </button>
-              </span>
-            ))}
-          </div>
-          <div className="flex gap-2">
-            <input
-              type="text"
-              value={tagInput}
-              onChange={(e) => setTagInput(e.target.value)}
-              onKeyPress={(e) => {
-                if (e.key === 'Enter') {
-                  e.preventDefault();
-                  addTag(tagInput);
-                }
-              }}
-              placeholder="Add tag..."
-              list="edit-note-tags"
-              className="flex-1 px-2 py-1 bg-white/50 border border-slate-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
-            />
-            <datalist id="edit-note-tags">
-              {existingTags.filter(t => !selectedTags.includes(t)).map(tag => (
-                <option key={tag} value={tag} />
-              ))}
-            </datalist>
-            <button
-              type="button"
-              onClick={() => addTag(tagInput)}
-              className="px-2 py-1 bg-teal-600 text-white rounded text-sm hover:bg-teal-700"
-            >
-              <Plus size={14} />
-            </button>
-          </div>
-        </div>
-        <div className="flex gap-2 mt-3">
-          <button
-            onClick={handleSave}
-            className="flex items-center gap-1 px-3 py-1 bg-teal-600 text-white rounded hover:bg-teal-700 text-sm"
-          >
-            <Save size={14} />
-            Save
-          </button>
-          <button
-            onClick={() => setIsEditing(false)}
-            className="px-3 py-1 bg-white/50 text-slate-600 hover:bg-white rounded text-sm"
-          >
-            Cancel
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div 
-      id={`item-${note.id}`}
-      draggable
-      onDragStart={(e) => onDragStart(e, note)}
-      onDragOver={(e) => onDragOver(e, note)}
-      onDrop={(e) => onDrop(e, note)}
-      onDragEnd={onDragEnd}
-      className={`task-card p-6 rounded-xl shadow-md border-2 ${colors[note.color || 'yellow']} animate-slideUp cursor-move relative group ${
-        isHighlighted ? 'animate-highlight ring-2 ring-teal-500' : ''
-      } ${isDragging ? 'opacity-50 scale-95' : ''} ${isDragOver ? 'border-teal-500 border-4' : ''}`}
-      style={style}
-      onClick={() => setIsEditing(true)}
-    >
-      <div className="flex items-start justify-between mb-3">
-        <h3 className="font-semibold text-slate-800 flex-1">{note.title || 'Untitled Note'}</h3>
-        <div className="flex gap-1">
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              copyToClipboard();
-            }}
-            className="text-slate-400 hover:text-teal-600 transition-all opacity-0 group-hover:opacity-100 hover:scale-110"
-            title="Copy note"
-          >
-            <Copy size={16} />
-          </button>
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              deleteNote(note.id);
-            }}
-            className="text-slate-400 hover:text-red-600 transition-all hover:scale-110"
-          >
-            <Trash2 size={16} />
-          </button>
-        </div>
-      </div>
-      <div 
-        className="text-slate-700 text-sm mb-3 rich-text-editor"
-        dangerouslySetInnerHTML={{ __html: note.content }}
-      />
-      {note.tags && note.tags.length > 0 && (
-        <div className="flex flex-wrap gap-1">
-          {note.tags.map(tag => (
-            <span key={tag} className="inline-flex items-center gap-1 px-2 py-1 bg-white/50 rounded text-xs text-slate-600">
-              <Tag size={10} />
-              {tag}
-            </span>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
-// Tags View - WITH GRID/LIST TOGGLE AND ALL ITEM TYPES
-function TagsView({ tasks, events, links, notes, allTags, navigateToLinkedItem, darkMode, viewMode, toggleViewMode }) {
-  const [selectedTag, setSelectedTag] = useState('all');
-
-  const getItemsWithTag = (tag) => {
-    const items = [];
-    
-    tasks.filter(t => t.status !== 'completed').forEach(task => {
-      if (tag === 'all' || (task.tags && task.tags.includes(tag))) {
-        items.push({ ...task, type: 'task', icon: List });
-      }
-    });
-
-    events.forEach(event => {
-      if (tag === 'all' || (event.tags && event.tags.includes(tag))) {
-        items.push({ ...event, type: 'event', icon: Calendar });
-      }
-    });
-
-    links.forEach(link => {
-      if (tag === 'all' || (link.tags && link.tags.includes(tag))) {
-        items.push({ ...link, type: 'link', icon: Link2 });
-      }
-    });
-
-    notes.forEach(note => {
-      if (tag === 'all' || (note.tags && note.tags.includes(tag))) {
-        items.push({ ...note, type: 'note', icon: StickyNote });
-      }
-    });
-
-    return items;
-  };
-
-  const filteredItems = getItemsWithTag(selectedTag);
-
-  return (
-    <div className="max-w-6xl animate-fadeIn">
-      <div className="flex items-center justify-between mb-8">
-        <div>
-          <h2 className={`text-4xl font-bold ${darkMode ? 'text-white' : 'text-slate-800'} accent-font`}>Tags</h2>
-          <p className={`${darkMode ? 'text-slate-400' : 'text-slate-500'} mt-1`}>{allTags.length} unique tags • {filteredItems.length} items</p>
-        </div>
-        <div className="flex gap-1 p-1 bg-slate-200 dark:bg-slate-700 rounded-lg">
-          <button
-            onClick={() => toggleViewMode('tags', 'list')}
-            className={`p-2 rounded transition-all ${viewMode === 'list' ? 'bg-white dark:bg-slate-600 shadow' : 'hover:bg-slate-300 dark:hover:bg-slate-600'}`}
-          >
-            <LayoutList size={18} className={darkMode ? 'text-slate-300' : 'text-slate-700'} />
-          </button>
-          <button
-            onClick={() => toggleViewMode('tags', 'grid')}
-            className={`p-2 rounded transition-all ${viewMode === 'grid' ? 'bg-white dark:bg-slate-600 shadow' : 'hover:bg-slate-300 dark:hover:bg-slate-600'}`}
-          >
-            <Grid size={18} className={darkMode ? 'text-slate-300' : 'text-slate-700'} />
-          </button>
-        </div>
-      </div>
-
-      {allTags.length === 0 ? (
-        <div className={`text-center py-16 ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>
-          <Tag size={48} className="mx-auto mb-4 opacity-30" />
-          <p>No tags yet. Add tags to your tasks, events, links, or notes!</p>
-        </div>
-      ) : (
-        <>
-          <div className="flex flex-wrap gap-2 mb-8">
-            <button
-              onClick={() => setSelectedTag('all')}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-                selectedTag === 'all' 
-                  ? 'bg-teal-600 text-white shadow-lg scale-105' 
-                  : darkMode ? 'bg-slate-700 text-slate-300 hover:bg-slate-600' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-              }`}
-            >
-              All ({getItemsWithTag('all').length})
-            </button>
-            {allTags.map(tag => (
-              <button
-                key={tag}
-                onClick={() => setSelectedTag(tag)}
-                className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-                  selectedTag === tag 
-                    ? 'bg-teal-600 text-white shadow-lg scale-105' 
-                    : darkMode ? 'bg-slate-700 text-slate-300 hover:bg-slate-600' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                }`}
-              >
-                <Tag size={14} />
-                {tag}
-                <span className={`px-2 py-0.5 rounded-full text-xs ${selectedTag === tag ? 'bg-white/20' : darkMode ? 'bg-slate-600' : 'bg-slate-200'}`}>
-                  {getItemsWithTag(tag).length}
-                </span>
-              </button>
-            ))}
-          </div>
-
-          <div className={viewMode === 'grid' ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4' : 'space-y-3'}>
-            {filteredItems.map((item, index) => {
-              const Icon = item.icon;
-              return (
-                <div
-                  key={`${item.type}-${item.id}`}
-                  onClick={() => navigateToLinkedItem({ id: item.id, type: item.type, title: item.title || item.url })}
-                  className={`p-4 ${darkMode ? 'bg-slate-800 border-slate-700 hover:bg-slate-700' : 'bg-white border-slate-200 hover:bg-slate-50'} rounded-lg border cursor-pointer transition-all hover:scale-105 hover:shadow-lg animate-slideUp`}
-                  style={{ animationDelay: `${index * 0.02}s` }}
-                >
-                  <div className="flex items-start gap-3">
-                    <div className={`p-2 rounded-lg ${
-                      item.type === 'task' ? 'bg-blue-100 text-blue-600' :
-                      item.type === 'event' ? 'bg-purple-100 text-purple-600' :
-                      item.type === 'link' ? 'bg-green-100 text-green-600' :
-                      'bg-yellow-100 text-yellow-600'
-                    }`}>
-                      <Icon size={18} />
-                    </div>
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className={`text-xs uppercase font-semibold ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>
-                          {item.type}
-                        </span>
-                      </div>
-                      <h4 className={`font-semibold ${darkMode ? 'text-white' : 'text-slate-800'} mb-1`}>
-                        {item.title || item.url || 'Untitled'}
-                      </h4>
-                      {item.tags && item.tags.length > 0 && (
-                        <div className="flex flex-wrap gap-1">
-                          {item.tags.map(tag => (
-                            <span key={tag} className="inline-flex items-center gap-1 px-2 py-0.5 bg-teal-50 text-teal-700 rounded text-xs">
-                              <Tag size={8} />
-                              {tag}
-                            </span>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                    <ExternalLink size={16} className={darkMode ? 'text-slate-500' : 'text-slate-400'} />
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-
-          {filteredItems.length === 0 && selectedTag !== 'all' && (
-            <div className={`text-center py-16 ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>
-              <Tag size={48} className="mx-auto mb-4 opacity-30" />
-              <p>No items with tag "{selectedTag}"</p>
-            </div>
-          )}
-        </>
-      )}
     </div>
   );
 }
