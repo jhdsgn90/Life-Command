@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Plus, Check, Circle, Pause, AlertCircle, Trash2, Link2, StickyNote, List, ExternalLink, X, Edit2, Save, Calendar, ChevronLeft, ChevronRight, Clock, Copy, Moon, Sun, Tag, ChevronDown, ChevronUp, Bold, Italic, ListOrdered, Grid, LayoutList, User, Camera, Filter, Download, Upload, List as ListIcon } from 'lucide-react';
+import { Plus, Check, Circle, Pause, AlertCircle, Trash2, Link2, StickyNote, List, ExternalLink, X, Edit2, Save, Calendar, ChevronLeft, ChevronRight, Clock, Copy, Moon, Sun, Tag, ChevronDown, ChevronUp, Bold, Italic, ListOrdered, Grid, LayoutList, User, Camera, Filter, Download, Upload, GripVertical } from 'lucide-react';
 
 const generateId = () => Date.now().toString(36) + Math.random().toString(36).substr(2);
 
@@ -33,12 +33,10 @@ export default function LifeDashboard() {
       const oldTasks = localStorage.getItem('lifeDashboard_tasks');
       const existingProjects = localStorage.getItem('lifeDashboard_projects');
       
-      // Only migrate if we have old tasks and no new projects
       if (oldTasks && !existingProjects) {
         try {
           const tasks = JSON.parse(oldTasks);
           const migratedProjects = tasks.map(task => {
-            // Convert subtasks to subItems with status/priority
             const subItems = (task.subtasks || []).map(st => ({
               id: st.id || generateId(),
               text: st.text,
@@ -47,12 +45,11 @@ export default function LifeDashboard() {
               priority: 'medium'
             }));
 
-            // Return project without top-level status/priority
             return {
               id: task.id,
               title: task.title,
               description: task.description,
-              tags: task.tags,
+              tags: task.tags || [],
               subItems: subItems,
               linkedItems: task.linkedItems || [],
               completed: task.status === 'completed',
@@ -61,7 +58,7 @@ export default function LifeDashboard() {
           });
           
           localStorage.setItem('lifeDashboard_projects', JSON.stringify(migratedProjects));
-          console.log('Migrated', migratedProjects.length, 'tasks to projects');
+          console.log('✅ Migrated', migratedProjects.length, 'tasks to projects');
         } catch (error) {
           console.error('Migration error:', error);
         }
@@ -71,7 +68,6 @@ export default function LifeDashboard() {
     migrateOldData();
   }, []);
 
-  // Update clock every second
   useEffect(() => {
     const timer = setInterval(() => {
       setCurrentTime(new Date());
@@ -79,7 +75,6 @@ export default function LifeDashboard() {
     return () => clearInterval(timer);
   }, []);
 
-  // Clear highlight after 3 seconds
   useEffect(() => {
     if (highlightedItemId) {
       const timer = setTimeout(() => {
@@ -89,7 +84,6 @@ export default function LifeDashboard() {
     }
   }, [highlightedItemId]);
 
-  // Auto-complete projects when all sub-items are done
   useEffect(() => {
     projects.forEach(project => {
       if (project.subItems && project.subItems.length > 0) {
@@ -186,7 +180,6 @@ export default function LifeDashboard() {
     setViewModes(prev => ({ ...prev, [view]: mode }));
   };
 
-  // EXPORT FUNCTIONALITY
   const exportData = () => {
     const dataToExport = {
       projects,
@@ -212,7 +205,6 @@ export default function LifeDashboard() {
     URL.revokeObjectURL(url);
   };
 
-  // IMPORT FUNCTIONALITY
   const importData = () => {
     const input = document.createElement('input');
     input.type = 'file';
@@ -235,10 +227,10 @@ export default function LifeDashboard() {
             if (typeof imported.darkMode !== 'undefined') setDarkMode(imported.darkMode);
             if (imported.viewModes) setViewModes(imported.viewModes);
             
-            alert('Data imported successfully!');
+            alert('✅ Data imported successfully!');
           }
         } catch (error) {
-          alert('Error importing data. Please check the file format.');
+          alert('❌ Error importing data. Please check the file format.');
           console.error('Import error:', error);
         }
       };
@@ -247,7 +239,6 @@ export default function LifeDashboard() {
     input.click();
   };
 
-  // Project CRUD
   const addProject = (projectData) => {
     const newProject = {
       id: generateId(),
@@ -277,7 +268,6 @@ export default function LifeDashboard() {
     setProjects(newOrder);
   };
 
-  // Link CRUD
   const addLink = (linkData) => {
     const newLink = {
       id: generateId(),
@@ -300,7 +290,6 @@ export default function LifeDashboard() {
     setLinks(newOrder);
   };
 
-  // Note CRUD
   const addNote = (noteData) => {
     const newNote = {
       id: generateId(),
@@ -323,7 +312,6 @@ export default function LifeDashboard() {
     setNotes(newOrder);
   };
 
-  // Event CRUD
   const addEvent = (eventData) => {
     const newEvent = {
       id: generateId(),
@@ -344,7 +332,6 @@ export default function LifeDashboard() {
     setEvents(events.filter(event => event.id !== id));
   };
 
-  // Linking functions
   const toggleLinkToProject = (projectId, item, type) => {
     const project = projects.find(p => p.id === projectId);
     if (!project) return;
@@ -490,6 +477,8 @@ export default function LifeDashboard() {
 
         .rich-text-editor {
           line-height: 1.6;
+          direction: ltr !important;
+          text-align: left !important;
         }
 
         .rich-text-editor strong {
@@ -516,16 +505,10 @@ export default function LifeDashboard() {
           margin: 0.25em 0;
         }
 
-        /* Masonry layout for Projects and Notes */
+        /* 2-COLUMN MASONRY (not 3) */
         .masonry {
           column-count: 2;
           column-gap: 1rem;
-        }
-
-        @media (min-width: 1024px) {
-          .masonry {
-            column-count: 3;
-          }
         }
 
         .masonry-item {
@@ -545,7 +528,6 @@ export default function LifeDashboard() {
       `}</style>
 
       <div className="flex h-screen overflow-hidden">
-        {/* Sidebar with persistent clock */}
         <aside className={`w-64 ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'} border-r flex flex-col sticky top-0 h-screen`}>
           <div className="p-6 flex-shrink-0">
             <h1 className={`text-2xl font-bold ${darkMode ? 'text-white' : 'text-slate-800'} accent-font`}>
@@ -597,7 +579,6 @@ export default function LifeDashboard() {
             />
           </nav>
 
-          {/* Persistent Clock at Bottom */}
           <div className={`px-4 py-3 border-t ${darkMode ? 'border-slate-700 bg-slate-800/50' : 'border-slate-200 bg-slate-50/50'} flex-shrink-0`}>
             <div className={`text-center ${darkMode ? 'text-slate-300' : 'text-slate-700'}`}>
               <div className="text-2xl font-bold tabular-nums tracking-tight">
@@ -617,7 +598,6 @@ export default function LifeDashboard() {
           </div>
         </aside>
 
-        {/* Main Content */}
         <main className="flex-1 overflow-y-auto">
           <header className={`${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'} border-b px-8 py-4 flex items-center justify-between sticky top-0 z-10`}>
             <div className="flex items-center gap-4">
@@ -626,7 +606,6 @@ export default function LifeDashboard() {
               </h2>
             </div>
             <div className="flex items-center gap-3">
-              {/* Export/Import Buttons */}
               <button
                 onClick={exportData}
                 className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-all hover:scale-105 ${darkMode ? 'bg-slate-700 text-teal-400 hover:bg-slate-600' : 'bg-teal-50 text-teal-700 hover:bg-teal-100'}`}
@@ -797,7 +776,7 @@ function ProfileEditor({ profile, onSave, onClose, darkMode }) {
             />
             {imageUrl && (
               <div className="mt-2">
-                <img src={imageUrl} alt="Preview" className="w-20 h-20 rounded-full object-cover" onError={(e) => e.target.style.display = 'none'} />
+                <img src={profileimageUrl} alt="Preview" className="w-20 h-20 rounded-full object-cover" onError={(e) => e.target.style.display = 'none'} />
               </div>
             )}
           </div>
@@ -879,7 +858,7 @@ function RichTextEditor({ value, onChange, placeholder, darkMode, rows = 10 }) {
           }}
           className={`p-2 rounded transition-all hover:scale-110 ${isUnordered ? 'bg-teal-600 text-white' : darkMode ? 'hover:bg-slate-600 text-slate-300' : 'hover:bg-slate-200'}`}
         >
-          <ListIcon size={16} />
+          <List size={16} />
         </button>
       </div>
       <div
@@ -888,8 +867,12 @@ function RichTextEditor({ value, onChange, placeholder, darkMode, rows = 10 }) {
         onInput={handleInput}
         dangerouslySetInnerHTML={{ __html: value }}
         dir="ltr"
-        className={`p-3 min-h-[${rows * 24}px] focus:outline-none ${darkMode ? 'bg-slate-700 text-white' : 'bg-white text-slate-900'} rich-text-editor`}
-        style={{ minHeight: `${rows * 24}px` }}
+        className={`p-3 focus:outline-none ${darkMode ? 'bg-slate-700 text-white' : 'bg-white text-slate-900'} rich-text-editor`}
+        style={{ 
+          minHeight: `${rows * 24}px`,
+          direction: 'ltr',
+          textAlign: 'left'
+        }}
         data-placeholder={placeholder}
       />
       <style>{`
@@ -897,12 +880,16 @@ function RichTextEditor({ value, onChange, placeholder, darkMode, rows = 10 }) {
           content: attr(data-placeholder);
           color: ${darkMode ? '#94a3b8' : '#64748b'};
         }
+        [contenteditable] {
+          direction: ltr !important;
+          text-align: left !important;
+        }
       `}</style>
     </div>
   );
 }
 
-// PROJECTS VIEW - Complete with Sub Items, Status/Priority, Progress Bars, Filtering
+// PROJECTS VIEW - With all filters and features
 function ProjectsView({ 
   projects, 
   addProject, 
@@ -947,19 +934,15 @@ function ProjectsView({
 
   const currentProject = projects.find(p => p.id === linkingProjectId);
 
-  // Get unique values for filters
   const allStatuses = ['new', 'working', 'paused', 'stuck'];
   const allPriorities = ['urgent', 'high', 'medium', 'low'];
   const projectTags = [...new Set(activeProjects.flatMap(p => p.tags || []))];
 
-  // FILTER LOGIC - Shows individual sub-items, not projects
   let filteredData = [];
   
   if (filterType === 'none' || filterValue === 'all') {
-    // Show all projects
     filteredData = activeProjects.map(p => ({ project: p, subItems: p.subItems || [] }));
   } else if (filterType === 'priority') {
-    // Show projects with sub-items matching priority
     activeProjects.forEach(project => {
       const matchingSubItems = (project.subItems || []).filter(si => si.priority === filterValue);
       if (matchingSubItems.length > 0) {
@@ -967,7 +950,6 @@ function ProjectsView({
       }
     });
   } else if (filterType === 'status') {
-    // Show projects with sub-items matching status
     activeProjects.forEach(project => {
       const matchingSubItems = (project.subItems || []).filter(si => si.status === filterValue);
       if (matchingSubItems.length > 0) {
@@ -975,13 +957,11 @@ function ProjectsView({
       }
     });
   } else if (filterType === 'tag') {
-    // Show projects matching tag
     filteredData = activeProjects
       .filter(p => p.tags && p.tags.includes(filterValue))
       .map(p => ({ project: p, subItems: p.subItems || [] }));
   }
 
-  // Drag handlers
   const handleDragStart = (e, project) => {
     setDraggedItem(project);
     e.dataTransfer.effectAllowed = 'move';
@@ -1126,7 +1106,7 @@ function ProjectsView({
             </div>
           )}
 
-          {filterType === 'tag' && (
+          {filterType === 'tag' && projectTags.length > 0 && (
             <div className="flex gap-2 flex-wrap">
               <button
                 onClick={() => setFilterValue('all')}
@@ -1262,7 +1242,7 @@ function ProjectsView({
       <LinkItemsModal
         isOpen={showLinkModal}
         onClose={() => setShowLinkModal(false)}
-        items={{ projects: null, links, notes }}
+        items={{ links, notes }}
         onToggleLink={handleToggleLink}
         linkedItems={currentProject?.linkedItems || []}
         darkMode={darkMode}
@@ -1411,7 +1391,6 @@ function NewProjectForm({ onSave, onCancel, darkMode, allTags }) {
         rows={6}
       />
       
-      {/* Tags */}
       <div className="mt-4">
         <label className={`block text-sm ${darkMode ? 'text-slate-300' : 'text-slate-600'} mb-2`}>Tags</label>
         <div className="flex flex-wrap gap-2 mb-2">
@@ -1479,6 +1458,7 @@ function NewProjectForm({ onSave, onCancel, darkMode, allTags }) {
   );
 }
 
+// PROJECT CARD - With ALL bug fixes
 function ProjectCard({ 
   project,
   visibleSubItems,
@@ -1509,7 +1489,7 @@ function ProjectCard({
   const [editedTitle, setEditedTitle] = useState(project.title);
   const [isEditingTags, setIsEditingTags] = useState(false);
   const [tagInput, setTagInput] = useState('');
-  const [selectedTags, setSelectedTags] = useState(project.tags || []);
+  const [editingTags, setEditingTags] = useState(project.tags || []);
 
   const statusConfig = {
     new: { label: 'New', color: 'bg-blue-100 text-blue-700 border-blue-200', icon: Circle },
@@ -1606,38 +1586,48 @@ function ProjectCard({
   };
 
   const saveTags = () => {
-    updateProject(project.id, { tags: selectedTags });
+    // FIX: Properly update with the editing tags state
+    updateProject(project.id, { tags: editingTags });
     setIsEditingTags(false);
   };
 
   const addTag = (tag) => {
     const trimmedTag = tag.trim();
-    if (trimmedTag && !selectedTags.includes(trimmedTag)) {
-      setSelectedTags([...selectedTags, trimmedTag]);
+    if (trimmedTag && !editingTags.includes(trimmedTag)) {
+      setEditingTags([...editingTags, trimmedTag]);
     }
     setTagInput('');
   };
 
   const removeTag = (tagToRemove) => {
-    setSelectedTags(selectedTags.filter(t => t !== tagToRemove));
+    setEditingTags(editingTags.filter(t => t !== tagToRemove));
   };
 
   return (
     <div 
       id={`item-${project.id}`}
-      draggable
-      onDragStart={(e) => onDragStart(e, project)}
       onDragOver={(e) => onDragOver(e, project)}
       onDrop={(e) => onDrop(e, project)}
-      onDragEnd={onDragEnd}
-      className={`task-card p-6 ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'} rounded-xl shadow-md border animate-slideUp cursor-move group ${
+      className={`task-card p-6 ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'} rounded-xl shadow-md border animate-slideUp group relative ${
         isHighlighted ? 'animate-highlight ring-2 ring-teal-500' : ''
       } ${isDragging ? 'opacity-50 scale-95' : ''} ${isDragOver ? 'border-teal-500 border-2' : ''}`} 
       style={style}
     >
-      <div className="flex items-start justify-between mb-4">
+      {/* DRAG HANDLE - Top Right Corner */}
+      <div
+        draggable
+        onDragStart={(e) => onDragStart(e, project)}
+        onDragEnd={onDragEnd}
+        className={`absolute top-4 right-4 p-2 rounded cursor-move opacity-0 group-hover:opacity-100 transition-all ${
+          darkMode ? 'hover:bg-slate-700 text-slate-400' : 'hover:bg-slate-100 text-slate-500'
+        }`}
+        title="Drag to reorder"
+      >
+        <GripVertical size={20} />
+      </div>
+
+      <div className="flex items-start justify-between mb-4 pr-10">
         <div className="flex-1">
-          {/* EDITABLE TITLE */}
           {isEditingTitle ? (
             <div className="mb-2">
               <input
@@ -1728,17 +1718,17 @@ function ProjectCard({
           ) : (
             <button
               onClick={() => setIsEditingDescription(true)}
-              className={`text-sm ${darkMode ? 'text-slate-500 hover:text-teal-400' : 'text-slate-400 hover:text-teal-600'} mb-3`}
+              className={`text-sm ${darkMode ? 'text-slate-500 hover:text-teal-400' : 'text-slate-400 hover:text-teal-600'} mb-4`}
             >
               + Add description
             </button>
           )}
 
-          {/* EDITABLE TAGS */}
+          {/* EDITABLE TAGS - MORE SPACING ABOVE */}
           {isEditingTags ? (
-            <div className="mb-3">
+            <div className="mb-3 mt-4">
               <div className="flex flex-wrap gap-2 mb-2">
-                {selectedTags.map(tag => (
+                {editingTags.map(tag => (
                   <span key={tag} className="inline-flex items-center gap-1 px-2 py-1 bg-teal-100 text-teal-700 rounded text-xs">
                     <Tag size={10} />
                     {tag}
@@ -1764,7 +1754,7 @@ function ProjectCard({
                   className={`flex-1 px-2 py-1 text-sm border ${darkMode ? 'bg-slate-700 border-slate-600 text-white' : 'bg-white border-slate-300'} rounded focus:outline-none focus:ring-1 focus:ring-teal-500`}
                 />
                 <datalist id="edit-tags">
-                  {allTags.filter(t => !selectedTags.includes(t)).map(tag => (
+                  {allTags.filter(t => !editingTags.includes(t)).map(tag => (
                     <option key={tag} value={tag} />
                   ))}
                 </datalist>
@@ -1784,7 +1774,7 @@ function ProjectCard({
                 </button>
                 <button
                   onClick={() => {
-                    setSelectedTags(project.tags || []);
+                    setEditingTags(project.tags || []);
                     setIsEditingTags(false);
                   }}
                   className={`px-3 py-1 text-sm rounded ${darkMode ? 'text-slate-300 hover:bg-slate-700' : 'text-slate-600 hover:bg-slate-100'}`}
@@ -1794,7 +1784,7 @@ function ProjectCard({
               </div>
             </div>
           ) : (project.tags && project.tags.length > 0) ? (
-            <div className="flex flex-wrap gap-1 mb-3 group/tags relative">
+            <div className="flex flex-wrap gap-1 mb-3 mt-4 group/tags relative">
               {project.tags.map(tag => (
                 <span key={tag} className="inline-flex items-center gap-1 px-2 py-1 bg-teal-50 text-teal-700 rounded text-xs border border-teal-200">
                   <Tag size={10} />
@@ -1803,7 +1793,7 @@ function ProjectCard({
               ))}
               <button
                 onClick={() => {
-                  setSelectedTags(project.tags || []);
+                  setEditingTags(project.tags || []);
                   setIsEditingTags(true);
                 }}
                 className={`ml-1 px-2 py-1 text-xs rounded opacity-0 group-hover/tags:opacity-100 transition-opacity ${darkMode ? 'bg-slate-700 text-teal-400 hover:bg-slate-600' : 'bg-teal-50 text-teal-700 hover:bg-teal-100'}`}
@@ -1813,8 +1803,11 @@ function ProjectCard({
             </div>
           ) : (
             <button
-              onClick={() => setIsEditingTags(true)}
-              className={`text-sm ${darkMode ? 'text-slate-500 hover:text-teal-400' : 'text-slate-400 hover:text-teal-600'} mb-3`}
+              onClick={() => {
+                setEditingTags([]);
+                setIsEditingTags(true);
+              }}
+              className={`text-sm ${darkMode ? 'text-slate-500 hover:text-teal-400' : 'text-slate-400 hover:text-teal-600'} mb-3 mt-4`}
             >
               + Add tags
             </button>
@@ -1828,7 +1821,7 @@ function ProjectCard({
         </button>
       </div>
 
-      {/* SUB ITEMS */}
+      {/* SUB ITEMS WITH BORDERS */}
       <div className={`mb-4 pb-4 border-b ${darkMode ? 'border-slate-700' : 'border-slate-100'}`}>
         <button
           onClick={() => setShowSubItems(!showSubItems)}
@@ -1845,9 +1838,14 @@ function ProjectCard({
         )}
         
         {showSubItems && (
-          <div className="space-y-2">
-            {visibleSubItems.map(subItem => (
-              <div key={subItem.id} className="flex items-start gap-2 group/subitem">
+          <div>
+            {visibleSubItems.map((subItem, index) => (
+              <div 
+                key={subItem.id} 
+                className={`flex items-start gap-2 group/subitem py-2 ${
+                  index > 0 ? (darkMode ? 'border-t border-slate-700' : 'border-t border-slate-100') : ''
+                }`}
+              >
                 <button
                   onClick={() => toggleSubItem(subItem.id)}
                   className={`flex-shrink-0 w-5 h-5 rounded border-2 flex items-center justify-center transition-all mt-0.5 ${
@@ -1885,7 +1883,6 @@ function ProjectCard({
                           {subItem.text}
                         </span>
                         
-                        {/* Status Badge */}
                         <select
                           value={subItem.status}
                           onChange={(e) => updateSubItem(subItem.id, { status: e.target.value })}
@@ -1900,7 +1897,6 @@ function ProjectCard({
                           <option value="stuck">Stuck</option>
                         </select>
 
-                        {/* Priority Badge */}
                         <select
                           value={subItem.priority}
                           onChange={(e) => updateSubItem(subItem.id, { priority: e.target.value })}
@@ -1936,7 +1932,7 @@ function ProjectCard({
             ))}
             
             {!showingFilteredSubItems && (
-              <div className="flex gap-2 mt-2">
+              <div className="flex gap-2 mt-3">
                 <input
                   type="text"
                   value={newSubItemText}
