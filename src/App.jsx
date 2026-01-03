@@ -853,112 +853,108 @@ function ProfileEditor({ profile, onSave, onClose, darkMode }) {
 }
 
 function RichTextEditor({ value, onChange, placeholder, darkMode, rows = 10 }) {
-  const [isBold, setIsBold] = useState(false);
-  const [isItalic, setIsItalic] = useState(false);
-  const [isOrdered, setIsOrdered] = useState(false);
-  const [isUnordered, setIsUnordered] = useState(false);
   const editorRef = useRef(null);
+  const quillRef = useRef(null);
 
-  const execCommand = (command, value = null) => {
-    document.execCommand(command, false, value);
-    editorRef.current?.focus();
-  };
+  useEffect(() => {
+    if (editorRef.current && !quillRef.current && window.Quill) {
+      // Initialize Quill
+      quillRef.current = new window.Quill(editorRef.current, {
+        theme: 'snow',
+        modules: {
+          toolbar: [
+            ['bold', 'italic'],
+            [{ 'list': 'ordered'}, { 'list': 'bullet' }]
+          ]
+        },
+        placeholder: placeholder || 'Start typing...',
+        formats: ['bold', 'italic', 'list']
+      });
 
-  const handleInput = (e) => {
-    onChange(e.currentTarget.innerHTML);
-  };
+      // Set initial content
+      if (value) {
+        const delta = quillRef.current.clipboard.convert(value);
+        quillRef.current.setContents(delta);
+      }
 
-  const handleKeyDown = (e) => {
-    // Force cursor behavior for LTR
-    if (editorRef.current) {
-      const selection = window.getSelection();
-      const range = selection.getRangeAt(0);
+      // Listen for changes
+      quillRef.current.on('text-change', () => {
+        const html = quillRef.current.root.innerHTML;
+        onChange(html);
+      });
+
+      // Force LTR direction
+      quillRef.current.root.setAttribute('dir', 'ltr');
+      quillRef.current.root.style.direction = 'ltr';
+      quillRef.current.root.style.textAlign = 'left';
     }
-  };
+  }, []);
+
+  // Update content when value changes externally
+  useEffect(() => {
+    if (quillRef.current && value !== quillRef.current.root.innerHTML) {
+      const delta = quillRef.current.clipboard.convert(value || '');
+      quillRef.current.setContents(delta, 'silent');
+    }
+  }, [value]);
 
   return (
-    <div className={`border ${darkMode ? 'border-slate-600' : 'border-slate-300'} rounded-lg overflow-hidden`}>
-      <div className={`flex gap-1 p-2 ${darkMode ? 'bg-slate-700 border-slate-600' : 'bg-slate-50 border-slate-200'} border-b`}>
-        <button
-          type="button"
-          onClick={() => {
-            execCommand('bold');
-            setIsBold(!isBold);
-          }}
-          className={`p-2 rounded transition-all hover:scale-110 ${isBold ? 'bg-teal-600 text-white' : darkMode ? 'hover:bg-slate-600 text-slate-300' : 'hover:bg-slate-200'}`}
-        >
-          <Bold size={16} />
-        </button>
-        <button
-          type="button"
-          onClick={() => {
-            execCommand('italic');
-            setIsItalic(!isItalic);
-          }}
-          className={`p-2 rounded transition-all hover:scale-110 ${isItalic ? 'bg-teal-600 text-white' : darkMode ? 'hover:bg-slate-600 text-slate-300' : 'hover:bg-slate-200'}`}
-        >
-          <Italic size={16} />
-        </button>
-        <button
-          type="button"
-          onClick={() => {
-            execCommand('insertOrderedList');
-            setIsOrdered(!isOrdered);
-          }}
-          className={`p-2 rounded transition-all hover:scale-110 ${isOrdered ? 'bg-teal-600 text-white' : darkMode ? 'hover:bg-slate-600 text-slate-300' : 'hover:bg-slate-200'}`}
-        >
-          <ListOrdered size={16} />
-        </button>
-        <button
-          type="button"
-          onClick={() => {
-            execCommand('insertUnorderedList');
-            setIsUnordered(!isUnordered);
-          }}
-          className={`p-2 rounded transition-all hover:scale-110 ${isUnordered ? 'bg-teal-600 text-white' : darkMode ? 'hover:bg-slate-600 text-slate-300' : 'hover:bg-slate-200'}`}
-        >
-          <List size={16} />
-        </button>
-      </div>
-      <div dir="ltr" style={{ direction: 'ltr', unicodeBidi: 'isolate-override' }}>
-        <div
-          ref={editorRef}
-          contentEditable
-          suppressContentEditableWarning
-          spellCheck={false}
-          autoCorrect="off"
-          autoCapitalize="off"
-          inputMode="text"
-          onInput={handleInput}
-          onKeyDown={handleKeyDown}
-          dangerouslySetInnerHTML={{ __html: value }}
-          dir="ltr"
-          lang="en"
-          className={`p-3 focus:outline-none ${darkMode ? 'bg-slate-700 text-white' : 'bg-white text-slate-900'} rich-text-editor`}
-          style={{ 
-            minHeight: `${rows * 24}px`,
-            direction: 'ltr',
-            textAlign: 'left',
-            unicodeBidi: 'isolate-override',
-            writingMode: 'horizontal-tb'
-          }}
-          data-placeholder={placeholder}
-        />
-      </div>
+    <div className={`border ${darkMode ? 'border-slate-600' : 'border-slate-300'} rounded-lg overflow-hidden quill-wrapper`}>
+      <div ref={editorRef} style={{ minHeight: `${rows * 24}px` }} />
       <style>{`
-        [contenteditable]:empty:before {
-          content: attr(data-placeholder);
-          color: ${darkMode ? '#94a3b8' : '#64748b'};
+        .quill-wrapper .ql-toolbar {
+          background: ${darkMode ? '#334155' : '#f8fafc'};
+          border-bottom: 1px solid ${darkMode ? '#475569' : '#e2e8f0'};
+          border-top: none;
+          border-left: none;
+          border-right: none;
         }
-        [contenteditable] {
+        .quill-wrapper .ql-container {
+          border: none;
+          background: ${darkMode ? '#334155' : '#ffffff'};
+        }
+        .quill-wrapper .ql-editor {
+          color: ${darkMode ? '#ffffff' : '#0f172a'};
           direction: ltr !important;
           text-align: left !important;
+          min-height: ${rows * 24}px;
+        }
+        .quill-wrapper .ql-editor.ql-blank::before {
+          color: ${darkMode ? '#94a3b8' : '#64748b'};
+          direction: ltr;
+          text-align: left;
+        }
+        .quill-wrapper .ql-stroke {
+          stroke: ${darkMode ? '#94a3b8' : '#475569'};
+        }
+        .quill-wrapper .ql-fill {
+          fill: ${darkMode ? '#94a3b8' : '#475569'};
+        }
+        .quill-wrapper .ql-picker-label {
+          color: ${darkMode ? '#94a3b8' : '#475569'};
+        }
+        .quill-wrapper button:hover .ql-stroke,
+        .quill-wrapper button.ql-active .ql-stroke {
+          stroke: #14b8a6;
+        }
+        .quill-wrapper button:hover .ql-fill,
+        .quill-wrapper button.ql-active .ql-fill {
+          fill: #14b8a6;
+        }
+        .quill-wrapper .ql-editor strong {
+          font-weight: 600;
+        }
+        .quill-wrapper .ql-editor em {
+          font-style: italic;
+        }
+        .quill-wrapper .ql-editor ol,
+        .quill-wrapper .ql-editor ul {
+          padding-left: 1.5em;
         }
       `}</style>
     </div>
   );
 }
-
 // PROJECTS VIEW - With all filters and features
 function ProjectsView({ 
   projects, 
@@ -2774,9 +2770,11 @@ function NoteCard({ note, updateNote, deleteNote, isHighlighted, darkMode, allTa
     backgroundColor: colorStyle.bg,
     borderColor: colorStyle.border,
     borderWidth: '2px',
-    borderStyle: 'solid',
-    color: '#1e293b'  // Force dark slate text on all colorful backgrounds
+    borderStyle: 'solid'
   };
+  
+  // Force dark text on colorful backgrounds
+  const textColorClass = 'text-slate-900';
 
   const saveNote = () => {
     if (editedTitle.trim()) {
@@ -2862,13 +2860,13 @@ function NoteCard({ note, updateNote, deleteNote, isHighlighted, darkMode, allTa
           <div className="flex items-start justify-between mb-3 pr-10">
             <h3
               onClick={() => setIsEditing(true)}
-              className={`text-xl font-semibold ${darkMode ? 'text-white' : 'text-slate-800'} cursor-pointer hover:text-teal-600 transition-colors`}
+              className={`text-xl font-semibold ${textColorClass} cursor-pointer hover:text-teal-600 transition-colors`}
             >
               {note.title}
             </h3>
             <button
               onClick={() => deleteNote(note.id)}
-              className={`${darkMode ? 'text-slate-500 hover:text-red-400' : 'text-slate-400 hover:text-red-600'} transition-all hover:scale-110`}
+              className={`text-slate-600 hover:text-red-600 transition-all hover:scale-110`}
             >
               <Trash2 size={18} />
             </button>
@@ -2877,7 +2875,7 @@ function NoteCard({ note, updateNote, deleteNote, isHighlighted, darkMode, allTa
           {note.content && (
             <div
               onClick={() => setIsEditing(true)}
-              className={`${darkMode ? 'text-slate-300' : 'text-slate-600'} text-sm mb-3 cursor-pointer rich-text-editor`}
+              className={`${textColorClass} text-sm mb-3 cursor-pointer rich-text-editor`}
               dangerouslySetInnerHTML={{ __html: note.content }}
             />
           )}
