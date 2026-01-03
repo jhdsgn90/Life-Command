@@ -481,6 +481,20 @@ export default function LifeDashboard() {
           text-align: left !important;
         }
 
+        .rich-text-editor * {
+          direction: ltr !important;
+          text-align: left !important;
+        }
+
+        [contenteditable] {
+          direction: ltr !important;
+          text-align: left !important;
+        }
+
+        [contenteditable] * {
+          direction: ltr !important;
+        }
+
         .rich-text-editor strong {
           font-weight: 600;
         }
@@ -2721,6 +2735,24 @@ function NoteCard({ note, updateNote, deleteNote, isHighlighted, darkMode, allTa
   const [tagInput, setTagInput] = useState('');
   const [editingTags, setEditingTags] = useState(note.tags || []);
 
+  // Post-it note colors
+  const noteColors = [
+    'bg-yellow-100 border-yellow-200',
+    'bg-pink-100 border-pink-200',
+    'bg-blue-100 border-blue-200',
+    'bg-green-100 border-green-200',
+    'bg-purple-100 border-purple-200',
+    'bg-orange-100 border-orange-200',
+    'bg-teal-100 border-teal-200',
+    'bg-rose-100 border-rose-200'
+  ];
+
+  const getNoteColor = () => {
+    if (darkMode) return 'bg-slate-800 border-slate-700';
+    const hash = note.id.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+    return noteColors[hash % noteColors.length];
+  };
+
   const saveNote = () => {
     if (editedTitle.trim()) {
       updateNote(note.id, { title: editedTitle, content: editedContent });
@@ -2750,22 +2782,24 @@ function NoteCard({ note, updateNote, deleteNote, isHighlighted, darkMode, allTa
       id={`item-${note.id}`}
       onDragOver={(e) => onDragOver(e, note)}
       onDrop={(e) => onDrop(e, note)}
-      className={`task-card p-6 ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'} rounded-xl shadow-md border animate-slideUp group relative ${
+      className={`task-card p-6 ${getNoteColor()} rounded-xl shadow-md border animate-slideUp group relative ${
         isHighlighted ? 'animate-highlight ring-2 ring-teal-500' : ''
       } ${isDragging ? 'opacity-50 scale-95' : ''} ${isDragOver ? 'border-teal-500 border-2' : ''}`}
       style={style}
     >
-      <div
-        draggable
-        onDragStart={(e) => onDragStart(e, note)}
-        onDragEnd={onDragEnd}
-        className={`absolute top-4 right-4 p-2 rounded cursor-move transition-all ${
-          darkMode ? 'text-slate-400 hover:bg-slate-700 hover:text-teal-400' : 'text-slate-500 hover:bg-slate-100 hover:text-teal-600'
-        }`}
-        title="Drag to reorder"
-      >
-        <Move size={20} />
-      </div>
+      {!isEditing && (
+        <div
+          draggable
+          onDragStart={(e) => onDragStart(e, note)}
+          onDragEnd={onDragEnd}
+          className={`absolute top-4 right-4 p-2 rounded cursor-move transition-all ${
+            darkMode ? 'text-slate-400 hover:bg-slate-700 hover:text-teal-400' : 'text-slate-500 hover:bg-slate-100 hover:text-teal-600'
+          }`}
+          title="Drag to reorder"
+        >
+          <Move size={20} />
+        </div>
+      )}
 
       {isEditing ? (
         <div>
