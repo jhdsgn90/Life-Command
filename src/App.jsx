@@ -479,20 +479,24 @@ export default function LifeDashboard() {
           line-height: 1.6;
           direction: ltr !important;
           text-align: left !important;
+          unicode-bidi: isolate-override !important;
         }
 
         .rich-text-editor * {
           direction: ltr !important;
           text-align: left !important;
+          unicode-bidi: isolate-override !important;
         }
 
         [contenteditable] {
           direction: ltr !important;
           text-align: left !important;
+          unicode-bidi: isolate-override !important;
         }
 
         [contenteditable] * {
           direction: ltr !important;
+          unicode-bidi: isolate-override !important;
         }
 
         .rich-text-editor strong {
@@ -864,6 +868,14 @@ function RichTextEditor({ value, onChange, placeholder, darkMode, rows = 10 }) {
     onChange(e.currentTarget.innerHTML);
   };
 
+  const handleKeyDown = (e) => {
+    // Force cursor behavior for LTR
+    if (editorRef.current) {
+      const selection = window.getSelection();
+      const range = selection.getRangeAt(0);
+    }
+  };
+
   return (
     <div className={`border ${darkMode ? 'border-slate-600' : 'border-slate-300'} rounded-lg overflow-hidden`}>
       <div className={`flex gap-1 p-2 ${darkMode ? 'bg-slate-700 border-slate-600' : 'bg-slate-50 border-slate-200'} border-b`}>
@@ -916,14 +928,17 @@ function RichTextEditor({ value, onChange, placeholder, darkMode, rows = 10 }) {
         autoCorrect="off"
         autoCapitalize="off"
         onInput={handleInput}
+        onKeyDown={handleKeyDown}
         dangerouslySetInnerHTML={{ __html: value }}
         dir="ltr"
+        lang="en"
         className={`p-3 focus:outline-none ${darkMode ? 'bg-slate-700 text-white' : 'bg-white text-slate-900'} rich-text-editor`}
         style={{ 
           minHeight: `${rows * 24}px`,
           direction: 'ltr',
           textAlign: 'left',
-          unicodeBidi: 'bidi-override'
+          unicodeBidi: 'isolate-override',
+          writingMode: 'horizontal-tb'
         }}
         data-placeholder={placeholder}
       />
@@ -2732,20 +2747,20 @@ function NoteCard({ note, updateNote, deleteNote, isHighlighted, darkMode, allTa
   const [tagInput, setTagInput] = useState('');
   const [editingTags, setEditingTags] = useState(note.tags || []);
 
-  // Post-it note colors (using actual hex values for inline styles)
+  // Post-it note colors with better contrast
   const noteColors = [
-    { bg: '#FEF9C3', border: '#FDE68A' }, // yellow
-    { bg: '#FCE7F3', border: '#FBCFE8' }, // pink
-    { bg: '#DBEAFE', border: '#BFDBFE' }, // blue
-    { bg: '#DCFCE7', border: '#BBF7D0' }, // green
-    { bg: '#F3E8FF', border: '#E9D5FF' }, // purple
-    { bg: '#FED7AA', border: '#FDBA74' }, // orange
-    { bg: '#CCFBF1', border: '#99F6E4' }, // teal
-    { bg: '#FFE4E6', border: '#FECDD3' }  // rose
+    { bg: '#FEF08A', border: '#EAB308' }, // yellow - darker, more saturated
+    { bg: '#FBCFE8', border: '#DB2777' }, // pink
+    { bg: '#BFDBFE', border: '#2563EB' }, // blue
+    { bg: '#BBF7D0', border: '#16A34A' }, // green
+    { bg: '#E9D5FF', border: '#9333EA' }, // purple
+    { bg: '#FED7AA', border: '#EA580C' }, // orange
+    { bg: '#99F6E4', border: '#0D9488' }, // teal
+    { bg: '#FECDD3', border: '#E11D48' }  // rose
   ];
 
   const getNoteColor = () => {
-    if (darkMode) return null; // Will use className for dark mode
+    // Use colors in BOTH light and dark mode for visibility
     const hash = note.id.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
     return noteColors[hash % noteColors.length];
   };
@@ -2753,12 +2768,10 @@ function NoteCard({ note, updateNote, deleteNote, isHighlighted, darkMode, allTa
   const colorStyle = getNoteColor();
   const noteStyle = {
     ...style,
-    ...(colorStyle ? {
-      backgroundColor: colorStyle.bg,
-      borderColor: colorStyle.border,
-      borderWidth: '1px',
-      borderStyle: 'solid'
-    } : {})
+    backgroundColor: colorStyle.bg,
+    borderColor: colorStyle.border,
+    borderWidth: '2px',  // Thicker border for more contrast
+    borderStyle: 'solid'
   };
 
   const saveNote = () => {
@@ -2790,7 +2803,7 @@ function NoteCard({ note, updateNote, deleteNote, isHighlighted, darkMode, allTa
       id={`item-${note.id}`}
       onDragOver={(e) => onDragOver(e, note)}
       onDrop={(e) => onDrop(e, note)}
-      className={`task-card p-6 ${darkMode ? 'bg-slate-800 border-slate-700 border' : ''} rounded-xl shadow-md animate-slideUp group relative ${
+      className={`task-card p-6 rounded-xl shadow-md animate-slideUp group relative ${
         isHighlighted ? 'animate-highlight ring-2 ring-teal-500' : ''
       } ${isDragging ? 'opacity-50 scale-95' : ''} ${isDragOver ? 'border-teal-500 border-2' : ''}`}
       style={noteStyle}
