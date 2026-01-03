@@ -560,14 +560,6 @@ export default function LifeDashboard() {
               darkMode={darkMode}
             />
             <NavButton 
-              active={activeView === 'calendar'} 
-              onClick={() => setActiveView('calendar')} 
-              icon={Calendar} 
-              label="Calendar"
-              count={events.length}
-              darkMode={darkMode}
-            />
-            <NavButton 
               active={activeView === 'links'} 
               onClick={() => setActiveView('links')} 
               icon={Link2} 
@@ -926,7 +918,8 @@ function RichTextEditor({ value, onChange, placeholder, darkMode, rows = 10 }) {
         style={{ 
           minHeight: `${rows * 24}px`,
           direction: 'ltr',
-          textAlign: 'left'
+          textAlign: 'left',
+          unicodeBidi: 'bidi-override'
         }}
         data-placeholder={placeholder}
       />
@@ -2735,22 +2728,31 @@ function NoteCard({ note, updateNote, deleteNote, isHighlighted, darkMode, allTa
   const [tagInput, setTagInput] = useState('');
   const [editingTags, setEditingTags] = useState(note.tags || []);
 
-  // Post-it note colors
+  // Post-it note colors (using actual hex values for inline styles)
   const noteColors = [
-    'bg-yellow-100 border-yellow-200',
-    'bg-pink-100 border-pink-200',
-    'bg-blue-100 border-blue-200',
-    'bg-green-100 border-green-200',
-    'bg-purple-100 border-purple-200',
-    'bg-orange-100 border-orange-200',
-    'bg-teal-100 border-teal-200',
-    'bg-rose-100 border-rose-200'
+    { bg: '#FEF9C3', border: '#FDE68A' }, // yellow
+    { bg: '#FCE7F3', border: '#FBCFE8' }, // pink
+    { bg: '#DBEAFE', border: '#BFDBFE' }, // blue
+    { bg: '#DCFCE7', border: '#BBF7D0' }, // green
+    { bg: '#F3E8FF', border: '#E9D5FF' }, // purple
+    { bg: '#FED7AA', border: '#FDBA74' }, // orange
+    { bg: '#CCFBF1', border: '#99F6E4' }, // teal
+    { bg: '#FFE4E6', border: '#FECDD3' }  // rose
   ];
 
   const getNoteColor = () => {
-    if (darkMode) return 'bg-slate-800 border-slate-700';
+    if (darkMode) return null; // Will use className for dark mode
     const hash = note.id.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
     return noteColors[hash % noteColors.length];
+  };
+
+  const colorStyle = getNoteColor();
+  const noteStyle = {
+    ...style,
+    ...(colorStyle ? {
+      backgroundColor: colorStyle.bg,
+      borderColor: colorStyle.border
+    } : {})
   };
 
   const saveNote = () => {
@@ -2782,10 +2784,10 @@ function NoteCard({ note, updateNote, deleteNote, isHighlighted, darkMode, allTa
       id={`item-${note.id}`}
       onDragOver={(e) => onDragOver(e, note)}
       onDrop={(e) => onDrop(e, note)}
-      className={`task-card p-6 ${getNoteColor()} rounded-xl shadow-md border animate-slideUp group relative ${
+      className={`task-card p-6 ${darkMode ? 'bg-slate-800 border-slate-700' : ''} rounded-xl shadow-md border animate-slideUp group relative ${
         isHighlighted ? 'animate-highlight ring-2 ring-teal-500' : ''
       } ${isDragging ? 'opacity-50 scale-95' : ''} ${isDragOver ? 'border-teal-500 border-2' : ''}`}
-      style={style}
+      style={noteStyle}
     >
       {!isEditing && (
         <div
@@ -3473,6 +3475,3 @@ function TagsView({
     </div>
   );
 }
-// Update the main App component render to use all views properly - this replaces the placeholder sections
-
-// This export is already at the top, so we're just making sure everything is connected
