@@ -911,6 +911,10 @@ function RichTextEditor({ value, onChange, placeholder, darkMode, rows = 10 }) {
       <div
         ref={editorRef}
         contentEditable
+        suppressContentEditableWarning
+        spellCheck={false}
+        autoCorrect="off"
+        autoCapitalize="off"
         onInput={handleInput}
         dangerouslySetInnerHTML={{ __html: value }}
         dir="ltr"
@@ -2751,7 +2755,9 @@ function NoteCard({ note, updateNote, deleteNote, isHighlighted, darkMode, allTa
     ...style,
     ...(colorStyle ? {
       backgroundColor: colorStyle.bg,
-      borderColor: colorStyle.border
+      borderColor: colorStyle.border,
+      borderWidth: '1px',
+      borderStyle: 'solid'
     } : {})
   };
 
@@ -2784,7 +2790,7 @@ function NoteCard({ note, updateNote, deleteNote, isHighlighted, darkMode, allTa
       id={`item-${note.id}`}
       onDragOver={(e) => onDragOver(e, note)}
       onDrop={(e) => onDrop(e, note)}
-      className={`task-card p-6 ${darkMode ? 'bg-slate-800 border-slate-700' : ''} rounded-xl shadow-md border animate-slideUp group relative ${
+      className={`task-card p-6 ${darkMode ? 'bg-slate-800 border-slate-700 border' : ''} rounded-xl shadow-md animate-slideUp group relative ${
         isHighlighted ? 'animate-highlight ring-2 ring-teal-500' : ''
       } ${isDragging ? 'opacity-50 scale-95' : ''} ${isDragOver ? 'border-teal-500 border-2' : ''}`}
       style={noteStyle}
