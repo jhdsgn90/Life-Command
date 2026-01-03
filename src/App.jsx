@@ -920,28 +920,31 @@ function RichTextEditor({ value, onChange, placeholder, darkMode, rows = 10 }) {
           <List size={16} />
         </button>
       </div>
-      <div
-        ref={editorRef}
-        contentEditable
-        suppressContentEditableWarning
-        spellCheck={false}
-        autoCorrect="off"
-        autoCapitalize="off"
-        onInput={handleInput}
-        onKeyDown={handleKeyDown}
-        dangerouslySetInnerHTML={{ __html: value }}
-        dir="ltr"
-        lang="en"
-        className={`p-3 focus:outline-none ${darkMode ? 'bg-slate-700 text-white' : 'bg-white text-slate-900'} rich-text-editor`}
-        style={{ 
-          minHeight: `${rows * 24}px`,
-          direction: 'ltr',
-          textAlign: 'left',
-          unicodeBidi: 'isolate-override',
-          writingMode: 'horizontal-tb'
-        }}
-        data-placeholder={placeholder}
-      />
+      <div dir="ltr" style={{ direction: 'ltr', unicodeBidi: 'isolate-override' }}>
+        <div
+          ref={editorRef}
+          contentEditable
+          suppressContentEditableWarning
+          spellCheck={false}
+          autoCorrect="off"
+          autoCapitalize="off"
+          inputMode="text"
+          onInput={handleInput}
+          onKeyDown={handleKeyDown}
+          dangerouslySetInnerHTML={{ __html: value }}
+          dir="ltr"
+          lang="en"
+          className={`p-3 focus:outline-none ${darkMode ? 'bg-slate-700 text-white' : 'bg-white text-slate-900'} rich-text-editor`}
+          style={{ 
+            minHeight: `${rows * 24}px`,
+            direction: 'ltr',
+            textAlign: 'left',
+            unicodeBidi: 'isolate-override',
+            writingMode: 'horizontal-tb'
+          }}
+          data-placeholder={placeholder}
+        />
+      </div>
       <style>{`
         [contenteditable]:empty:before {
           content: attr(data-placeholder);
@@ -2770,8 +2773,9 @@ function NoteCard({ note, updateNote, deleteNote, isHighlighted, darkMode, allTa
     ...style,
     backgroundColor: colorStyle.bg,
     borderColor: colorStyle.border,
-    borderWidth: '2px',  // Thicker border for more contrast
-    borderStyle: 'solid'
+    borderWidth: '2px',
+    borderStyle: 'solid',
+    color: '#1e293b'  // Force dark slate text on all colorful backgrounds
   };
 
   const saveNote = () => {
