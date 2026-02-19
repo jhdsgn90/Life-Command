@@ -1,864 +1,2658 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { Plus, Check, Circle, Pause, AlertCircle, Trash2, Link2, StickyNote, List, ExternalLink, X, Edit2, Save, Calendar, ChevronLeft, ChevronRight, Clock, Copy, Moon, Sun, Tag, ChevronDown, ChevronUp, Bold, Italic, ListOrdered, Grid, LayoutList, User, Camera, Filter, Download, Upload, Move } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { 
+  List, Link2, FileText, Tag, Image, Plus, Trash2, Edit3, Save, X, 
+  ChevronDown, ChevronUp, Moon, Sun, Download, Upload, Search, 
+  ExternalLink, GripVertical, Check, Copy, Menu, PanelLeftClose,
+  PanelLeft, Bold, Italic, ListOrdered, List as ListIcon, Filter
+} from 'lucide-react';
 
-const generateId = () => Date.now().toString(36) + Math.random().toString(36).substr(2);
+// ============================================================================
+// LIFE COMMAND v7.0 - Complete Redesign
+// ============================================================================
 
-export default function LifeDashboard() {
+const CLOUDINARY_CLOUD_NAME = 'dccblqxuy';
+const CLOUDINARY_UPLOAD_PRESET = 'Life Command';
+
+export default function App() {
+  // Core state
+  const [darkMode, setDarkMode] = useState(() => {
+    const saved = localStorage.getItem('lifeCommandDarkMode');
+    return saved ? JSON.parse(saved) : true;
+  });
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [activeView, setActiveView] = useState('projects');
+  
+  // Data state
   const [projects, setProjects] = useState([]);
   const [links, setLinks] = useState([]);
   const [notes, setNotes] = useState([]);
-  const [events, setEvents] = useState([]);
-  const [darkMode, setDarkMode] = useState(false);
-  const [profile, setProfile] = useState({ name: 'User', imageUrl: '' });
-  const [showProfileEditor, setShowProfileEditor] = useState(false);
-  const [showNewProjectForm, setShowNewProjectForm] = useState(false);
-  const [showNewLinkForm, setShowNewLinkForm] = useState(false);
-  const [showNewNoteForm, setShowNewNoteForm] = useState(false);
-  const [showNewEventForm, setShowNewEventForm] = useState(false);
-  const [selectedDate, setSelectedDate] = useState(null);
-  const [highlightedItemId, setHighlightedItemId] = useState(null);
+  const [inspirations, setInspirations] = useState([]);
+  
+  // Tag navigation state
+  const [activeTagFilter, setActiveTagFilter] = useState(null);
+  
+  // Current time for sidebar
   const [currentTime, setCurrentTime] = useState(new Date());
-  const [viewModes, setViewModes] = useState({
-    projects: 'list',
-    calendar: 'calendar',
-    links: 'grid',
-    notes: 'grid',
-    tags: 'grid'
-  });
 
-  // DATA MIGRATION: Convert old v5.1 tasks to v6.0 projects
+  // Load data from localStorage
   useEffect(() => {
-    const migrateOldData = () => {
-      const oldTasks = localStorage.getItem('lifeDashboard_tasks');
-      const existingProjects = localStorage.getItem('lifeDashboard_projects');
-      
-      if (oldTasks && !existingProjects) {
-        try {
-          const tasks = JSON.parse(oldTasks);
-          const migratedProjects = tasks.map(task => {
-            const subItems = (task.subtasks || []).map(st => ({
-              id: st.id || generateId(),
-              text: st.text,
-              completed: st.completed || false,
-              status: 'new',
-              priority: 'medium'
-            }));
-
-            return {
-              id: task.id,
-              title: task.title,
-              description: task.description,
-              tags: task.tags || [],
-              subItems: subItems,
-              linkedItems: task.linkedItems || [],
-              completed: task.status === 'completed',
-              createdAt: task.createdAt || new Date().toISOString()
-            };
-          });
-          
-          localStorage.setItem('lifeDashboard_projects', JSON.stringify(migratedProjects));
-          console.log('✅ Migrated', migratedProjects.length, 'tasks to projects');
-        } catch (error) {
-          console.error('Migration error:', error);
-        }
-      }
-    };
-
-    migrateOldData();
+    const savedProjects = localStorage.getItem('lifeCommandProjects');
+    const savedLinks = localStorage.getItem('lifeCommandLinks');
+    const savedNotes = localStorage.getItem('lifeCommandNotes');
+    const savedInspirations = localStorage.getItem('lifeCommandInspirations');
+    
+    if (savedProjects) setProjects(JSON.parse(savedProjects));
+    if (savedLinks) setLinks(JSON.parse(savedLinks));
+    if (savedNotes) setNotes(JSON.parse(savedNotes));
+    if (savedInspirations) setInspirations(JSON.parse(savedInspirations));
   }, []);
 
+  // Save data to localStorage
   useEffect(() => {
-    const timer = setInterval(() => {
-      setCurrentTime(new Date());
-    }, 1000);
-    return () => clearInterval(timer);
-  }, []);
-
-  useEffect(() => {
-    if (highlightedItemId) {
-      const timer = setTimeout(() => {
-        setHighlightedItemId(null);
-      }, 3000);
-      return () => clearTimeout(timer);
-    }
-  }, [highlightedItemId]);
-
-  useEffect(() => {
-    projects.forEach(project => {
-      if (project.subItems && project.subItems.length > 0) {
-        const allCompleted = project.subItems.every(si => si.completed);
-        
-        if (allCompleted && !project.completed) {
-          updateProject(project.id, { completed: true });
-        } else if (!allCompleted && project.completed) {
-          updateProject(project.id, { completed: false });
-        }
-      }
-    });
+    localStorage.setItem('lifeCommandProjects', JSON.stringify(projects));
   }, [projects]);
 
   useEffect(() => {
-    try {
-      const savedProjects = localStorage.getItem('lifeDashboard_projects');
-      const savedLinks = localStorage.getItem('lifeDashboard_links');
-      const savedNotes = localStorage.getItem('lifeDashboard_notes');
-      const savedEvents = localStorage.getItem('lifeDashboard_events');
-      const savedDarkMode = localStorage.getItem('lifeDashboard_darkMode');
-      const savedProfile = localStorage.getItem('lifeDashboard_profile');
-      const savedViewModes = localStorage.getItem('lifeDashboard_viewModes');
-      
-      if (savedProjects) setProjects(JSON.parse(savedProjects));
-      if (savedLinks) setLinks(JSON.parse(savedLinks));
-      if (savedNotes) setNotes(JSON.parse(savedNotes));
-      if (savedEvents) setEvents(JSON.parse(savedEvents));
-      if (savedDarkMode) setDarkMode(JSON.parse(savedDarkMode));
-      if (savedProfile) setProfile(JSON.parse(savedProfile));
-      if (savedViewModes) setViewModes(JSON.parse(savedViewModes));
-    } catch (error) {
-      console.error('Error loading from localStorage:', error);
-    }
-  }, []);
-
-  useEffect(() => {
-    try {
-      localStorage.setItem('lifeDashboard_projects', JSON.stringify(projects));
-    } catch (error) {
-      console.error('Error saving projects:', error);
-    }
-  }, [projects]);
-
-  useEffect(() => {
-    try {
-      localStorage.setItem('lifeDashboard_links', JSON.stringify(links));
-    } catch (error) {
-      console.error('Error saving links:', error);
-    }
+    localStorage.setItem('lifeCommandLinks', JSON.stringify(links));
   }, [links]);
 
   useEffect(() => {
-    try {
-      localStorage.setItem('lifeDashboard_notes', JSON.stringify(notes));
-    } catch (error) {
-      console.error('Error saving notes:', error);
-    }
+    localStorage.setItem('lifeCommandNotes', JSON.stringify(notes));
   }, [notes]);
 
   useEffect(() => {
-    try {
-      localStorage.setItem('lifeDashboard_events', JSON.stringify(events));
-    } catch (error) {
-      console.error('Error saving events:', error);
-    }
-  }, [events]);
+    localStorage.setItem('lifeCommandInspirations', JSON.stringify(inspirations));
+  }, [inspirations]);
 
   useEffect(() => {
-    try {
-      localStorage.setItem('lifeDashboard_darkMode', JSON.stringify(darkMode));
-    } catch (error) {
-      console.error('Error saving darkMode:', error);
-    }
+    localStorage.setItem('lifeCommandDarkMode', JSON.stringify(darkMode));
   }, [darkMode]);
 
+  // Update time every minute
   useEffect(() => {
-    try {
-      localStorage.setItem('lifeDashboard_profile', JSON.stringify(profile));
-    } catch (error) {
-      console.error('Error saving profile:', error);
-    }
-  }, [profile]);
+    const timer = setInterval(() => setCurrentTime(new Date()), 60000);
+    return () => clearInterval(timer);
+  }, []);
 
+  // Responsive sidebar collapse
   useEffect(() => {
-    try {
-      localStorage.setItem('lifeDashboard_viewModes', JSON.stringify(viewModes));
-    } catch (error) {
-      console.error('Error saving viewModes:', error);
-    }
-  }, [viewModes]);
-
-  const toggleViewMode = (view, mode) => {
-    setViewModes(prev => ({ ...prev, [view]: mode }));
-  };
-
-  const exportData = () => {
-    const dataToExport = {
-      projects,
-      links,
-      notes,
-      events,
-      profile,
-      darkMode,
-      viewModes,
-      exportDate: new Date().toISOString(),
-      version: '6.0'
+    const handleResize = () => {
+      if (window.innerWidth < 1024) {
+        setSidebarCollapsed(true);
+      }
     };
+    handleResize();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
-    const dataStr = JSON.stringify(dataToExport, null, 2);
-    const dataBlob = new Blob([dataStr], { type: 'application/json' });
-    const url = URL.createObjectURL(dataBlob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `life-command-backup-${new Date().toISOString().split('T')[0]}.json`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
-  };
-
-  const importData = () => {
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = 'application/json';
-    input.onchange = (e) => {
-      const file = e.target.files[0];
-      if (!file) return;
-
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        try {
-          const imported = JSON.parse(event.target.result);
-          
-          if (window.confirm('This will replace all your current data. Are you sure?')) {
-            if (imported.projects) setProjects(imported.projects);
-            if (imported.links) setLinks(imported.links);
-            if (imported.notes) setNotes(imported.notes);
-            if (imported.events) setEvents(imported.events);
-            if (imported.profile) setProfile(imported.profile);
-            if (typeof imported.darkMode !== 'undefined') setDarkMode(imported.darkMode);
-            if (imported.viewModes) setViewModes(imported.viewModes);
-            
-            alert('✅ Data imported successfully!');
-          }
-        } catch (error) {
-          alert('❌ Error importing data. Please check the file format.');
-          console.error('Import error:', error);
-        }
-      };
-      reader.readAsText(file);
-    };
-    input.click();
-  };
-
-  const addProject = (projectData) => {
+  // Project functions
+  const addProject = () => {
     const newProject = {
-      id: generateId(),
-      ...projectData,
+      id: `project_${Date.now()}`,
+      title: 'New Project',
       subItems: [],
-      linkedItems: [],
+      tags: [],
       completed: false,
       createdAt: new Date().toISOString()
     };
-    setProjects([...projects, newProject]);
-    setShowNewProjectForm(false);
+    setProjects([newProject, ...projects]);
   };
 
   const updateProject = (id, updates) => {
-    setProjects(projects.map(project => project.id === id ? { ...project, ...updates } : project));
+    setProjects(projects.map(p => p.id === id ? { ...p, ...updates } : p));
   };
 
   const deleteProject = (id) => {
-    setProjects(projects.filter(project => project.id !== id));
+    setProjects(projects.filter(p => p.id !== id));
   };
 
-  const clearCompletedProjects = () => {
-    setProjects(projects.filter(project => !project.completed));
-  };
-
-  const reorderProjects = (newOrder) => {
-    setProjects(newOrder);
-  };
-
-  const addLink = (linkData) => {
+  // Link functions
+  const addLink = () => {
     const newLink = {
-      id: generateId(),
-      ...linkData,
+      id: `link_${Date.now()}`,
+      title: 'New Link',
+      url: 'https://',
+      tags: [],
       createdAt: new Date().toISOString()
     };
-    setLinks([...links, newLink]);
-    setShowNewLinkForm(false);
+    setLinks([newLink, ...links]);
   };
 
   const updateLink = (id, updates) => {
-    setLinks(links.map(link => link.id === id ? { ...link, ...updates } : link));
+    setLinks(links.map(l => l.id === id ? { ...l, ...updates } : l));
   };
 
   const deleteLink = (id) => {
-    setLinks(links.filter(link => link.id !== id));
+    setLinks(links.filter(l => l.id !== id));
   };
 
-  const reorderLinks = (newOrder) => {
-    setLinks(newOrder);
-  };
-
-  const addNote = (noteData) => {
+  // Note functions
+  const addNote = () => {
     const newNote = {
-      id: generateId(),
-      ...noteData,
+      id: `note_${Date.now()}`,
+      title: 'New Note',
+      content: '',
+      tags: [],
       createdAt: new Date().toISOString()
     };
-    setNotes([...notes, newNote]);
-    setShowNewNoteForm(false);
+    setNotes([newNote, ...notes]);
   };
 
   const updateNote = (id, updates) => {
-    setNotes(notes.map(note => note.id === id ? { ...note, ...updates } : note));
+    setNotes(notes.map(n => n.id === id ? { ...n, ...updates } : n));
   };
 
   const deleteNote = (id) => {
-    setNotes(notes.filter(note => note.id !== id));
+    setNotes(notes.filter(n => n.id !== id));
   };
 
-  const reorderNotes = (newOrder) => {
-    setNotes(newOrder);
+  // Inspiration functions
+  const addInspiration = async (file, name, tags) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('upload_preset', CLOUDINARY_UPLOAD_PRESET);
+    formData.append('folder', 'life-command');
+
+    try {
+      const response = await fetch(
+        `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`,
+        { method: 'POST', body: formData }
+      );
+      const data = await response.json();
+      
+      const newInspiration = {
+        id: `inspo_${Date.now()}`,
+        name: name || 'Untitled',
+        cloudinaryId: data.public_id,
+        url: data.secure_url,
+        thumbnail: data.secure_url.replace('/upload/', '/upload/w_600,q_auto/'),
+        originalUrl: data.secure_url,
+        tags: tags || [],
+        dimensions: { width: data.width, height: data.height },
+        fileSize: data.bytes,
+        createdAt: new Date().toISOString()
+      };
+      
+      setInspirations([newInspiration, ...inspirations]);
+      return newInspiration;
+    } catch (error) {
+      console.error('Upload failed:', error);
+      return null;
+    }
   };
 
-  const addEvent = (eventData) => {
-    const newEvent = {
-      id: generateId(),
-      ...eventData,
-      linkedItems: [],
-      createdAt: new Date().toISOString()
+  const deleteInspiration = (id) => {
+    setInspirations(inspirations.filter(i => i.id !== id));
+  };
+
+  // Tag navigation handler
+  const handleTagClick = (tagName) => {
+    setActiveView('tags');
+    setActiveTagFilter(tagName);
+  };
+
+  // Get all unique tags
+  const getAllTags = () => {
+    const allTags = new Set();
+    projects.forEach(p => p.tags?.forEach(t => allTags.add(t)));
+    links.forEach(l => l.tags?.forEach(t => allTags.add(t)));
+    notes.forEach(n => n.tags?.forEach(t => allTags.add(t)));
+    inspirations.forEach(i => i.tags?.forEach(t => allTags.add(t)));
+    return Array.from(allTags).sort();
+  };
+
+  // Export data
+  const exportData = () => {
+    const data = {
+      version: '7.0',
+      exportedAt: new Date().toISOString(),
+      projects,
+      links,
+      notes,
+      inspirations
     };
-    setEvents([...events, newEvent]);
-    setShowNewEventForm(false);
-    setSelectedDate(null);
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `life-command-backup-${new Date().toISOString().split('T')[0]}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
   };
 
-  const updateEvent = (id, updates) => {
-    setEvents(events.map(event => event.id === id ? { ...event, ...updates } : event));
-  };
-
-  const deleteEvent = (id) => {
-    setEvents(events.filter(event => event.id !== id));
-  };
-
-  const toggleLinkToProject = (projectId, item, type) => {
-    const project = projects.find(p => p.id === projectId);
-    if (!project) return;
-
-    const linkedItems = project.linkedItems || [];
-    const existingIndex = linkedItems.findIndex(li => li.id === item.id && li.type === type);
-
-    if (existingIndex > -1) {
-      updateProject(projectId, {
-        linkedItems: linkedItems.filter((_, i) => i !== existingIndex)
-      });
-    } else {
-      updateProject(projectId, {
-        linkedItems: [...linkedItems, { id: item.id, type, title: item.title || item.url }]
-      });
-    }
-  };
-
-  const toggleLinkToEvent = (eventId, item, type) => {
-    const event = events.find(e => e.id === eventId);
-    if (!event) return;
-
-    const linkedItems = event.linkedItems || [];
-    const existingIndex = linkedItems.findIndex(li => li.id === item.id && li.type === type);
-
-    if (existingIndex > -1) {
-      updateEvent(eventId, {
-        linkedItems: linkedItems.filter((_, i) => i !== existingIndex)
-      });
-    } else {
-      updateEvent(eventId, {
-        linkedItems: [...linkedItems, { id: item.id, type, title: item.title || item.url }]
-      });
-    }
-  };
-
-  const getLinkedItem = (linkedItem) => {
-    if (linkedItem.type === 'link') {
-      return links.find(l => l.id === linkedItem.id);
-    } else if (linkedItem.type === 'note') {
-      return notes.find(n => n.id === linkedItem.id);
-    } else if (linkedItem.type === 'project') {
-      return projects.find(p => p.id === linkedItem.id);
-    }
-    return null;
-  };
-
-  const navigateToLinkedItem = (linkedItem) => {
-    if (linkedItem.type === 'link') {
-      setActiveView('links');
-    } else if (linkedItem.type === 'note') {
-      setActiveView('notes');
-    } else if (linkedItem.type === 'project') {
-      setActiveView('projects');
-    }
+  // Import data
+  const importData = (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
     
-    setTimeout(() => {
-      setHighlightedItemId(linkedItem.id);
-      const element = document.getElementById(`item-${linkedItem.id}`);
-      if (element) {
-        element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const data = JSON.parse(e.target.result);
+        if (data.projects) setProjects(data.projects);
+        if (data.links) setLinks(data.links);
+        if (data.notes) setNotes(data.notes);
+        if (data.inspirations) setInspirations(data.inspirations);
+      } catch (err) {
+        console.error('Import failed:', err);
       }
-    }, 100);
+    };
+    reader.readAsText(file);
   };
 
-  const allTags = [...new Set([
-    ...projects.flatMap(p => p.tags || []),
-    ...events.flatMap(e => e.tags || []),
-    ...links.flatMap(l => l.tags || []),
-    ...notes.flatMap(n => n.tags || [])
-  ])];
+  // Format time
+  const formatTime = (date) => {
+    return date.toLocaleTimeString('en-US', { 
+      hour: '2-digit', 
+      minute: '2-digit',
+      hour12: true 
+    });
+  };
+
+  const formatDate = (date) => {
+    return date.toLocaleDateString('en-US', { 
+      weekday: 'short',
+      month: 'short', 
+      day: 'numeric',
+      year: 'numeric'
+    });
+  };
 
   return (
-    <div className={`min-h-screen ${darkMode ? 'dark bg-slate-900' : 'bg-gradient-to-br from-slate-50 to-slate-100'} transition-colors duration-300`}>
+    <div className={`app ${darkMode ? 'dark' : 'light'}`}>
       <style>{`
-        @keyframes slideUp {
-          from {
-            opacity: 0;
-            transform: translateY(10px);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0);
-          }
-        }
+        /* ============================================
+           DESIGN SYSTEM v7.0
+           ============================================ */
         
-        @keyframes fadeIn {
-          from { opacity: 0; }
-          to { opacity: 1; }
+        @import url('https://fonts.googleapis.com/css2?family=Inter+Tight:wght@300;400;500;600;700&display=swap');
+
+        * {
+          margin: 0;
+          padding: 0;
+          box-sizing: border-box;
         }
 
-        @keyframes scaleIn {
-          from {
-            opacity: 0;
-            transform: scale(0.95);
-          }
-          to {
-            opacity: 1;
-            transform: scale(1);
-          }
+        :root {
+          /* Typography */
+          --font-family: 'Inter Tight', -apple-system, BlinkMacSystemFont, sans-serif;
+          
+          /* Spacing */
+          --space-xs: 4px;
+          --space-sm: 8px;
+          --space-md: 16px;
+          --space-lg: 24px;
+          --space-xl: 32px;
+          --space-2xl: 48px;
+          
+          /* Border Radius */
+          --radius: 6px;
+          --radius-lg: 8px;
+          --radius-full: 9999px;
+          
+          /* Transitions */
+          --transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
         }
 
-        @keyframes highlight {
-          0%, 100% { background-color: transparent; }
-          50% { background-color: rgba(20, 184, 166, 0.1); }
+        /* Light Mode */
+        .app.light {
+          --bg-primary: #F5F5F0;
+          --bg-secondary: #ECEAE4;
+          --bg-card: #E8E6E0;
+          --bg-card-hover: #DEDAD4;
+          --bg-sidebar: #E8E6E0;
+          --text-primary: #1A1A1A;
+          --text-secondary: #6B6B6B;
+          --text-tertiary: #9CA3AF;
+          --border: #D4D2CC;
+          --border-light: #E8E6E0;
+          
+          /* Accent */
+          --accent: #1A9A8A;
+          --accent-hover: #158578;
+          --accent-light: #E6F5F3;
+          
+          /* Status */
+          --status-working: #1A9A8A;
+          --status-new: #2DD4BF;
+          --status-paused: #6B7280;
+          --status-stuck: #F87171;
+          
+          /* Priority */
+          --priority-low: #6EE7B7;
+          --priority-medium: #FCD34D;
+          --priority-high: #FCA5A5;
+          --priority-urgent: #F472B6;
+          
+          /* Note colors */
+          --note-yellow: #FEF08A;
+          --note-pink: #FBCFE8;
+          --note-orange: #FDBA74;
+          --note-cyan: #67E8F9;
+          --note-green: #6EE7B7;
+          --note-purple: #C4B5FD;
+          --note-coral: #FCA5A5;
+          --note-peach: #FECACA;
         }
 
-        .animate-slideUp {
-          animation: slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        /* Dark Mode */
+        .app.dark {
+          --bg-primary: #1E1E1E;
+          --bg-secondary: #252525;
+          --bg-card: #2D2D2D;
+          --bg-card-hover: #3A3A3A;
+          --bg-sidebar: #252525;
+          --text-primary: #FFFFFF;
+          --text-secondary: #A1A1A1;
+          --text-tertiary: #6B6B6B;
+          --border: #3D3D3D;
+          --border-light: #333333;
+          
+          /* Accent */
+          --accent: #2DD4BF;
+          --accent-hover: #14B8A6;
+          --accent-light: #134E48;
+          
+          /* Status */
+          --status-working: #2DD4BF;
+          --status-new: #2DD4BF;
+          --status-paused: #6B7280;
+          --status-stuck: #F87171;
+          
+          /* Priority */
+          --priority-low: #6EE7B7;
+          --priority-medium: #FCD34D;
+          --priority-high: #FCA5A5;
+          --priority-urgent: #F472B6;
+          
+          /* Note colors */
+          --note-yellow: #FEF08A;
+          --note-pink: #FBCFE8;
+          --note-orange: #FDBA74;
+          --note-cyan: #67E8F9;
+          --note-green: #6EE7B7;
+          --note-purple: #C4B5FD;
+          --note-coral: #FCA5A5;
+          --note-peach: #FECACA;
         }
 
-        .animate-fadeIn {
-          animation: fadeIn 0.3s ease-out forwards;
+        /* ============================================
+           BASE STYLES
+           ============================================ */
+
+        .app {
+          font-family: var(--font-family);
+          background-color: var(--bg-primary);
+          color: var(--text-primary);
+          min-height: 100vh;
+          display: flex;
+          transition: var(--transition);
         }
 
-        .animate-scaleIn {
-          animation: scaleIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        /* ============================================
+           SIDEBAR
+           ============================================ */
+
+        .sidebar {
+          width: 220px;
+          background-color: var(--bg-sidebar);
+          border-right: 1px solid var(--border);
+          display: flex;
+          flex-direction: column;
+          transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+          position: relative;
+          z-index: 100;
+          height: 100vh;
+          position: sticky;
+          top: 0;
         }
 
-        .animate-highlight {
-          animation: highlight 2s ease-in-out;
+        .sidebar.collapsed {
+          width: 72px;
         }
 
-        .task-card {
-          transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        .sidebar-header {
+          padding: var(--space-lg);
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          border-bottom: 1px solid var(--border);
         }
 
-        .task-card:hover {
-          box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);
+        .sidebar.collapsed .sidebar-header {
+          padding: var(--space-md);
+          justify-content: center;
+        }
+
+        .logo {
+          font-size: 18px;
+          font-weight: 700;
+          color: var(--text-primary);
+          white-space: nowrap;
+          overflow: hidden;
+        }
+
+        .logo span {
+          color: var(--text-secondary);
+          font-weight: 400;
+        }
+
+        .sidebar.collapsed .logo {
+          display: none;
+        }
+
+        .collapse-btn {
+          background: transparent;
+          border: none;
+          color: var(--text-secondary);
+          cursor: pointer;
+          padding: var(--space-sm);
+          border-radius: var(--radius);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          transition: var(--transition);
+        }
+
+        .collapse-btn:hover {
+          background-color: var(--bg-card);
+          color: var(--text-primary);
+        }
+
+        .sidebar-nav {
+          flex: 1;
+          padding: var(--space-md);
+          overflow-y: auto;
+        }
+
+        .nav-item {
+          display: flex;
+          align-items: center;
+          gap: var(--space-md);
+          padding: var(--space-md);
+          margin-bottom: var(--space-xs);
+          border-radius: var(--radius);
+          cursor: pointer;
+          color: var(--text-secondary);
+          font-weight: 500;
+          font-size: 14px;
+          transition: var(--transition);
+          position: relative;
+        }
+
+        .sidebar.collapsed .nav-item {
+          justify-content: center;
+          padding: var(--space-md);
+        }
+
+        .sidebar.collapsed .nav-item .nav-label,
+        .sidebar.collapsed .nav-item .nav-count {
+          display: none;
+        }
+
+        .nav-item:hover {
+          background-color: var(--bg-card);
+          color: var(--text-primary);
+        }
+
+        .nav-item.active {
+          background-color: var(--accent);
+          color: white;
+        }
+
+        .nav-item.active:hover {
+          background-color: var(--accent-hover);
+        }
+
+        .nav-icon {
+          flex-shrink: 0;
+          width: 20px;
+          height: 20px;
+        }
+
+        .nav-count {
+          margin-left: auto;
+          background-color: var(--bg-primary);
+          color: var(--text-secondary);
+          font-size: 12px;
+          font-weight: 600;
+          padding: 2px 8px;
+          border-radius: var(--radius-full);
+        }
+
+        .nav-item.active .nav-count {
+          background-color: rgba(255,255,255,0.2);
+          color: white;
+        }
+
+        .sidebar-footer {
+          padding: var(--space-lg);
+          border-top: 1px solid var(--border);
+        }
+
+        .sidebar.collapsed .sidebar-footer {
+          padding: var(--space-md);
+        }
+
+        .time-display {
+          font-size: 24px;
+          font-weight: 700;
+          color: var(--text-primary);
+          line-height: 1.2;
+        }
+
+        .date-display {
+          font-size: 12px;
+          color: var(--text-secondary);
+          margin-top: var(--space-xs);
+        }
+
+        .sidebar.collapsed .time-display {
+          font-size: 14px;
+          text-align: center;
+        }
+
+        .sidebar.collapsed .date-display {
+          display: none;
+        }
+
+        /* ============================================
+           MAIN CONTENT
+           ============================================ */
+
+        .main {
+          flex: 1;
+          display: flex;
+          flex-direction: column;
+          min-width: 0;
+        }
+
+        .header {
+          display: flex;
+          align-items: center;
+          justify-content: flex-end;
+          gap: var(--space-lg);
+          padding: var(--space-lg) var(--space-xl);
+          border-bottom: 1px solid var(--border);
+          background-color: var(--bg-secondary);
+        }
+
+        .header-actions {
+          display: flex;
+          align-items: center;
+          gap: var(--space-md);
+        }
+
+        .theme-toggle {
+          display: flex;
+          align-items: center;
+          gap: var(--space-sm);
+          padding: var(--space-sm);
+          background-color: var(--bg-card);
+          border-radius: var(--radius-full);
+          border: 1px solid var(--border);
+        }
+
+        .theme-btn {
+          padding: var(--space-sm);
+          border-radius: var(--radius-full);
+          border: none;
+          background: transparent;
+          color: var(--text-secondary);
+          cursor: pointer;
+          transition: var(--transition);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+
+        .theme-btn.active {
+          background-color: var(--accent);
+          color: white;
+        }
+
+        .header-btn {
+          display: flex;
+          align-items: center;
+          gap: var(--space-sm);
+          padding: var(--space-sm) var(--space-md);
+          background: transparent;
+          border: none;
+          color: var(--text-secondary);
+          font-size: 14px;
+          font-weight: 500;
+          cursor: pointer;
+          transition: var(--transition);
+          font-family: var(--font-family);
+        }
+
+        .header-btn:hover {
+          color: var(--text-primary);
+        }
+
+        .greeting {
+          display: flex;
+          align-items: center;
+          gap: var(--space-sm);
+          color: var(--text-secondary);
+          font-size: 14px;
+        }
+
+        .greeting strong {
+          color: var(--text-primary);
+        }
+
+        .content {
+          flex: 1;
+          padding: var(--space-xl);
+          overflow-y: auto;
+        }
+
+        .content-header {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          margin-bottom: var(--space-lg);
+          flex-wrap: wrap;
+          gap: var(--space-md);
+        }
+
+        .content-title {
+          font-size: 28px;
+          font-weight: 700;
+          color: var(--text-primary);
+        }
+
+        .content-subtitle {
+          font-size: 14px;
+          color: var(--text-secondary);
+          margin-top: var(--space-xs);
+        }
+
+        .content-actions {
+          display: flex;
+          align-items: center;
+          gap: var(--space-md);
+        }
+
+        .view-toggle {
+          display: flex;
+          background-color: var(--bg-card);
+          border-radius: var(--radius);
+          padding: 2px;
+          border: 1px solid var(--border);
+        }
+
+        .view-btn {
+          padding: var(--space-sm) var(--space-md);
+          border: none;
+          background: transparent;
+          color: var(--text-secondary);
+          cursor: pointer;
+          border-radius: var(--radius);
+          transition: var(--transition);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+
+        .view-btn.active {
+          background-color: var(--bg-primary);
+          color: var(--text-primary);
+          box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+
+        .btn-primary {
+          display: flex;
+          align-items: center;
+          gap: var(--space-sm);
+          padding: var(--space-md) var(--space-lg);
+          background-color: var(--accent);
+          color: white;
+          border: none;
+          border-radius: var(--radius);
+          font-size: 14px;
+          font-weight: 600;
+          cursor: pointer;
+          transition: var(--transition);
+          font-family: var(--font-family);
+        }
+
+        .btn-primary:hover {
+          background-color: var(--accent-hover);
+          transform: translateY(-1px);
+          box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+
+        .btn-secondary {
+          display: flex;
+          align-items: center;
+          gap: var(--space-sm);
+          padding: var(--space-md) var(--space-lg);
+          background-color: var(--bg-card);
+          color: var(--text-primary);
+          border: 1px solid var(--border);
+          border-radius: var(--radius);
+          font-size: 14px;
+          font-weight: 500;
+          cursor: pointer;
+          transition: var(--transition);
+          font-family: var(--font-family);
+        }
+
+        .btn-secondary:hover {
+          background-color: var(--bg-card-hover);
+        }
+
+        /* ============================================
+           FILTERS
+           ============================================ */
+
+        .filters {
+          display: flex;
+          align-items: center;
+          gap: var(--space-md);
+          margin-bottom: var(--space-lg);
+          flex-wrap: wrap;
+        }
+
+        .filter-dropdown {
+          display: flex;
+          align-items: center;
+          gap: var(--space-sm);
+          padding: var(--space-sm) var(--space-md);
+          background-color: var(--bg-card);
+          border: 1px solid var(--border);
+          border-radius: var(--radius);
+          color: var(--text-secondary);
+          font-size: 14px;
+          cursor: pointer;
+        }
+
+        .filter-pills {
+          display: flex;
+          gap: var(--space-sm);
+          flex-wrap: wrap;
+        }
+
+        .filter-pill {
+          padding: var(--space-sm) var(--space-md);
+          background-color: var(--bg-card);
+          border: 1px solid var(--border);
+          border-radius: var(--radius);
+          color: var(--text-secondary);
+          font-size: 13px;
+          font-weight: 500;
+          cursor: pointer;
+          transition: var(--transition);
+          font-family: var(--font-family);
+        }
+
+        .filter-pill:hover {
+          border-color: var(--accent);
+          color: var(--text-primary);
+        }
+
+        .filter-pill.active {
+          background-color: var(--accent);
+          border-color: var(--accent);
+          color: white;
+        }
+
+        .tag-pill {
+          display: inline-flex;
+          align-items: center;
+          gap: var(--space-xs);
+          padding: var(--space-xs) var(--space-sm);
+          background-color: var(--bg-primary);
+          border: 1px solid var(--border);
+          border-radius: var(--radius);
+          font-size: 12px;
+          color: var(--text-secondary);
+          cursor: pointer;
+          transition: var(--transition);
+        }
+
+        .tag-pill:hover {
+          border-color: var(--accent);
+          color: var(--accent);
+        }
+
+        /* ============================================
+           PROJECT CARDS
+           ============================================ */
+
+        .projects-list {
+          display: flex;
+          flex-direction: column;
+          gap: var(--space-md);
+        }
+
+        .project-card {
+          background-color: var(--bg-card);
+          border: 1px solid var(--border);
+          border-radius: var(--radius);
+          padding: var(--space-lg);
+          transition: var(--transition);
+        }
+
+        .project-card:hover {
+          border-color: var(--accent);
+          box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+        }
+
+        .project-header {
+          display: flex;
+          align-items: flex-start;
+          justify-content: space-between;
+          margin-bottom: var(--space-md);
+        }
+
+        .project-title {
+          font-size: 18px;
+          font-weight: 600;
+          color: var(--text-primary);
+          cursor: pointer;
+        }
+
+        .project-title:hover {
+          color: var(--accent);
+        }
+
+        .project-actions {
+          display: flex;
+          gap: var(--space-sm);
+        }
+
+        .icon-btn {
+          padding: var(--space-sm);
+          background: transparent;
+          border: none;
+          color: var(--text-tertiary);
+          cursor: pointer;
+          border-radius: var(--radius);
+          transition: var(--transition);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+
+        .icon-btn:hover {
+          background-color: var(--bg-primary);
+          color: var(--text-primary);
+        }
+
+        .icon-btn.danger:hover {
+          background-color: #FEE2E2;
+          color: #DC2626;
+        }
+
+        .project-progress {
+          margin-bottom: var(--space-md);
+        }
+
+        .progress-text {
+          font-size: 12px;
+          color: var(--text-secondary);
+          margin-bottom: var(--space-xs);
+        }
+
+        .progress-bar {
+          width: 100%;
+          height: 6px;
+          background-color: var(--bg-primary);
+          border-radius: var(--radius-full);
+          overflow: hidden;
+        }
+
+        .progress-fill {
+          height: 100%;
+          background-color: var(--accent);
+          border-radius: var(--radius-full);
+          transition: width 0.3s ease;
+        }
+
+        .project-tags {
+          display: flex;
+          gap: var(--space-sm);
+          flex-wrap: wrap;
+          margin-bottom: var(--space-md);
+        }
+
+        .sub-items-toggle {
+          display: flex;
+          align-items: center;
+          gap: var(--space-sm);
+          padding: var(--space-sm) 0;
+          color: var(--text-secondary);
+          font-size: 13px;
+          font-weight: 500;
+          cursor: pointer;
+          transition: var(--transition);
+        }
+
+        .sub-items-toggle:hover {
+          color: var(--text-primary);
+        }
+
+        .sub-items-list {
+          margin-top: var(--space-md);
+          display: flex;
+          flex-direction: column;
+          gap: var(--space-sm);
+        }
+
+        .sub-item {
+          display: flex;
+          align-items: center;
+          gap: var(--space-md);
+          padding: var(--space-md);
+          background-color: var(--bg-primary);
+          border-radius: var(--radius);
+          transition: var(--transition);
+        }
+
+        .sub-item:hover {
+          background-color: var(--bg-secondary);
+        }
+
+        .sub-item-checkbox {
+          width: 18px;
+          height: 18px;
+          border: 2px solid var(--border);
+          border-radius: var(--radius);
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          transition: var(--transition);
+          flex-shrink: 0;
+        }
+
+        .sub-item-checkbox.checked {
+          background-color: var(--accent);
+          border-color: var(--accent);
+          color: white;
+        }
+
+        .sub-item-text {
+          flex: 1;
+          font-size: 14px;
+          color: var(--text-primary);
+        }
+
+        .sub-item-text.completed {
+          text-decoration: line-through;
+          color: var(--text-tertiary);
+        }
+
+        .sub-item-badges {
+          display: flex;
+          gap: var(--space-sm);
+          align-items: center;
         }
 
         .status-badge {
-          transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+          padding: var(--space-xs) var(--space-sm);
+          border-radius: var(--radius);
+          font-size: 12px;
+          font-weight: 500;
+          display: flex;
+          align-items: center;
+          gap: var(--space-xs);
         }
 
-        .status-badge:hover {
-          transform: scale(1.05);
+        .status-badge.working {
+          background-color: var(--status-working);
+          color: white;
         }
 
-        .accent-font {
-          font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        .status-badge.new {
+          background-color: var(--status-new);
+          color: white;
         }
 
-        .rich-text-editor {
-          line-height: 1.6;
-          direction: ltr !important;
-          text-align: left !important;
-          unicode-bidi: isolate-override !important;
+        .status-badge.paused {
+          background-color: var(--status-paused);
+          color: white;
         }
 
-        .rich-text-editor * {
-          direction: ltr !important;
-          text-align: left !important;
-          unicode-bidi: isolate-override !important;
+        .status-badge.stuck {
+          background-color: var(--status-stuck);
+          color: white;
         }
 
-        [contenteditable] {
-          direction: ltr !important;
-          text-align: left !important;
-          unicode-bidi: isolate-override !important;
+        .priority-badge {
+          padding: var(--space-xs) var(--space-sm);
+          border-radius: var(--radius);
+          font-size: 12px;
+          font-weight: 500;
         }
 
-        [contenteditable] * {
-          direction: ltr !important;
-          unicode-bidi: isolate-override !important;
+        .priority-badge.low {
+          background-color: var(--priority-low);
+          color: #065F46;
         }
 
-        .rich-text-editor strong {
+        .priority-badge.medium {
+          background-color: var(--priority-medium);
+          color: #92400E;
+        }
+
+        .priority-badge.high {
+          background-color: var(--priority-high);
+          color: #991B1B;
+        }
+
+        .priority-badge.urgent {
+          background-color: var(--priority-urgent);
+          color: #831843;
+        }
+
+        .sub-item-actions {
+          display: flex;
+          gap: var(--space-xs);
+        }
+
+        /* ============================================
+           LINKS GRID
+           ============================================ */
+
+        .links-grid {
+          display: grid;
+          grid-template-columns: repeat(3, 1fr);
+          gap: var(--space-md);
+        }
+
+        @media (max-width: 1200px) {
+          .links-grid {
+            grid-template-columns: repeat(2, 1fr);
+          }
+        }
+
+        @media (max-width: 768px) {
+          .links-grid {
+            grid-template-columns: 1fr;
+          }
+        }
+
+        .link-card {
+          background-color: var(--bg-card);
+          border: 1px solid var(--border);
+          border-radius: var(--radius);
+          padding: var(--space-lg);
+          display: flex;
+          flex-direction: column;
+          transition: var(--transition);
+          position: relative;
+        }
+
+        .link-card:hover {
+          border-color: var(--accent);
+          box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+        }
+
+        .link-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: flex-start;
+          margin-bottom: var(--space-sm);
+        }
+
+        .link-title {
+          font-size: 16px;
           font-weight: 600;
+          color: var(--text-primary);
+          cursor: pointer;
         }
 
-        .rich-text-editor em {
-          font-style: italic;
+        .link-title:hover {
+          color: var(--accent);
         }
 
-        .rich-text-editor ol {
-          list-style-type: decimal;
-          padding-left: 1.5em;
-          margin: 0.5em 0;
+        .link-url {
+          font-size: 13px;
+          color: var(--accent);
+          text-decoration: none;
+          display: block;
+          margin-bottom: var(--space-md);
+          word-break: break-all;
         }
 
-        .rich-text-editor ul {
-          list-style-type: disc;
-          padding-left: 1.5em;
-          margin: 0.5em 0;
+        .link-url:hover {
+          text-decoration: underline;
         }
 
-        .rich-text-editor li {
-          margin: 0.25em 0;
+        .link-tags {
+          display: flex;
+          gap: var(--space-sm);
+          flex-wrap: wrap;
+          margin-top: auto;
+          padding-top: var(--space-md);
         }
 
-        /* 2-COLUMN MASONRY (not 3) */
-        .masonry {
-          column-count: 2;
-          column-gap: 1rem;
+        .link-actions {
+          position: absolute;
+          bottom: var(--space-md);
+          right: var(--space-md);
+          display: flex;
+          gap: var(--space-xs);
         }
 
-        .masonry-item {
+        /* ============================================
+           NOTES GRID
+           ============================================ */
+
+        .notes-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+          gap: var(--space-md);
+        }
+
+        .note-card {
+          padding: var(--space-lg);
+          border-radius: var(--radius);
+          position: relative;
+          transition: var(--transition);
+          min-height: 150px;
+          display: flex;
+          flex-direction: column;
+        }
+
+        .note-card:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+        }
+
+        .note-card.yellow { background-color: var(--note-yellow); }
+        .note-card.pink { background-color: var(--note-pink); }
+        .note-card.orange { background-color: var(--note-orange); }
+        .note-card.cyan { background-color: var(--note-cyan); }
+        .note-card.green { background-color: var(--note-green); }
+        .note-card.purple { background-color: var(--note-purple); }
+        .note-card.coral { background-color: var(--note-coral); }
+        .note-card.peach { background-color: var(--note-peach); }
+
+        .note-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: flex-start;
+          margin-bottom: var(--space-sm);
+        }
+
+        .note-title {
+          font-size: 16px;
+          font-weight: 600;
+          color: #1A1A1A;
+          cursor: pointer;
+        }
+
+        .note-content {
+          font-size: 14px;
+          color: #1A1A1A;
+          opacity: 0.8;
+          line-height: 1.5;
+          flex: 1;
+        }
+
+        .note-tags {
+          display: flex;
+          gap: var(--space-sm);
+          flex-wrap: wrap;
+          margin-top: var(--space-md);
+        }
+
+        .note-tag {
+          display: inline-flex;
+          align-items: center;
+          gap: var(--space-xs);
+          padding: var(--space-xs) var(--space-sm);
+          background-color: rgba(0,0,0,0.1);
+          border-radius: var(--radius);
+          font-size: 11px;
+          font-weight: 500;
+          color: #1A1A1A;
+          cursor: pointer;
+        }
+
+        .note-actions {
+          position: absolute;
+          top: var(--space-md);
+          right: var(--space-md);
+          display: flex;
+          gap: var(--space-xs);
+        }
+
+        .note-actions .icon-btn {
+          color: rgba(0,0,0,0.4);
+        }
+
+        .note-actions .icon-btn:hover {
+          color: rgba(0,0,0,0.7);
+          background-color: rgba(0,0,0,0.1);
+        }
+
+        .note-delete {
+          position: absolute;
+          bottom: var(--space-md);
+          right: var(--space-md);
+        }
+
+        .note-delete .icon-btn {
+          color: rgba(0,0,0,0.3);
+        }
+
+        .note-delete .icon-btn:hover {
+          color: #DC2626;
+          background-color: rgba(220,38,38,0.1);
+        }
+
+        /* ============================================
+           DESIGN INSPO (Masonry)
+           ============================================ */
+
+        .inspo-grid {
+          column-count: 4;
+          column-gap: var(--space-md);
+        }
+
+        @media (max-width: 1400px) {
+          .inspo-grid { column-count: 3; }
+        }
+
+        @media (max-width: 1000px) {
+          .inspo-grid { column-count: 2; }
+        }
+
+        @media (max-width: 600px) {
+          .inspo-grid { column-count: 1; }
+        }
+
+        .inspo-card {
           break-inside: avoid;
-          margin-bottom: 1rem;
+          margin-bottom: var(--space-md);
+          background-color: var(--bg-card);
+          border: 1px solid var(--border);
+          border-radius: var(--radius);
+          overflow: hidden;
+          transition: var(--transition);
+          cursor: pointer;
         }
 
-        * {
-          transition-property: background-color, border-color, color, fill, stroke;
-          transition-duration: 0.2s;
-          transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+        .inspo-card:hover {
+          border-color: var(--accent);
+          box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+          transform: translateY(-2px);
         }
 
-        button, a, .task-card {
-          transition-property: all;
+        .inspo-image {
+          width: 100%;
+          display: block;
+        }
+
+        .inspo-info {
+          padding: var(--space-md);
+        }
+
+        .inspo-name {
+          font-size: 14px;
+          font-weight: 600;
+          color: var(--text-primary);
+          margin-bottom: var(--space-sm);
+        }
+
+        .inspo-tags {
+          display: flex;
+          gap: var(--space-xs);
+          flex-wrap: wrap;
+        }
+
+        .inspo-actions {
+          display: flex;
+          gap: var(--space-sm);
+          padding: var(--space-sm) var(--space-md) var(--space-md);
+          border-top: 1px solid var(--border);
+        }
+
+        /* Upload area */
+        .upload-area {
+          border: 2px dashed var(--border);
+          border-radius: var(--radius-lg);
+          padding: var(--space-2xl);
+          text-align: center;
+          cursor: pointer;
+          transition: var(--transition);
+          margin-bottom: var(--space-lg);
+        }
+
+        .upload-area:hover {
+          border-color: var(--accent);
+          background-color: var(--bg-card);
+        }
+
+        .upload-area.dragging {
+          border-color: var(--accent);
+          background-color: var(--accent-light);
+        }
+
+        .upload-icon {
+          color: var(--text-tertiary);
+          margin-bottom: var(--space-md);
+        }
+
+        .upload-text {
+          color: var(--text-secondary);
+          font-size: 14px;
+        }
+
+        .upload-text strong {
+          color: var(--accent);
+        }
+
+        /* ============================================
+           TAGS VIEW
+           ============================================ */
+
+        .tags-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+          gap: var(--space-md);
+        }
+
+        .tag-card {
+          background-color: var(--bg-card);
+          border: 1px solid var(--border);
+          border-radius: var(--radius);
+          padding: var(--space-lg);
+          cursor: pointer;
+          transition: var(--transition);
+        }
+
+        .tag-card:hover {
+          border-color: var(--accent);
+          transform: translateY(-2px);
+          box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+        }
+
+        .tag-card.active {
+          border-color: var(--accent);
+          background-color: var(--accent-light);
+        }
+
+        .tag-name {
+          font-size: 16px;
+          font-weight: 600;
+          color: var(--text-primary);
+          margin-bottom: var(--space-sm);
+        }
+
+        .tag-count {
+          font-size: 13px;
+          color: var(--text-secondary);
+        }
+
+        /* ============================================
+           MODAL
+           ============================================ */
+
+        .modal-overlay {
+          position: fixed;
+          top: 0;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          background-color: rgba(0,0,0,0.5);
+          backdrop-filter: blur(4px);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          z-index: 1000;
+          padding: var(--space-lg);
+        }
+
+        .modal {
+          background-color: var(--bg-card);
+          border: 1px solid var(--border);
+          border-radius: var(--radius-lg);
+          width: 100%;
+          max-width: 500px;
+          max-height: 90vh;
+          overflow-y: auto;
+        }
+
+        .modal-header {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          padding: var(--space-lg);
+          border-bottom: 1px solid var(--border);
+        }
+
+        .modal-title {
+          font-size: 18px;
+          font-weight: 600;
+          color: var(--text-primary);
+        }
+
+        .modal-body {
+          padding: var(--space-lg);
+        }
+
+        .modal-footer {
+          display: flex;
+          gap: var(--space-md);
+          justify-content: flex-end;
+          padding: var(--space-lg);
+          border-top: 1px solid var(--border);
+        }
+
+        /* ============================================
+           FORMS
+           ============================================ */
+
+        .form-group {
+          margin-bottom: var(--space-lg);
+        }
+
+        .form-label {
+          display: block;
+          font-size: 13px;
+          font-weight: 500;
+          color: var(--text-secondary);
+          margin-bottom: var(--space-sm);
+        }
+
+        .form-input {
+          width: 100%;
+          padding: var(--space-md);
+          background-color: var(--bg-primary);
+          border: 1px solid var(--border);
+          border-radius: var(--radius);
+          font-size: 14px;
+          color: var(--text-primary);
+          font-family: var(--font-family);
+          transition: var(--transition);
+        }
+
+        .form-input:focus {
+          outline: none;
+          border-color: var(--accent);
+          box-shadow: 0 0 0 3px var(--accent-light);
+        }
+
+        .form-input::placeholder {
+          color: var(--text-tertiary);
+        }
+
+        /* ============================================
+           QUILL EDITOR
+           ============================================ */
+
+        .quill-wrapper {
+          border: 1px solid var(--border);
+          border-radius: var(--radius);
+          overflow: hidden;
+        }
+
+        .quill-wrapper .ql-toolbar {
+          background-color: var(--bg-primary);
+          border: none;
+          border-bottom: 1px solid var(--border);
+        }
+
+        .quill-wrapper .ql-container {
+          border: none;
+          background-color: var(--bg-card);
+        }
+
+        .quill-wrapper .ql-editor {
+          min-height: 150px;
+          font-family: var(--font-family);
+          font-size: 14px;
+          color: var(--text-primary);
+        }
+
+        /* ============================================
+           EMPTY STATE
+           ============================================ */
+
+        .empty-state {
+          text-align: center;
+          padding: var(--space-2xl);
+          color: var(--text-secondary);
+        }
+
+        .empty-state-icon {
+          color: var(--text-tertiary);
+          margin-bottom: var(--space-md);
+        }
+
+        .empty-state-title {
+          font-size: 18px;
+          font-weight: 600;
+          color: var(--text-primary);
+          margin-bottom: var(--space-sm);
+        }
+
+        .empty-state-text {
+          font-size: 14px;
+          margin-bottom: var(--space-lg);
+        }
+
+        /* ============================================
+           LIGHTBOX
+           ============================================ */
+
+        .lightbox {
+          position: fixed;
+          top: 0;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          background-color: rgba(0,0,0,0.95);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          z-index: 2000;
+          padding: var(--space-xl);
+        }
+
+        .lightbox-image {
+          max-width: 90%;
+          max-height: 90%;
+          object-fit: contain;
+        }
+
+        .lightbox-close {
+          position: absolute;
+          top: var(--space-lg);
+          right: var(--space-lg);
+          padding: var(--space-md);
+          background-color: rgba(255,255,255,0.1);
+          border: none;
+          border-radius: var(--radius-full);
+          color: white;
+          cursor: pointer;
+          transition: var(--transition);
+        }
+
+        .lightbox-close:hover {
+          background-color: rgba(255,255,255,0.2);
+        }
+
+        .lightbox-actions {
+          position: absolute;
+          bottom: var(--space-xl);
+          left: 50%;
+          transform: translateX(-50%);
+          display: flex;
+          gap: var(--space-md);
+        }
+
+        .lightbox-btn {
+          display: flex;
+          align-items: center;
+          gap: var(--space-sm);
+          padding: var(--space-md) var(--space-lg);
+          background-color: rgba(255,255,255,0.1);
+          border: 1px solid rgba(255,255,255,0.2);
+          border-radius: var(--radius);
+          color: white;
+          font-size: 14px;
+          cursor: pointer;
+          transition: var(--transition);
+        }
+
+        .lightbox-btn:hover {
+          background-color: rgba(255,255,255,0.2);
+        }
+
+        /* ============================================
+           RESPONSIVE
+           ============================================ */
+
+        @media (max-width: 768px) {
+          .sidebar {
+            position: fixed;
+            left: 0;
+            top: 0;
+            height: 100vh;
+            z-index: 1000;
+            transform: translateX(-100%);
+          }
+
+          .sidebar.open {
+            transform: translateX(0);
+          }
+
+          .sidebar.collapsed {
+            width: 220px;
+            transform: translateX(-100%);
+          }
+
+          .sidebar.collapsed.open {
+            transform: translateX(0);
+          }
+
+          .content {
+            padding: var(--space-md);
+          }
+
+          .header {
+            padding: var(--space-md);
+          }
+
+          .greeting {
+            display: none;
+          }
         }
       `}</style>
 
-      <div className="flex h-screen overflow-hidden">
-        <aside className={`w-64 ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'} border-r flex flex-col sticky top-0 h-screen`}>
-          <div className="p-6 flex-shrink-0">
-            <h1 className={`text-2xl font-bold ${darkMode ? 'text-white' : 'text-slate-800'} accent-font`}>
-              Life Command
-            </h1>
-            <p className={`text-xs ${darkMode ? 'text-slate-500' : 'text-slate-400'} mt-1`}>v6.0</p>
+      {/* Sidebar */}
+      <aside className={`sidebar ${sidebarCollapsed ? 'collapsed' : ''}`}>
+        <div className="sidebar-header">
+          <div className="logo">
+            Life <span>Command</span>
           </div>
-          
-          <nav className="flex-1 px-3 overflow-y-auto">
-            <NavButton 
-              active={activeView === 'projects'} 
-              onClick={() => setActiveView('projects')} 
-              icon={List} 
-              label="Projects"
-              count={projects.filter(p => !p.completed).length}
-              darkMode={darkMode}
-            />
-            <NavButton 
-              active={activeView === 'links'} 
-              onClick={() => setActiveView('links')} 
-              icon={Link2} 
-              label="Links"
-              count={links.length}
-              darkMode={darkMode}
-            />
-            <NavButton 
-              active={activeView === 'notes'} 
-              onClick={() => setActiveView('notes')} 
-              icon={StickyNote} 
-              label="Notes"
-              count={notes.length}
-              darkMode={darkMode}
-            />
-            <NavButton 
-              active={activeView === 'tags'} 
-              onClick={() => setActiveView('tags')} 
-              icon={Tag} 
-              label="Tags"
-              count={allTags.length}
-              darkMode={darkMode}
-            />
-          </nav>
+          <button 
+            className="collapse-btn"
+            onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+          >
+            {sidebarCollapsed ? <PanelLeft size={20} /> : <PanelLeftClose size={20} />}
+          </button>
+        </div>
 
-          <div className={`px-4 py-3 border-t ${darkMode ? 'border-slate-700 bg-slate-800/50' : 'border-slate-200 bg-slate-50/50'} flex-shrink-0`}>
-            <div className={`text-center ${darkMode ? 'text-slate-300' : 'text-slate-700'}`}>
-              <div className="text-2xl font-bold tabular-nums tracking-tight">
-                {currentTime.toLocaleTimeString('en-US', { 
-                  hour: '2-digit', 
-                  minute: '2-digit'
-                })}
-              </div>
-              <div className={`text-xs mt-0.5 font-medium ${darkMode ? 'text-slate-500' : 'text-slate-500'}`}>
-                {currentTime.toLocaleDateString('en-US', { 
-                  weekday: 'short',
-                  month: 'short', 
-                  day: 'numeric'
-                })}
-              </div>
-            </div>
+        <nav className="sidebar-nav">
+          <div 
+            className={`nav-item ${activeView === 'projects' ? 'active' : ''}`}
+            onClick={() => { setActiveView('projects'); setActiveTagFilter(null); }}
+          >
+            <List className="nav-icon" size={20} />
+            <span className="nav-label">Projects</span>
+            <span className="nav-count">{projects.filter(p => !p.completed).length}</span>
           </div>
-        </aside>
 
-        <main className="flex-1 overflow-y-auto">
-          <header className={`${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'} border-b px-8 py-4 flex items-center justify-between sticky top-0 z-10`}>
-            <div className="flex items-center gap-4">
-              <h2 className={`text-2xl font-semibold ${darkMode ? 'text-white' : 'text-slate-800'}`}>
-                {activeView.charAt(0).toUpperCase() + activeView.slice(1)}
-              </h2>
-            </div>
-            <div className="flex items-center gap-3">
-              <button
-                onClick={exportData}
-                className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-all hover:scale-105 ${darkMode ? 'bg-slate-700 text-teal-400 hover:bg-slate-600' : 'bg-teal-50 text-teal-700 hover:bg-teal-100'}`}
-                title="Export all data"
+          <div 
+            className={`nav-item ${activeView === 'links' ? 'active' : ''}`}
+            onClick={() => { setActiveView('links'); setActiveTagFilter(null); }}
+          >
+            <Link2 className="nav-icon" size={20} />
+            <span className="nav-label">Links</span>
+            <span className="nav-count">{links.length}</span>
+          </div>
+
+          <div 
+            className={`nav-item ${activeView === 'notes' ? 'active' : ''}`}
+            onClick={() => { setActiveView('notes'); setActiveTagFilter(null); }}
+          >
+            <FileText className="nav-icon" size={20} />
+            <span className="nav-label">Notes</span>
+            <span className="nav-count">{notes.length}</span>
+          </div>
+
+          <div 
+            className={`nav-item ${activeView === 'tags' ? 'active' : ''}`}
+            onClick={() => setActiveView('tags')}
+          >
+            <Tag className="nav-icon" size={20} />
+            <span className="nav-label">Tags</span>
+            <span className="nav-count">{getAllTags().length}</span>
+          </div>
+
+          <div 
+            className={`nav-item ${activeView === 'inspo' ? 'active' : ''}`}
+            onClick={() => { setActiveView('inspo'); setActiveTagFilter(null); }}
+          >
+            <Image className="nav-icon" size={20} />
+            <span className="nav-label">Design Inspo</span>
+            <span className="nav-count">{inspirations.length}</span>
+          </div>
+        </nav>
+
+        <div className="sidebar-footer">
+          <div className="time-display">{formatTime(currentTime)}</div>
+          <div className="date-display">{formatDate(currentTime)}</div>
+        </div>
+      </aside>
+
+      {/* Main Content */}
+      <main className="main">
+        {/* Header */}
+        <header className="header">
+          <div className="header-actions">
+            <div className="theme-toggle">
+              <button 
+                className={`theme-btn ${!darkMode ? 'active' : ''}`}
+                onClick={() => setDarkMode(false)}
               >
-                <Download size={18} />
-                <span className="text-sm font-medium">Export</span>
+                <Sun size={16} />
               </button>
-              <button
-                onClick={importData}
-                className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-all hover:scale-105 ${darkMode ? 'bg-slate-700 text-purple-400 hover:bg-slate-600' : 'bg-purple-50 text-purple-700 hover:bg-purple-100'}`}
-                title="Import data"
+              <button 
+                className={`theme-btn ${darkMode ? 'active' : ''}`}
+                onClick={() => setDarkMode(true)}
               >
-                <Upload size={18} />
-                <span className="text-sm font-medium">Import</span>
-              </button>
-              <button
-                onClick={() => setDarkMode(!darkMode)}
-                className={`p-2 rounded-lg transition-all hover:scale-110 ${darkMode ? 'bg-slate-700 text-yellow-400' : 'bg-slate-100 text-slate-600'}`}
-              >
-                {darkMode ? <Sun size={20} /> : <Moon size={20} />}
-              </button>
-              <button
-                onClick={() => setShowProfileEditor(true)}
-                className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-all hover:scale-105 ${darkMode ? 'bg-slate-700 hover:bg-slate-600' : 'bg-slate-100 hover:bg-slate-200'}`}
-              >
-                {profile.imageUrl ? (
-                  <img src={profile.imageUrl} alt={profile.name} className="w-8 h-8 rounded-full object-cover" />
-                ) : (
-                  <div className={`w-8 h-8 rounded-full flex items-center justify-center ${darkMode ? 'bg-slate-600' : 'bg-slate-300'}`}>
-                    <User size={18} className={darkMode ? 'text-slate-300' : 'text-slate-600'} />
-                  </div>
-                )}
-                <span className={`font-medium ${darkMode ? 'text-white' : 'text-slate-700'}`}>{profile.name}</span>
+                <Moon size={16} />
               </button>
             </div>
-          </header>
 
-          <div className="p-8">
-            {activeView === 'projects' && (
-              <ProjectsView 
-                projects={projects}
-                addProject={addProject}
-                updateProject={updateProject}
-                deleteProject={deleteProject}
-                clearCompletedProjects={clearCompletedProjects}
-                reorderProjects={reorderProjects}
-                showNewProjectForm={showNewProjectForm}
-                setShowNewProjectForm={setShowNewProjectForm}
-                links={links}
-                notes={notes}
-                toggleLinkToProject={toggleLinkToProject}
-                getLinkedItem={getLinkedItem}
-                navigateToLinkedItem={navigateToLinkedItem}
-                highlightedItemId={highlightedItemId}
-                darkMode={darkMode}
-                allTags={allTags}
-                viewMode={viewModes.projects}
-                toggleViewMode={toggleViewMode}
+            <button className="header-btn" onClick={exportData}>
+              <Download size={16} />
+              Export
+            </button>
+
+            <label className="header-btn" style={{ cursor: 'pointer' }}>
+              <Upload size={16} />
+              Import
+              <input 
+                type="file" 
+                accept=".json" 
+                onChange={importData}
+                style={{ display: 'none' }}
               />
-            )}
-            {activeView === 'calendar' && (
-              <CalendarView
-                events={events}
-                addEvent={addEvent}
-                updateEvent={updateEvent}
-                deleteEvent={deleteEvent}
-                showNewEventForm={showNewEventForm}
-                setShowNewEventForm={setShowNewEventForm}
-                selectedDate={selectedDate}
-                setSelectedDate={setSelectedDate}
-                darkMode={darkMode}
-                allTags={allTags}
-              />
-            )}
-            {activeView === 'links' && (
-              <LinksView
-                links={links}
-                addLink={addLink}
-                updateLink={updateLink}
-                deleteLink={deleteLink}
-                reorderLinks={reorderLinks}
-                showNewLinkForm={showNewLinkForm}
-                setShowNewLinkForm={setShowNewLinkForm}
-                projects={projects}
-                notes={notes}
-                getLinkedItem={getLinkedItem}
-                navigateToLinkedItem={navigateToLinkedItem}
-                highlightedItemId={highlightedItemId}
-                darkMode={darkMode}
-                allTags={allTags}
-                viewMode={viewModes.links}
-                toggleViewMode={toggleViewMode}
-              />
-            )}
-            {activeView === 'notes' && (
-              <NotesView
-                notes={notes}
-                addNote={addNote}
-                updateNote={updateNote}
-                deleteNote={deleteNote}
-                reorderNotes={reorderNotes}
-                showNewNoteForm={showNewNoteForm}
-                setShowNewNoteForm={setShowNewNoteForm}
-                projects={projects}
-                links={links}
-                getLinkedItem={getLinkedItem}
-                navigateToLinkedItem={navigateToLinkedItem}
-                highlightedItemId={highlightedItemId}
-                darkMode={darkMode}
-                allTags={allTags}
-                viewMode={viewModes.notes}
-                toggleViewMode={toggleViewMode}
-              />
-            )}
-            {activeView === 'tags' && (
-              <TagsView
-                projects={projects}
-                links={links}
-                notes={notes}
-                events={events}
-                navigateToLinkedItem={navigateToLinkedItem}
-                darkMode={darkMode}
-                allTags={allTags}
-              />
-            )}
+            </label>
+
+            <div className="greeting">
+              <span>👋</span>
+              Let's work, <strong>Jake</strong>
+            </div>
           </div>
-        </main>
+        </header>
+
+        {/* Content */}
+        <div className="content">
+          {activeView === 'projects' && (
+            <ProjectsView 
+              projects={projects}
+              addProject={addProject}
+              updateProject={updateProject}
+              deleteProject={deleteProject}
+              onTagClick={handleTagClick}
+              darkMode={darkMode}
+            />
+          )}
+
+          {activeView === 'links' && (
+            <LinksView 
+              links={links}
+              addLink={addLink}
+              updateLink={updateLink}
+              deleteLink={deleteLink}
+              onTagClick={handleTagClick}
+              darkMode={darkMode}
+            />
+          )}
+
+          {activeView === 'notes' && (
+            <NotesView 
+              notes={notes}
+              addNote={addNote}
+              updateNote={updateNote}
+              deleteNote={deleteNote}
+              onTagClick={handleTagClick}
+              darkMode={darkMode}
+            />
+          )}
+
+          {activeView === 'tags' && (
+            <TagsView 
+              projects={projects}
+              links={links}
+              notes={notes}
+              inspirations={inspirations}
+              activeTagFilter={activeTagFilter}
+              setActiveTagFilter={setActiveTagFilter}
+              darkMode={darkMode}
+            />
+          )}
+
+          {activeView === 'inspo' && (
+            <InspoView 
+              inspirations={inspirations}
+              addInspiration={addInspiration}
+              deleteInspiration={deleteInspiration}
+              onTagClick={handleTagClick}
+              darkMode={darkMode}
+            />
+          )}
+        </div>
+      </main>
+    </div>
+  );
+}
+
+// ============================================================================
+// PROJECTS VIEW
+// ============================================================================
+
+function ProjectsView({ projects, addProject, updateProject, deleteProject, onTagClick, darkMode }) {
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [viewMode, setViewMode] = useState('list');
+
+  const getProjectProgress = (project) => {
+    if (!project.subItems || project.subItems.length === 0) return 0;
+    const completed = project.subItems.filter(item => item.completed).length;
+    return Math.round((completed / project.subItems.length) * 100);
+  };
+
+  const filteredProjects = projects.filter(project => {
+    if (statusFilter === 'all') return true;
+    if (statusFilter === 'completed') return project.completed;
+    // Filter by sub-item status
+    return project.subItems?.some(item => item.status === statusFilter);
+  });
+
+  const activeCount = projects.filter(p => !p.completed).length;
+  const completedCount = projects.filter(p => p.completed).length;
+
+  return (
+    <div>
+      <div className="content-header">
+        <div>
+          <h1 className="content-title">Projects</h1>
+          <p className="content-subtitle">{activeCount} Active • {completedCount} Completed</p>
+        </div>
+        <div className="content-actions">
+          <div className="view-toggle">
+            <button 
+              className={`view-btn ${viewMode === 'list' ? 'active' : ''}`}
+              onClick={() => setViewMode('list')}
+            >
+              <List size={16} />
+            </button>
+            <button 
+              className={`view-btn ${viewMode === 'grid' ? 'active' : ''}`}
+              onClick={() => setViewMode('grid')}
+            >
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                <rect x="1" y="1" width="6" height="6" rx="1" />
+                <rect x="9" y="1" width="6" height="6" rx="1" />
+                <rect x="1" y="9" width="6" height="6" rx="1" />
+                <rect x="9" y="9" width="6" height="6" rx="1" />
+              </svg>
+            </button>
+          </div>
+          <button className="btn-primary" onClick={addProject}>
+            <Plus size={16} />
+            New Project
+          </button>
+        </div>
       </div>
 
-      {showProfileEditor && (
-        <ProfileEditor
-          profile={profile}
-          onSave={(newProfile) => {
-            setProfile(newProfile);
-            setShowProfileEditor(false);
-          }}
-          onClose={() => setShowProfileEditor(false)}
-          darkMode={darkMode}
-        />
+      <div className="filters">
+        <div className="filter-dropdown">
+          <Filter size={16} />
+          Filter by Status
+          <ChevronDown size={16} />
+        </div>
+        <div className="filter-pills">
+          {['all', 'new', 'working', 'paused', 'stuck'].map(status => (
+            <button
+              key={status}
+              className={`filter-pill ${statusFilter === status ? 'active' : ''}`}
+              onClick={() => setStatusFilter(status)}
+            >
+              {status.charAt(0).toUpperCase() + status.slice(1)}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {filteredProjects.length === 0 ? (
+        <div className="empty-state">
+          <List size={48} className="empty-state-icon" />
+          <h3 className="empty-state-title">No projects yet</h3>
+          <p className="empty-state-text">Create your first project to get started</p>
+          <button className="btn-primary" onClick={addProject}>
+            <Plus size={16} />
+            New Project
+          </button>
+        </div>
+      ) : (
+        <div className="projects-list">
+          {filteredProjects.map(project => (
+            <ProjectCard 
+              key={project.id}
+              project={project}
+              updateProject={updateProject}
+              deleteProject={deleteProject}
+              onTagClick={onTagClick}
+              getProgress={getProjectProgress}
+              darkMode={darkMode}
+            />
+          ))}
+        </div>
       )}
     </div>
   );
 }
 
-function NavButton({ active, onClick, icon: Icon, label, count, darkMode }) {
-  return (
-    <button
-      onClick={onClick}
-      className={`w-full flex items-center justify-between px-4 py-3 rounded-lg mb-1 transition-all ${
-        active 
-          ? 'bg-teal-600 text-white shadow-md scale-102' 
-          : darkMode 
-            ? 'text-slate-300 hover:bg-slate-700' 
-            : 'text-slate-600 hover:bg-slate-100'
-      } hover:scale-102`}
-    >
-      <div className="flex items-center gap-3">
-        <Icon size={20} />
-        <span className="font-medium">{label}</span>
-      </div>
-      {count > 0 && (
-        <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
-          active ? 'bg-white/20' : darkMode ? 'bg-slate-700' : 'bg-slate-200'
-        }`}>
-          {count}
-        </span>
-      )}
-    </button>
-  );
-}
+// ============================================================================
+// PROJECT CARD
+// ============================================================================
 
-function ProfileEditor({ profile, onSave, onClose, darkMode }) {
-  const [name, setName] = useState(profile.name);
-  const [imageUrl, setImageUrl] = useState(profile.imageUrl);
+function ProjectCard({ project, updateProject, deleteProject, onTagClick, getProgress, darkMode }) {
+  const [isEditing, setIsEditing] = useState(false);
+  const [editedTitle, setEditedTitle] = useState(project.title);
+  const [showSubItems, setShowSubItems] = useState(true);
+  const [newSubItem, setNewSubItem] = useState('');
+  const [editingTags, setEditingTags] = useState(false);
+  const [tagInput, setTagInput] = useState('');
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    onSave({ name, imageUrl });
+  const progress = getProgress(project);
+  const completedCount = project.subItems?.filter(item => item.completed).length || 0;
+  const totalCount = project.subItems?.length || 0;
+
+  const saveTitle = () => {
+    if (editedTitle.trim()) {
+      updateProject(project.id, { title: editedTitle });
+    }
+    setIsEditing(false);
+  };
+
+  const addSubItem = () => {
+    if (newSubItem.trim()) {
+      const newItem = {
+        id: `subitem_${Date.now()}`,
+        text: newSubItem,
+        completed: false,
+        status: 'new',
+        priority: 'medium'
+      };
+      updateProject(project.id, { 
+        subItems: [...(project.subItems || []), newItem] 
+      });
+      setNewSubItem('');
+    }
+  };
+
+  const updateSubItem = (subItemId, updates) => {
+    const updatedSubItems = project.subItems.map(item =>
+      item.id === subItemId ? { ...item, ...updates } : item
+    );
+    updateProject(project.id, { subItems: updatedSubItems });
+  };
+
+  const deleteSubItem = (subItemId) => {
+    const updatedSubItems = project.subItems.filter(item => item.id !== subItemId);
+    updateProject(project.id, { subItems: updatedSubItems });
+  };
+
+  const addTag = () => {
+    if (tagInput.trim() && !project.tags?.includes(tagInput.trim())) {
+      updateProject(project.id, { 
+        tags: [...(project.tags || []), tagInput.trim()] 
+      });
+      setTagInput('');
+    }
+  };
+
+  const removeTag = (tag) => {
+    updateProject(project.id, { 
+      tags: project.tags.filter(t => t !== tag) 
+    });
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 animate-fadeIn">
-      <div className={`${darkMode ? 'bg-slate-800' : 'bg-white'} rounded-xl shadow-2xl max-w-md w-full p-6 animate-scaleIn`}>
-        <h3 className={`text-xl font-semibold ${darkMode ? 'text-white' : 'text-slate-800'} mb-4`}>Edit Profile</h3>
-        <form onSubmit={handleSubmit}>
-          <div className="mb-4">
-            <label className={`block text-sm font-medium ${darkMode ? 'text-slate-300' : 'text-slate-700'} mb-2`}>
-              Name
-            </label>
+    <div className="project-card">
+      <div className="project-header">
+        <div style={{ flex: 1 }}>
+          {isEditing ? (
             <input
               type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              className={`w-full px-3 py-2 border ${darkMode ? 'bg-slate-700 border-slate-600 text-white' : 'border-slate-300'} rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500`}
-              placeholder="Your name"
+              value={editedTitle}
+              onChange={(e) => setEditedTitle(e.target.value)}
+              onBlur={saveTitle}
+              onKeyDown={(e) => e.key === 'Enter' && saveTitle()}
+              className="form-input"
+              autoFocus
             />
-          </div>
-          <div className="mb-4">
-            <label className={`block text-sm font-medium ${darkMode ? 'text-slate-300' : 'text-slate-700'} mb-2`}>
-              Profile Image URL
-            </label>
+          ) : (
+            <h3 className="project-title" onClick={() => setIsEditing(true)}>
+              {project.title}
+            </h3>
+          )}
+        </div>
+        <div className="project-actions">
+          <button className="icon-btn danger" onClick={() => deleteProject(project.id)}>
+            <Trash2 size={16} />
+          </button>
+          <button className="icon-btn">
+            <GripVertical size={16} />
+          </button>
+        </div>
+      </div>
+
+      <div className="project-progress">
+        <p className="progress-text">Progress {completedCount}/{totalCount} ({progress}%)</p>
+        <div className="progress-bar">
+          <div className="progress-fill" style={{ width: `${progress}%` }} />
+        </div>
+      </div>
+
+      <div className="project-tags">
+        {project.tags?.map(tag => (
+          <span 
+            key={tag} 
+            className="tag-pill"
+            onClick={() => onTagClick(tag)}
+          >
+            <Tag size={10} />
+            {tag}
+          </span>
+        ))}
+        {editingTags ? (
+          <div style={{ display: 'flex', gap: '4px' }}>
             <input
-              type="url"
-              value={imageUrl}
-              onChange={(e) => setImageUrl(e.target.value)}
-              className={`w-full px-3 py-2 border ${darkMode ? 'bg-slate-700 border-slate-600 text-white' : 'border-slate-300'} rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500`}
-              placeholder="https://example.com/image.jpg"
+              type="text"
+              value={tagInput}
+              onChange={(e) => setTagInput(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && addTag()}
+              placeholder="Add tag..."
+              className="form-input"
+              style={{ padding: '4px 8px', fontSize: '12px', width: '100px' }}
+              autoFocus
             />
-            {imageUrl && (
-              <div className="mt-2">
-                <img src={profileimageUrl} alt="Preview" className="w-20 h-20 rounded-full object-cover" onError={(e) => e.target.style.display = 'none'} />
-              </div>
-            )}
-          </div>
-          <div className="flex gap-2">
-            <button
-              type="submit"
-              className="flex-1 px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-all"
-            >
-              Save
-            </button>
-            <button
-              type="button"
-              onClick={onClose}
-              className={`flex-1 px-4 py-2 ${darkMode ? 'bg-slate-700 text-slate-300 hover:bg-slate-600' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'} rounded-lg transition-all`}
-            >
-              Cancel
+            <button className="icon-btn" onClick={() => setEditingTags(false)}>
+              <X size={14} />
             </button>
           </div>
-        </form>
+        ) : (
+          <button 
+            className="tag-pill" 
+            style={{ cursor: 'pointer' }}
+            onClick={() => setEditingTags(true)}
+          >
+            <Plus size={10} />
+            Add
+          </button>
+        )}
+      </div>
+
+      <div 
+        className="sub-items-toggle"
+        onClick={() => setShowSubItems(!showSubItems)}
+      >
+        {showSubItems ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+        Sub Items
+      </div>
+
+      {showSubItems && (
+        <div className="sub-items-list">
+          {project.subItems?.map(item => (
+            <SubItem 
+              key={item.id}
+              item={item}
+              updateSubItem={(updates) => updateSubItem(item.id, updates)}
+              deleteSubItem={() => deleteSubItem(item.id)}
+            />
+          ))}
+          <div className="sub-item" style={{ background: 'transparent' }}>
+            <input
+              type="text"
+              value={newSubItem}
+              onChange={(e) => setNewSubItem(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && addSubItem()}
+              placeholder="Add new sub-item..."
+              className="form-input"
+              style={{ flex: 1 }}
+            />
+            <button className="btn-secondary" onClick={addSubItem}>
+              <Plus size={14} />
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ============================================================================
+// SUB ITEM
+// ============================================================================
+
+function SubItem({ item, updateSubItem, deleteSubItem }) {
+  const [isEditing, setIsEditing] = useState(false);
+  const [editedText, setEditedText] = useState(item.text);
+
+  const saveText = () => {
+    if (editedText.trim()) {
+      updateSubItem({ text: editedText });
+    }
+    setIsEditing(false);
+  };
+
+  return (
+    <div className="sub-item">
+      <div 
+        className={`sub-item-checkbox ${item.completed ? 'checked' : ''}`}
+        onClick={() => updateSubItem({ completed: !item.completed })}
+      >
+        {item.completed && <Check size={12} />}
+      </div>
+      
+      {isEditing ? (
+        <input
+          type="text"
+          value={editedText}
+          onChange={(e) => setEditedText(e.target.value)}
+          onBlur={saveText}
+          onKeyDown={(e) => e.key === 'Enter' && saveText()}
+          className="form-input"
+          style={{ flex: 1 }}
+          autoFocus
+        />
+      ) : (
+        <span 
+          className={`sub-item-text ${item.completed ? 'completed' : ''}`}
+          onClick={() => setIsEditing(true)}
+        >
+          {item.text}
+        </span>
+      )}
+
+      <div className="sub-item-badges">
+        <select 
+          value={item.status || 'new'}
+          onChange={(e) => updateSubItem({ status: e.target.value })}
+          className={`status-badge ${item.status || 'new'}`}
+          style={{ border: 'none', cursor: 'pointer' }}
+        >
+          <option value="new">New</option>
+          <option value="working">Working</option>
+          <option value="paused">Paused</option>
+          <option value="stuck">Stuck</option>
+        </select>
+
+        <select 
+          value={item.priority || 'medium'}
+          onChange={(e) => updateSubItem({ priority: e.target.value })}
+          className={`priority-badge ${item.priority || 'medium'}`}
+          style={{ border: 'none', cursor: 'pointer' }}
+        >
+          <option value="low">Low</option>
+          <option value="medium">Medium</option>
+          <option value="high">High</option>
+          <option value="urgent">Urgent</option>
+        </select>
+      </div>
+
+      <div className="sub-item-actions">
+        <button className="icon-btn" onClick={() => navigator.clipboard.writeText(item.text)}>
+          <Copy size={14} />
+        </button>
+        <button className="icon-btn danger" onClick={deleteSubItem}>
+          <X size={14} />
+        </button>
       </div>
     </div>
   );
 }
 
-function RichTextEditor({ value, onChange, placeholder, darkMode, rows = 10 }) {
+// ============================================================================
+// LINKS VIEW
+// ============================================================================
+
+function LinksView({ links, addLink, updateLink, deleteLink, onTagClick, darkMode }) {
+  const [tagFilter, setTagFilter] = useState('all');
+  const [viewMode, setViewMode] = useState('grid');
+
+  const allTags = [...new Set(links.flatMap(l => l.tags || []))];
+  
+  const filteredLinks = tagFilter === 'all' 
+    ? links 
+    : links.filter(l => l.tags?.includes(tagFilter));
+
+  return (
+    <div>
+      <div className="content-header">
+        <div>
+          <h1 className="content-title">Links</h1>
+          <p className="content-subtitle">{links.length} Saved Links</p>
+        </div>
+        <div className="content-actions">
+          <div className="view-toggle">
+            <button 
+              className={`view-btn ${viewMode === 'list' ? 'active' : ''}`}
+              onClick={() => setViewMode('list')}
+            >
+              <List size={16} />
+            </button>
+            <button 
+              className={`view-btn ${viewMode === 'grid' ? 'active' : ''}`}
+              onClick={() => setViewMode('grid')}
+            >
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                <rect x="1" y="1" width="6" height="6" rx="1" />
+                <rect x="9" y="1" width="6" height="6" rx="1" />
+                <rect x="1" y="9" width="6" height="6" rx="1" />
+                <rect x="9" y="9" width="6" height="6" rx="1" />
+              </svg>
+            </button>
+          </div>
+          <button className="btn-primary" onClick={addLink}>
+            <Plus size={16} />
+            New Link
+          </button>
+        </div>
+      </div>
+
+      <div className="filters">
+        <div className="filter-pills">
+          <button
+            className={`filter-pill ${tagFilter === 'all' ? 'active' : ''}`}
+            onClick={() => setTagFilter('all')}
+          >
+            All
+          </button>
+          {allTags.map(tag => (
+            <button
+              key={tag}
+              className={`filter-pill ${tagFilter === tag ? 'active' : ''}`}
+              onClick={() => setTagFilter(tag)}
+            >
+              <Tag size={12} />
+              {tag}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {filteredLinks.length === 0 ? (
+        <div className="empty-state">
+          <Link2 size={48} className="empty-state-icon" />
+          <h3 className="empty-state-title">No links yet</h3>
+          <p className="empty-state-text">Save useful links for easy access</p>
+          <button className="btn-primary" onClick={addLink}>
+            <Plus size={16} />
+            New Link
+          </button>
+        </div>
+      ) : (
+        <div className="links-grid">
+          {filteredLinks.map(link => (
+            <LinkCard 
+              key={link.id}
+              link={link}
+              updateLink={updateLink}
+              deleteLink={deleteLink}
+              onTagClick={onTagClick}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ============================================================================
+// LINK CARD
+// ============================================================================
+
+function LinkCard({ link, updateLink, deleteLink, onTagClick }) {
+  const [isEditing, setIsEditing] = useState(false);
+  const [editedTitle, setEditedTitle] = useState(link.title);
+  const [editedUrl, setEditedUrl] = useState(link.url);
+  const [editingTags, setEditingTags] = useState(false);
+  const [tagInput, setTagInput] = useState('');
+
+  const saveChanges = () => {
+    updateLink(link.id, { title: editedTitle, url: editedUrl });
+    setIsEditing(false);
+  };
+
+  const addTag = () => {
+    if (tagInput.trim() && !link.tags?.includes(tagInput.trim())) {
+      updateLink(link.id, { tags: [...(link.tags || []), tagInput.trim()] });
+      setTagInput('');
+    }
+  };
+
+  return (
+    <div className="link-card">
+      <div className="link-header">
+        {isEditing ? (
+          <input
+            type="text"
+            value={editedTitle}
+            onChange={(e) => setEditedTitle(e.target.value)}
+            onBlur={saveChanges}
+            className="form-input"
+            style={{ fontSize: '16px', fontWeight: 600 }}
+            autoFocus
+          />
+        ) : (
+          <h3 className="link-title" onClick={() => setIsEditing(true)}>
+            {link.title}
+          </h3>
+        )}
+        <button className="icon-btn">
+          <GripVertical size={16} />
+        </button>
+      </div>
+
+      {isEditing ? (
+        <input
+          type="text"
+          value={editedUrl}
+          onChange={(e) => setEditedUrl(e.target.value)}
+          onBlur={saveChanges}
+          className="form-input"
+          style={{ marginBottom: '16px' }}
+        />
+      ) : (
+        <a 
+          href={link.url} 
+          target="_blank" 
+          rel="noopener noreferrer"
+          className="link-url"
+        >
+          {link.url}
+        </a>
+      )}
+
+      <div className="link-tags">
+        {link.tags?.map(tag => (
+          <span 
+            key={tag}
+            className="tag-pill"
+            onClick={() => onTagClick(tag)}
+          >
+            <Tag size={10} />
+            {tag}
+          </span>
+        ))}
+        {editingTags ? (
+          <div style={{ display: 'flex', gap: '4px' }}>
+            <input
+              type="text"
+              value={tagInput}
+              onChange={(e) => setTagInput(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && addTag()}
+              placeholder="Add tag..."
+              className="form-input"
+              style={{ padding: '4px 8px', fontSize: '12px', width: '80px' }}
+              autoFocus
+            />
+            <button className="icon-btn" onClick={() => setEditingTags(false)}>
+              <X size={14} />
+            </button>
+          </div>
+        ) : (
+          <button 
+            className="tag-pill"
+            onClick={() => setEditingTags(true)}
+          >
+            <Plus size={10} />
+          </button>
+        )}
+      </div>
+
+      <div className="link-actions">
+        <button className="icon-btn danger" onClick={() => deleteLink(link.id)}>
+          <Trash2 size={16} />
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ============================================================================
+// NOTES VIEW
+// ============================================================================
+
+function NotesView({ notes, addNote, updateNote, deleteNote, onTagClick, darkMode }) {
+  const [tagFilter, setTagFilter] = useState('all');
+  const [viewMode, setViewMode] = useState('grid');
+
+  const noteColors = ['yellow', 'pink', 'orange', 'cyan', 'green', 'purple', 'coral', 'peach'];
+  const getNoteColor = (id) => {
+    const hash = id.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+    return noteColors[hash % noteColors.length];
+  };
+
+  const allTags = [...new Set(notes.flatMap(n => n.tags || []))];
+  
+  const filteredNotes = tagFilter === 'all' 
+    ? notes 
+    : notes.filter(n => n.tags?.includes(tagFilter));
+
+  return (
+    <div>
+      <div className="content-header">
+        <div>
+          <h1 className="content-title">Notes</h1>
+          <p className="content-subtitle">{notes.length} Notes</p>
+        </div>
+        <div className="content-actions">
+          <div className="view-toggle">
+            <button 
+              className={`view-btn ${viewMode === 'list' ? 'active' : ''}`}
+              onClick={() => setViewMode('list')}
+            >
+              <List size={16} />
+            </button>
+            <button 
+              className={`view-btn ${viewMode === 'grid' ? 'active' : ''}`}
+              onClick={() => setViewMode('grid')}
+            >
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                <rect x="1" y="1" width="6" height="6" rx="1" />
+                <rect x="9" y="1" width="6" height="6" rx="1" />
+                <rect x="1" y="9" width="6" height="6" rx="1" />
+                <rect x="9" y="9" width="6" height="6" rx="1" />
+              </svg>
+            </button>
+          </div>
+          <button className="btn-primary" onClick={addNote}>
+            <Plus size={16} />
+            New Note
+          </button>
+        </div>
+      </div>
+
+      <div className="filters">
+        <div className="filter-pills">
+          <button
+            className={`filter-pill ${tagFilter === 'all' ? 'active' : ''}`}
+            onClick={() => setTagFilter('all')}
+          >
+            All
+          </button>
+          {allTags.map(tag => (
+            <button
+              key={tag}
+              className={`filter-pill ${tagFilter === tag ? 'active' : ''}`}
+              onClick={() => setTagFilter(tag)}
+            >
+              <Tag size={12} />
+              {tag}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {filteredNotes.length === 0 ? (
+        <div className="empty-state">
+          <FileText size={48} className="empty-state-icon" />
+          <h3 className="empty-state-title">No notes yet</h3>
+          <p className="empty-state-text">Create your first note</p>
+          <button className="btn-primary" onClick={addNote}>
+            <Plus size={16} />
+            New Note
+          </button>
+        </div>
+      ) : (
+        <div className="notes-grid">
+          {filteredNotes.map(note => (
+            <NoteCard 
+              key={note.id}
+              note={note}
+              color={getNoteColor(note.id)}
+              updateNote={updateNote}
+              deleteNote={deleteNote}
+              onTagClick={onTagClick}
+              darkMode={darkMode}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ============================================================================
+// NOTE CARD
+// ============================================================================
+
+function NoteCard({ note, color, updateNote, deleteNote, onTagClick, darkMode }) {
+  const [isEditing, setIsEditing] = useState(false);
+  const [editedTitle, setEditedTitle] = useState(note.title);
+  const [editedContent, setEditedContent] = useState(note.content);
+  const [editingTags, setEditingTags] = useState(false);
+  const [tagInput, setTagInput] = useState('');
+
+  const saveChanges = () => {
+    updateNote(note.id, { title: editedTitle, content: editedContent });
+    setIsEditing(false);
+  };
+
+  const addTag = () => {
+    if (tagInput.trim() && !note.tags?.includes(tagInput.trim())) {
+      updateNote(note.id, { tags: [...(note.tags || []), tagInput.trim()] });
+      setTagInput('');
+    }
+  };
+
+  // Strip HTML tags for preview
+  const getPlainText = (html) => {
+    const div = document.createElement('div');
+    div.innerHTML = html || '';
+    return div.textContent || div.innerText || '';
+  };
+
+  if (isEditing) {
+    return (
+      <div className={`note-card ${color}`}>
+        <input
+          type="text"
+          value={editedTitle}
+          onChange={(e) => setEditedTitle(e.target.value)}
+          className="form-input"
+          style={{ 
+            marginBottom: '12px', 
+            fontWeight: 600,
+            background: 'rgba(255,255,255,0.5)'
+          }}
+          autoFocus
+        />
+        <RichTextEditor
+          value={editedContent}
+          onChange={setEditedContent}
+          darkMode={false}
+        />
+        <div style={{ display: 'flex', gap: '8px', marginTop: '12px' }}>
+          <button className="btn-primary" onClick={saveChanges}>
+            <Save size={14} />
+            Save
+          </button>
+          <button className="btn-secondary" onClick={() => setIsEditing(false)}>
+            Cancel
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className={`note-card ${color}`}>
+      <div className="note-header">
+        <h3 className="note-title" onClick={() => setIsEditing(true)}>
+          {note.title}
+        </h3>
+      </div>
+      
+      <div className="note-content" onClick={() => setIsEditing(true)}>
+        {getPlainText(note.content) || 'Click to add content...'}
+      </div>
+
+      <div className="note-tags">
+        {note.tags?.map(tag => (
+          <span 
+            key={tag}
+            className="note-tag"
+            onClick={() => onTagClick(tag)}
+          >
+            <Tag size={8} />
+            {tag}
+          </span>
+        ))}
+        {editingTags ? (
+          <div style={{ display: 'flex', gap: '4px' }}>
+            <input
+              type="text"
+              value={tagInput}
+              onChange={(e) => setTagInput(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && addTag()}
+              placeholder="Tag..."
+              style={{ 
+                padding: '2px 6px', 
+                fontSize: '11px', 
+                width: '60px',
+                border: '1px solid rgba(0,0,0,0.2)',
+                borderRadius: '4px',
+                background: 'rgba(255,255,255,0.5)'
+              }}
+              autoFocus
+            />
+            <button 
+              onClick={() => setEditingTags(false)}
+              style={{ 
+                background: 'none', 
+                border: 'none', 
+                cursor: 'pointer',
+                color: 'rgba(0,0,0,0.5)'
+              }}
+            >
+              <X size={12} />
+            </button>
+          </div>
+        ) : (
+          <span 
+            className="note-tag"
+            style={{ cursor: 'pointer' }}
+            onClick={() => setEditingTags(true)}
+          >
+            <Plus size={8} />
+          </span>
+        )}
+      </div>
+
+      <div className="note-actions">
+        <button className="icon-btn">
+          <GripVertical size={16} />
+        </button>
+      </div>
+
+      <div className="note-delete">
+        <button className="icon-btn" onClick={() => deleteNote(note.id)}>
+          <Trash2 size={16} />
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ============================================================================
+// RICH TEXT EDITOR (Quill-based)
+// ============================================================================
+
+function RichTextEditor({ value, onChange, darkMode }) {
   const editorRef = useRef(null);
   const quillRef = useRef(null);
 
   useEffect(() => {
     if (editorRef.current && !quillRef.current && window.Quill) {
-      // Initialize Quill
       quillRef.current = new window.Quill(editorRef.current, {
         theme: 'snow',
         modules: {
@@ -867,2631 +2661,402 @@ function RichTextEditor({ value, onChange, placeholder, darkMode, rows = 10 }) {
             [{ 'list': 'ordered'}, { 'list': 'bullet' }]
           ]
         },
-        placeholder: placeholder || 'Start typing...',
-        formats: ['bold', 'italic', 'list']
+        placeholder: 'Start typing...'
       });
 
-      // Set initial content
       if (value) {
-        const delta = quillRef.current.clipboard.convert(value);
-        quillRef.current.setContents(delta);
+        quillRef.current.root.innerHTML = value;
       }
 
-      // Listen for changes
       quillRef.current.on('text-change', () => {
-        const html = quillRef.current.root.innerHTML;
-        onChange(html);
+        onChange(quillRef.current.root.innerHTML);
       });
-
-      // Force LTR direction
-      quillRef.current.root.setAttribute('dir', 'ltr');
-      quillRef.current.root.style.direction = 'ltr';
-      quillRef.current.root.style.textAlign = 'left';
     }
   }, []);
 
-  // Update content when value changes externally
   useEffect(() => {
     if (quillRef.current && value !== quillRef.current.root.innerHTML) {
-      const delta = quillRef.current.clipboard.convert(value || '');
-      quillRef.current.setContents(delta, 'silent');
+      quillRef.current.root.innerHTML = value || '';
     }
   }, [value]);
 
   return (
-    <div className={`border ${darkMode ? 'border-slate-600' : 'border-slate-300'} rounded-lg overflow-hidden quill-wrapper`}>
-      <div ref={editorRef} style={{ minHeight: `${rows * 24}px` }} />
-      <style>{`
-        .quill-wrapper .ql-toolbar {
-          background: ${darkMode ? '#334155' : '#f8fafc'};
-          border-bottom: 1px solid ${darkMode ? '#475569' : '#e2e8f0'};
-          border-top: none;
-          border-left: none;
-          border-right: none;
-        }
-        .quill-wrapper .ql-container {
-          border: none;
-          background: ${darkMode ? '#334155' : '#ffffff'};
-        }
-        .quill-wrapper .ql-editor {
-          color: ${darkMode ? '#ffffff' : '#0f172a'};
-          direction: ltr !important;
-          text-align: left !important;
-          min-height: ${rows * 24}px;
-        }
-        .quill-wrapper .ql-editor.ql-blank::before {
-          color: ${darkMode ? '#94a3b8' : '#64748b'};
-          direction: ltr;
-          text-align: left;
-        }
-        .quill-wrapper .ql-stroke {
-          stroke: ${darkMode ? '#94a3b8' : '#475569'};
-        }
-        .quill-wrapper .ql-fill {
-          fill: ${darkMode ? '#94a3b8' : '#475569'};
-        }
-        .quill-wrapper .ql-picker-label {
-          color: ${darkMode ? '#94a3b8' : '#475569'};
-        }
-        .quill-wrapper button:hover .ql-stroke,
-        .quill-wrapper button.ql-active .ql-stroke {
-          stroke: #14b8a6;
-        }
-        .quill-wrapper button:hover .ql-fill,
-        .quill-wrapper button.ql-active .ql-fill {
-          fill: #14b8a6;
-        }
-        .quill-wrapper .ql-editor strong {
-          font-weight: 600;
-        }
-        .quill-wrapper .ql-editor em {
-          font-style: italic;
-        }
-        .quill-wrapper .ql-editor ol,
-        .quill-wrapper .ql-editor ul {
-          padding-left: 1.5em;
-        }
-      `}</style>
-    </div>
-  );
-}
-// PROJECTS VIEW - With all filters and features
-function ProjectsView({ 
-  projects, 
-  addProject, 
-  updateProject, 
-  deleteProject, 
-  clearCompletedProjects,
-  reorderProjects,
-  showNewProjectForm,
-  setShowNewProjectForm,
-  links,
-  notes,
-  toggleLinkToProject,
-  getLinkedItem,
-  navigateToLinkedItem,
-  highlightedItemId,
-  darkMode,
-  allTags,
-  viewMode,
-  toggleViewMode
-}) {
-  const [filterType, setFilterType] = useState('none');
-  const [filterValue, setFilterValue] = useState('all');
-  const [draggedItem, setDraggedItem] = useState(null);
-  const [dragOverItem, setDragOverItem] = useState(null);
-  
-  const activeProjects = projects.filter(p => !p.completed);
-  const completedProjects = projects.filter(p => p.completed);
-  
-  const [showLinkModal, setShowLinkModal] = useState(false);
-  const [linkingProjectId, setLinkingProjectId] = useState(null);
-
-  const openLinkModal = (projectId) => {
-    setLinkingProjectId(projectId);
-    setShowLinkModal(true);
-  };
-
-  const handleToggleLink = (item, type) => {
-    if (linkingProjectId) {
-      toggleLinkToProject(linkingProjectId, item, type);
-    }
-  };
-
-  const currentProject = projects.find(p => p.id === linkingProjectId);
-
-  const allStatuses = ['new', 'working', 'paused', 'stuck'];
-  const allPriorities = ['urgent', 'high', 'medium', 'low'];
-  const projectTags = [...new Set(activeProjects.flatMap(p => p.tags || []))];
-
-  let filteredData = [];
-  
-  if (filterType === 'none' || filterValue === 'all') {
-    filteredData = activeProjects.map(p => ({ project: p, subItems: p.subItems || [] }));
-  } else if (filterType === 'priority') {
-    activeProjects.forEach(project => {
-      const matchingSubItems = (project.subItems || []).filter(si => si.priority === filterValue);
-      if (matchingSubItems.length > 0) {
-        filteredData.push({ project, subItems: matchingSubItems });
-      }
-    });
-  } else if (filterType === 'status') {
-    activeProjects.forEach(project => {
-      const matchingSubItems = (project.subItems || []).filter(si => si.status === filterValue);
-      if (matchingSubItems.length > 0) {
-        filteredData.push({ project, subItems: matchingSubItems });
-      }
-    });
-  } else if (filterType === 'tag') {
-    filteredData = activeProjects
-      .filter(p => p.tags && p.tags.includes(filterValue))
-      .map(p => ({ project: p, subItems: p.subItems || [] }));
-  }
-
-  const handleDragStart = (e, project) => {
-    setDraggedItem(project);
-    e.dataTransfer.effectAllowed = 'move';
-  };
-
-  const handleDragOver = (e, project) => {
-    e.preventDefault();
-    if (draggedItem && draggedItem.id !== project.id) {
-      setDragOverItem(project);
-    }
-  };
-
-  const handleDrop = (e, targetProject) => {
-    e.preventDefault();
-    if (!draggedItem || draggedItem.id === targetProject.id) return;
-
-    const allProjectsCopy = [...projects];
-    const draggedIndex = allProjectsCopy.findIndex(p => p.id === draggedItem.id);
-    const targetIndex = allProjectsCopy.findIndex(p => p.id === targetProject.id);
-
-    const [removed] = allProjectsCopy.splice(draggedIndex, 1);
-    allProjectsCopy.splice(targetIndex, 0, removed);
-
-    reorderProjects(allProjectsCopy);
-
-    setDraggedItem(null);
-    setDragOverItem(null);
-  };
-
-  const handleDragEnd = () => {
-    setDraggedItem(null);
-    setDragOverItem(null);
-  };
-
-  return (
-    <div className="max-w-7xl animate-fadeIn">
-      <div className="flex items-center justify-between mb-8">
-        <div>
-          <h2 className={`text-4xl font-bold ${darkMode ? 'text-white' : 'text-slate-800'} accent-font`}>Projects</h2>
-          <p className={`${darkMode ? 'text-slate-400' : 'text-slate-500'} mt-1`}>{activeProjects.length} active • {completedProjects.length} completed</p>
-        </div>
-        <div className="flex items-center gap-3">
-          <div className={`flex gap-1 p-1 rounded-lg ${darkMode ? 'bg-slate-700' : 'bg-slate-200'}`}>
-            <button
-              onClick={() => toggleViewMode('projects', 'list')}
-              className={`p-2 rounded transition-all ${viewMode === 'list' ? (darkMode ? 'bg-slate-600 shadow' : 'bg-white shadow') : (darkMode ? 'hover:bg-slate-600' : 'hover:bg-slate-300')}`}
-              title="List view"
-            >
-              <LayoutList size={18} className={darkMode ? 'text-slate-300' : 'text-slate-700'} />
-            </button>
-            <button
-              onClick={() => toggleViewMode('projects', 'grid')}
-              className={`p-2 rounded transition-all ${viewMode === 'grid' ? (darkMode ? 'bg-slate-600 shadow' : 'bg-white shadow') : (darkMode ? 'hover:bg-slate-600' : 'hover:bg-slate-300')}`}
-              title="Grid view"
-            >
-              <Grid size={18} className={darkMode ? 'text-slate-300' : 'text-slate-700'} />
-            </button>
-          </div>
-          <button
-            onClick={() => setShowNewProjectForm(true)}
-            className="flex items-center gap-2 px-6 py-3 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-all shadow-lg hover:shadow-xl hover:scale-105"
-          >
-            <Plus size={20} />
-            New Project
-          </button>
-        </div>
-      </div>
-
-      {/* Filter Controls */}
-      <div className="mb-6">
-        <div className="flex flex-wrap items-center gap-3 mb-3">
-          <Filter size={18} className={darkMode ? 'text-slate-400' : 'text-slate-500'} />
-          <select
-            value={filterType}
-            onChange={(e) => {
-              setFilterType(e.target.value);
-              setFilterValue('all');
-            }}
-            className={`px-4 py-2 rounded-lg border transition-all ${
-              darkMode ? 'bg-slate-800 border-slate-700 text-white' : 'bg-white border-slate-200'
-            }`}
-          >
-            <option value="none">No Filter</option>
-            <option value="priority">Filter by Priority</option>
-            <option value="status">Filter by Status</option>
-            <option value="tag">Filter by Tag</option>
-          </select>
-
-          {filterType === 'priority' && (
-            <div className="flex gap-2">
-              <button
-                onClick={() => setFilterValue('all')}
-                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-                  filterValue === 'all' 
-                    ? 'bg-teal-600 text-white' 
-                    : darkMode ? 'bg-slate-700 text-slate-300 hover:bg-slate-600' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                }`}
-              >
-                All
-              </button>
-              {allPriorities.map(priority => (
-                <button
-                  key={priority}
-                  onClick={() => setFilterValue(priority)}
-                  className={`px-4 py-2 rounded-lg text-sm font-medium capitalize transition-all ${
-                    filterValue === priority 
-                      ? 'bg-teal-600 text-white' 
-                      : darkMode ? 'bg-slate-700 text-slate-300 hover:bg-slate-600' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                  }`}
-                >
-                  {priority}
-                </button>
-              ))}
-            </div>
-          )}
-
-          {filterType === 'status' && (
-            <div className="flex gap-2">
-              <button
-                onClick={() => setFilterValue('all')}
-                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-                  filterValue === 'all' 
-                    ? 'bg-teal-600 text-white' 
-                    : darkMode ? 'bg-slate-700 text-slate-300 hover:bg-slate-600' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                }`}
-              >
-                All
-              </button>
-              {allStatuses.map(status => (
-                <button
-                  key={status}
-                  onClick={() => setFilterValue(status)}
-                  className={`px-4 py-2 rounded-lg text-sm font-medium capitalize transition-all ${
-                    filterValue === status 
-                      ? 'bg-teal-600 text-white' 
-                      : darkMode ? 'bg-slate-700 text-slate-300 hover:bg-slate-600' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                  }`}
-                >
-                  {status === 'working' ? 'Working on it' : status}
-                </button>
-              ))}
-            </div>
-          )}
-
-          {filterType === 'tag' && projectTags.length > 0 && (
-            <div className="flex gap-2 flex-wrap">
-              <button
-                onClick={() => setFilterValue('all')}
-                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-                  filterValue === 'all' 
-                    ? 'bg-teal-600 text-white' 
-                    : darkMode ? 'bg-slate-700 text-slate-300 hover:bg-slate-600' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                }`}
-              >
-                All
-              </button>
-              {projectTags.map(tag => (
-                <button
-                  key={tag}
-                  onClick={() => setFilterValue(tag)}
-                  className={`flex items-center gap-1 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-                    filterValue === tag 
-                      ? 'bg-teal-600 text-white' 
-                      : darkMode ? 'bg-slate-700 text-slate-300 hover:bg-slate-600' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                  }`}
-                >
-                  <Tag size={14} />
-                  {tag}
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-
-        {filterType !== 'none' && filterValue !== 'all' && (
-          <div className={`text-sm ${darkMode ? 'text-slate-400' : 'text-slate-600'}`}>
-            Showing {filteredData.length} project{filteredData.length !== 1 ? 's' : ''} with {filterType} = "{filterValue}"
-          </div>
-        )}
-      </div>
-
-      {showNewProjectForm && (
-        <NewProjectForm 
-          onSave={addProject} 
-          onCancel={() => setShowNewProjectForm(false)}
-          darkMode={darkMode}
-          allTags={allTags}
-        />
-      )}
-
-      {/* Projects Grid/List */}
-      {viewMode === 'grid' ? (
-        <div className="masonry mb-8">
-          {filteredData.map(({ project, subItems }, index) => (
-            <div key={project.id} className="masonry-item">
-              <ProjectCard 
-                project={project}
-                visibleSubItems={subItems}
-                showingFilteredSubItems={filterType !== 'none' && filterValue !== 'all' && (filterType === 'priority' || filterType === 'status')}
-                updateProject={updateProject}
-                deleteProject={deleteProject}
-                getLinkedItem={getLinkedItem}
-                navigateToLinkedItem={navigateToLinkedItem}
-                onOpenLinkModal={() => openLinkModal(project.id)}
-                isHighlighted={highlightedItemId === project.id}
-                darkMode={darkMode}
-                allTags={allTags}
-                onDragStart={handleDragStart}
-                onDragOver={handleDragOver}
-                onDrop={handleDrop}
-                onDragEnd={handleDragEnd}
-                isDragging={draggedItem?.id === project.id}
-                isDragOver={dragOverItem?.id === project.id}
-                style={{ animationDelay: `${index * 0.03}s` }}
-              />
-            </div>
-          ))}
-        </div>
-      ) : (
-        <div className="space-y-4 mb-8">
-          {filteredData.map(({ project, subItems }, index) => (
-            <ProjectCard 
-              key={project.id}
-              project={project}
-              visibleSubItems={subItems}
-              showingFilteredSubItems={filterType !== 'none' && filterValue !== 'all' && (filterType === 'priority' || filterType === 'status')}
-              updateProject={updateProject}
-              deleteProject={deleteProject}
-              getLinkedItem={getLinkedItem}
-              navigateToLinkedItem={navigateToLinkedItem}
-              onOpenLinkModal={() => openLinkModal(project.id)}
-              isHighlighted={highlightedItemId === project.id}
-              darkMode={darkMode}
-              allTags={allTags}
-              onDragStart={handleDragStart}
-              onDragOver={handleDragOver}
-              onDrop={handleDrop}
-              onDragEnd={handleDragEnd}
-              isDragging={draggedItem?.id === project.id}
-              isDragOver={dragOverItem?.id === project.id}
-              style={{ animationDelay: `${index * 0.03}s` }}
-            />
-          ))}
-        </div>
-      )}
-
-      {filteredData.length === 0 && !showNewProjectForm && (
-        <div className={`text-center py-16 ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>
-          <List size={48} className="mx-auto mb-4 opacity-30" />
-          <p>No projects match your filter. Try changing the filter or add a new project!</p>
-        </div>
-      )}
-
-      {completedProjects.length > 0 && (
-        <div className={`mt-12 pt-8 border-t ${darkMode ? 'border-slate-700' : 'border-slate-200'}`}>
-          <div className="flex items-center justify-between mb-4">
-            <h3 className={`text-xl font-semibold ${darkMode ? 'text-slate-200' : 'text-slate-700'}`}>Completed</h3>
-            <button
-              onClick={clearCompletedProjects}
-              className={`text-sm ${darkMode ? 'text-slate-400 hover:text-red-400' : 'text-slate-500 hover:text-red-600'} transition-colors`}
-            >
-              Clear All
-            </button>
-          </div>
-          <div className="space-y-2 opacity-60">
-            {completedProjects.map(project => (
-              <div key={project.id} className={`p-4 ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'} rounded-lg border`}>
-                <div className="flex items-center gap-3">
-                  <Check className="text-green-600" size={20} />
-                  <span className={`line-through ${darkMode ? 'text-slate-400' : 'text-slate-600'}`}>{project.title}</span>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      <LinkItemsModal
-        isOpen={showLinkModal}
-        onClose={() => setShowLinkModal(false)}
-        items={{ links, notes }}
-        onToggleLink={handleToggleLink}
-        linkedItems={currentProject?.linkedItems || []}
-        darkMode={darkMode}
-      />
+    <div className="quill-wrapper">
+      <div ref={editorRef} style={{ minHeight: '100px' }} />
     </div>
   );
 }
 
-function LinkItemsModal({ isOpen, onClose, items, onToggleLink, linkedItems, darkMode }) {
-  if (!isOpen) return null;
+// ============================================================================
+// TAGS VIEW
+// ============================================================================
 
-  return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 animate-fadeIn" onClick={onClose}>
-      <div className={`${darkMode ? 'bg-slate-800' : 'bg-white'} rounded-xl shadow-2xl max-w-2xl w-full max-h-[80vh] overflow-hidden animate-scaleIn`} onClick={(e) => e.stopPropagation()}>
-        <div className={`p-6 border-b ${darkMode ? 'border-slate-700' : 'border-slate-200'}`}>
-          <div className="flex items-center justify-between">
-            <h3 className={`text-xl font-semibold ${darkMode ? 'text-white' : 'text-slate-800'}`}>Link Items</h3>
-            <button onClick={onClose} className={`${darkMode ? 'text-slate-400 hover:text-white' : 'text-slate-400 hover:text-slate-600'} transition-all hover:scale-110`}>
-              <X size={24} />
-            </button>
-          </div>
-        </div>
-        
-        <div className="p-6 overflow-y-auto max-h-[60vh]">
-          {items.links && items.links.length > 0 && (
-            <div className="mb-6">
-              <h4 className={`text-sm font-semibold ${darkMode ? 'text-slate-300' : 'text-slate-600'} mb-3 uppercase tracking-wide`}>Links</h4>
-              <div className="space-y-2">
-                {items.links.map(link => {
-                  const isLinked = linkedItems.some(li => li.id === link.id && li.type === 'link');
-                  return (
-                    <button
-                      key={link.id}
-                      onClick={() => onToggleLink(link, 'link')}
-                      className={`w-full text-left p-3 rounded-lg border transition-all hover:scale-[1.02] ${
-                        isLinked 
-                          ? 'bg-teal-50 border-teal-300 dark:bg-teal-900/20 dark:border-teal-700' 
-                          : darkMode ? 'bg-slate-700 border-slate-600 hover:bg-slate-600' : 'bg-white border-slate-200 hover:bg-slate-50'
-                      }`}
-                    >
-                      <div className="flex items-center gap-2">
-                        <div className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-all ${
-                          isLinked ? 'bg-teal-600 border-teal-600' : darkMode ? 'border-slate-500' : 'border-slate-300'
-                        }`}>
-                          {isLinked && <Check size={14} className="text-white" />}
-                        </div>
-                        <div className="flex-1">
-                          {link.title && <div className={`font-medium ${darkMode ? 'text-white' : 'text-slate-800'}`}>{link.title}</div>}
-                          <div className={`text-sm ${darkMode ? 'text-slate-400' : 'text-slate-500'} truncate`}>{link.url}</div>
-                        </div>
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-
-          {items.notes && items.notes.length > 0 && (
-            <div>
-              <h4 className={`text-sm font-semibold ${darkMode ? 'text-slate-300' : 'text-slate-600'} mb-3 uppercase tracking-wide`}>Notes</h4>
-              <div className="space-y-2">
-                {items.notes.map(note => {
-                  const isLinked = linkedItems.some(li => li.id === note.id && li.type === 'note');
-                  return (
-                    <button
-                      key={note.id}
-                      onClick={() => onToggleLink(note, 'note')}
-                      className={`w-full text-left p-3 rounded-lg border transition-all hover:scale-[1.02] ${
-                        isLinked 
-                          ? 'bg-teal-50 border-teal-300 dark:bg-teal-900/20 dark:border-teal-700' 
-                          : darkMode ? 'bg-slate-700 border-slate-600 hover:bg-slate-600' : 'bg-white border-slate-200 hover:bg-slate-50'
-                      }`}
-                    >
-                      <div className="flex items-center gap-2">
-                        <div className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-all ${
-                          isLinked ? 'bg-teal-600 border-teal-600' : darkMode ? 'border-slate-500' : 'border-slate-300'
-                        }`}>
-                          {isLinked && <Check size={14} className="text-white" />}
-                        </div>
-                        <div className="flex-1">
-                          <div className={`font-medium ${darkMode ? 'text-white' : 'text-slate-800'}`}>{note.title || 'Untitled Note'}</div>
-                        </div>
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-
-          {(!items.links || items.links.length === 0) && (!items.notes || items.notes.length === 0) && (
-            <div className={`text-center py-8 ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>
-              No items available to link
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function NewProjectForm({ onSave, onCancel, darkMode, allTags }) {
-  const [title, setTitle] = useState('');
-  const [tagInput, setTagInput] = useState('');
-  const [selectedTags, setSelectedTags] = useState([]);
-
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    if (title.trim()) {
-      onSave({ title, tags: selectedTags });
-      setTitle('');
-      setSelectedTags([]);
-    }
+function TagsView({ projects, links, notes, inspirations, activeTagFilter, setActiveTagFilter, darkMode }) {
+  const getTagCounts = () => {
+    const counts = {};
+    
+    projects.forEach(p => p.tags?.forEach(t => {
+      counts[t] = (counts[t] || 0) + 1;
+    }));
+    links.forEach(l => l.tags?.forEach(t => {
+      counts[t] = (counts[t] || 0) + 1;
+    }));
+    notes.forEach(n => n.tags?.forEach(t => {
+      counts[t] = (counts[t] || 0) + 1;
+    }));
+    inspirations.forEach(i => i.tags?.forEach(t => {
+      counts[t] = (counts[t] || 0) + 1;
+    }));
+    
+    return counts;
   };
 
-  const addTag = (tag) => {
-    const trimmedTag = tag.trim();
-    if (trimmedTag && !selectedTags.includes(trimmedTag)) {
-      setSelectedTags([...selectedTags, trimmedTag]);
-    }
-    setTagInput('');
-  };
-
-  const removeTag = (tagToRemove) => {
-    setSelectedTags(selectedTags.filter(t => t !== tagToRemove));
-  };
-
-  return (
-    <form onSubmit={handleSubmit} className={`mb-6 p-6 ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'} rounded-xl shadow-lg border animate-slideUp`}>
-      <input
-        type="text"
-        value={title}
-        onChange={(e) => setTitle(e.target.value)}
-        placeholder="Project title..."
-        className={`w-full text-lg font-medium mb-4 px-3 py-2 border ${darkMode ? 'bg-slate-700 border-slate-600 text-white placeholder-slate-400' : 'border-slate-300'} rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 transition-all`}
-        autoFocus
-      />
-      
-      <div className="mb-4">
-        <label className={`block text-sm ${darkMode ? 'text-slate-300' : 'text-slate-600'} mb-2`}>Tags</label>
-        <div className="flex flex-wrap gap-2 mb-2">
-          {selectedTags.map(tag => (
-            <span key={tag} className="inline-flex items-center gap-1 px-3 py-1 bg-teal-100 text-teal-700 rounded-full text-sm">
-              <Tag size={12} />
-              {tag}
-              <button
-                type="button"
-                onClick={() => removeTag(tag)}
-                className="hover:text-teal-900"
-              >
-                <X size={14} />
-              </button>
-            </span>
-          ))}
-        </div>
-        <div className="flex gap-2">
-          <input
-            type="text"
-            value={tagInput}
-            onChange={(e) => setTagInput(e.target.value)}
-            onKeyPress={(e) => {
-              if (e.key === 'Enter') {
-                e.preventDefault();
-                addTag(tagInput);
-              }
-            }}
-            placeholder="Add tag and press Enter..."
-            list="all-tags"
-            className={`flex-1 px-3 py-2 border ${darkMode ? 'bg-slate-700 border-slate-600 text-white placeholder-slate-400' : 'border-slate-300'} rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 transition-all`}
-          />
-          <datalist id="all-tags">
-            {allTags.filter(t => !selectedTags.includes(t)).map(tag => (
-              <option key={tag} value={tag} />
-            ))}
-          </datalist>
-          <button
-            type="button"
-            onClick={() => addTag(tagInput)}
-            className="px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-all"
-          >
-            <Plus size={16} />
-          </button>
-        </div>
-      </div>
-
-      <div className="flex gap-2">
-        <button
-          type="submit"
-          className="flex items-center gap-2 px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-all"
-        >
-          <Save size={16} />
-          Save
-        </button>
-        <button
-          type="button"
-          onClick={onCancel}
-          className={`px-4 py-2 ${darkMode ? 'text-slate-300 hover:bg-slate-700' : 'text-slate-600 hover:bg-slate-100'} rounded-lg transition-all`}
-        >
-          Cancel
-        </button>
-      </div>
-    </form>
-  );
-}
-
-// PROJECT CARD - With ALL bug fixes
-function ProjectCard({ 
-  project,
-  visibleSubItems,
-  showingFilteredSubItems,
-  updateProject,
-  deleteProject,
-  getLinkedItem,
-  navigateToLinkedItem,
-  onOpenLinkModal,
-  isHighlighted,
-  darkMode,
-  allTags,
-  onDragStart,
-  onDragOver,
-  onDrop,
-  onDragEnd,
-  isDragging,
-  isDragOver,
-  style
-}) {
-  const [showSubItems, setShowSubItems] = useState(true);
-  const [newSubItemText, setNewSubItemText] = useState('');
-  const [editingSubItemId, setEditingSubItemId] = useState(null);
-  const [editingSubItemText, setEditingSubItemText] = useState('');
-  const [isEditingTitle, setIsEditingTitle] = useState(false);
-  const [editedTitle, setEditedTitle] = useState(project.title);
-  const [isEditingTags, setIsEditingTags] = useState(false);
-  const [tagInput, setTagInput] = useState('');
-  const [editingTags, setEditingTags] = useState(project.tags || []);
-
-  const statusConfig = {
-    new: { label: 'New', color: 'bg-blue-100 text-blue-700 border-blue-200', icon: Circle },
-    working: { label: 'Working', color: 'bg-purple-100 text-purple-700 border-purple-200', icon: Circle },
-    paused: { label: 'Paused', color: 'bg-amber-100 text-amber-700 border-amber-200', icon: Pause },
-    stuck: { label: 'Stuck', color: 'bg-red-100 text-red-700 border-red-200', icon: AlertCircle },
-  };
-
-  const priorityConfig = {
-    urgent: { label: 'Urgent', color: 'bg-red-500 text-white' },
-    high: { label: 'High', color: 'bg-orange-500 text-white' },
-    medium: { label: 'Medium', color: 'bg-yellow-500 text-white' },
-    low: { label: 'Low', color: 'bg-slate-400 text-white' },
-  };
-
-  const allSubItems = project.subItems || [];
-  const totalSubItems = allSubItems.length;
-  const completedSubItems = allSubItems.filter(si => si.completed).length;
-  const progressPercent = totalSubItems > 0 ? Math.round((completedSubItems / totalSubItems) * 100) : 0;
-
-  const addSubItem = () => {
-    if (newSubItemText.trim()) {
-      const subItems = project.subItems || [];
-      updateProject(project.id, {
-        subItems: [...subItems, {
-          id: generateId(),
-          text: newSubItemText,
-          completed: false,
-          status: 'new',
-          priority: 'medium'
-        }]
-      });
-      setNewSubItemText('');
-    }
-  };
-
-  const toggleSubItem = (subItemId) => {
-    const subItems = project.subItems || [];
-    updateProject(project.id, {
-      subItems: subItems.map(si => 
-        si.id === subItemId ? { ...si, completed: !si.completed } : si
-      )
-    });
-  };
-
-  const deleteSubItem = (subItemId) => {
-    const subItems = project.subItems || [];
-    updateProject(project.id, {
-      subItems: subItems.filter(si => si.id !== subItemId)
-    });
-  };
-
-  const updateSubItem = (subItemId, updates) => {
-    const subItems = project.subItems || [];
-    updateProject(project.id, {
-      subItems: subItems.map(si => 
-        si.id === subItemId ? { ...si, ...updates } : si
-      )
-    });
-  };
-
-  const startEditingSubItem = (subItem) => {
-    setEditingSubItemId(subItem.id);
-    setEditingSubItemText(subItem.text);
-  };
-
-  const saveSubItemEdit = () => {
-    if (editingSubItemText.trim()) {
-      updateSubItem(editingSubItemId, { text: editingSubItemText });
-    }
-    setEditingSubItemId(null);
-    setEditingSubItemText('');
-  };
-
-  const copySubItem = (text) => {
-    navigator.clipboard.writeText(text);
-  };
-
-  const saveTitle = () => {
-    if (editedTitle.trim()) {
-      updateProject(project.id, { title: editedTitle });
-    }
-    setIsEditingTitle(false);
-  };
-
-  const saveTags = () => {
-    // FIX: Properly update with the editing tags state
-    updateProject(project.id, { tags: editingTags });
-    setIsEditingTags(false);
-  };
-
-  const addTag = (tag) => {
-    const trimmedTag = tag.trim();
-    if (trimmedTag && !editingTags.includes(trimmedTag)) {
-      setEditingTags([...editingTags, trimmedTag]);
-    }
-    setTagInput('');
-  };
-
-  const removeTag = (tagToRemove) => {
-    setEditingTags(editingTags.filter(t => t !== tagToRemove));
-  };
-
-  return (
-    <div 
-      id={`item-${project.id}`}
-      onDragOver={(e) => onDragOver(e, project)}
-      onDrop={(e) => onDrop(e, project)}
-      className={`task-card p-6 ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'} rounded-xl shadow-md border animate-slideUp group relative ${
-        isHighlighted ? 'animate-highlight ring-2 ring-teal-500' : ''
-      } ${isDragging ? 'opacity-50 scale-95' : ''} ${isDragOver ? 'border-teal-500 border-2' : ''}`} 
-      style={style}
-    >
-      {/* IMPROVED DRAG HANDLE - Always visible with hover effect */}
-      <div
-        draggable
-        onDragStart={(e) => onDragStart(e, project)}
-        onDragEnd={onDragEnd}
-        className={`absolute top-4 right-4 p-2 rounded cursor-move transition-all ${
-          darkMode ? 'text-slate-400 hover:bg-slate-700 hover:text-teal-400' : 'text-slate-500 hover:bg-slate-100 hover:text-teal-600'
-        }`}
-        title="Drag to reorder"
-      >
-        <Move size={20} />
-      </div>
-
-      <div className="flex items-start justify-between mb-4 pr-10">
-        <div className="flex-1">
-          {isEditingTitle ? (
-            <div className="mb-2">
-              <input
-                type="text"
-                value={editedTitle}
-                onChange={(e) => setEditedTitle(e.target.value)}
-                onKeyPress={(e) => e.key === 'Enter' && saveTitle()}
-                onBlur={saveTitle}
-                className={`w-full text-xl font-semibold px-2 py-1 border ${darkMode ? 'bg-slate-700 border-slate-600 text-white' : 'bg-white border-slate-300'} rounded focus:outline-none focus:ring-2 focus:ring-teal-500`}
-                autoFocus
-              />
-            </div>
-          ) : (
-            <h3 
-              onClick={() => setIsEditingTitle(true)}
-              className={`text-xl font-semibold ${darkMode ? 'text-white' : 'text-slate-800'} mb-2 cursor-pointer hover:text-teal-600 transition-colors`}
-            >
-              {project.title}
-            </h3>
-          )}
-
-          {/* Progress Bar */}
-          {totalSubItems > 0 && (
-            <div className="mb-3">
-              <div className="flex items-center justify-between mb-1">
-                <span className={`text-xs font-medium ${darkMode ? 'text-slate-400' : 'text-slate-600'}`}>
-                  Progress: {completedSubItems}/{totalSubItems} ({progressPercent}%)
-                </span>
-              </div>
-              <div className={`w-full h-2 ${darkMode ? 'bg-slate-700' : 'bg-slate-200'} rounded-full overflow-hidden`}>
-                <div 
-                  className="h-full bg-teal-600 transition-all duration-300"
-                  style={{ width: `${progressPercent}%` }}
-                />
-              </div>
-            </div>
-          )}
-          
-
-          {/* EDITABLE TAGS - MORE SPACING ABOVE */}
-          {isEditingTags ? (
-            <div className="mb-3 mt-4">
-              <div className="flex flex-wrap gap-2 mb-2">
-                {editingTags.map(tag => (
-                  <span key={tag} className="inline-flex items-center gap-1 px-2 py-1 bg-teal-100 text-teal-700 rounded text-xs">
-                    <Tag size={10} />
-                    {tag}
-                    <button onClick={() => removeTag(tag)} className="hover:text-teal-900">
-                      <X size={12} />
-                    </button>
-                  </span>
-                ))}
-              </div>
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  value={tagInput}
-                  onChange={(e) => setTagInput(e.target.value)}
-                  onKeyPress={(e) => {
-                    if (e.key === 'Enter') {
-                      e.preventDefault();
-                      addTag(tagInput);
-                    }
-                  }}
-                  placeholder="Add tag..."
-                  list="edit-tags"
-                  className={`flex-1 px-2 py-1 text-sm border ${darkMode ? 'bg-slate-700 border-slate-600 text-white' : 'bg-white border-slate-300'} rounded focus:outline-none focus:ring-1 focus:ring-teal-500`}
-                />
-                <datalist id="edit-tags">
-                  {allTags.filter(t => !editingTags.includes(t)).map(tag => (
-                    <option key={tag} value={tag} />
-                  ))}
-                </datalist>
-                <button
-                  onClick={() => addTag(tagInput)}
-                  className="px-2 py-1 bg-teal-600 text-white rounded text-sm hover:bg-teal-700"
-                >
-                  <Plus size={14} />
-                </button>
-              </div>
-              <div className="flex gap-2 mt-2">
-                <button
-                  onClick={saveTags}
-                  className="px-3 py-1 bg-teal-600 text-white rounded text-sm hover:bg-teal-700"
-                >
-                  Save
-                </button>
-                <button
-                  onClick={() => {
-                    setEditingTags(project.tags || []);
-                    setIsEditingTags(false);
-                  }}
-                  className={`px-3 py-1 text-sm rounded ${darkMode ? 'text-slate-300 hover:bg-slate-700' : 'text-slate-600 hover:bg-slate-100'}`}
-                >
-                  Cancel
-                </button>
-              </div>
-            </div>
-          ) : (project.tags && project.tags.length > 0) ? (
-            <div className="flex flex-wrap gap-1 mb-3 mt-4 group/tags relative">
-              {project.tags.map(tag => (
-                <span key={tag} className="inline-flex items-center gap-1 px-2 py-1 bg-teal-50 text-teal-700 rounded text-xs border border-teal-200">
-                  <Tag size={10} />
-                  {tag}
-                </span>
-              ))}
-              <button
-                onClick={() => {
-                  setEditingTags(project.tags || []);
-                  setIsEditingTags(true);
-                }}
-                className={`ml-1 px-2 py-1 text-xs rounded opacity-0 group-hover/tags:opacity-100 transition-opacity ${darkMode ? 'bg-slate-700 text-teal-400 hover:bg-slate-600' : 'bg-teal-50 text-teal-700 hover:bg-teal-100'}`}
-              >
-                <Edit2 size={10} />
-              </button>
-            </div>
-          ) : (
-            <button
-              onClick={() => {
-                setEditingTags([]);
-                setIsEditingTags(true);
-              }}
-              className={`text-sm ${darkMode ? 'text-slate-500 hover:text-teal-400' : 'text-slate-400 hover:text-teal-600'} mb-3 mt-4`}
-            >
-              + Add tags
-            </button>
-          )}
-        </div>
-        <button
-          onClick={() => deleteProject(project.id)}
-          className={`${darkMode ? 'text-slate-500 hover:text-red-400' : 'text-slate-400 hover:text-red-600'} transition-all ml-4 hover:scale-110`}
-        >
-          <Trash2 size={18} />
-        </button>
-      </div>
-
-      {/* SUB ITEMS WITH BORDERS */}
-      <div className={`mb-4 pb-4 border-b ${darkMode ? 'border-slate-700' : 'border-slate-100'}`}>
-        <button
-          onClick={() => setShowSubItems(!showSubItems)}
-          className={`flex items-center gap-2 text-sm font-medium ${darkMode ? 'text-slate-300' : 'text-slate-700'} mb-2 transition-all hover:text-teal-600`}
-        >
-          {showSubItems ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-          Sub Items {totalSubItems > 0 && `(${completedSubItems}/${totalSubItems})`}
-        </button>
-        
-        {showingFilteredSubItems && (
-          <div className={`text-xs ${darkMode ? 'text-teal-400' : 'text-teal-600'} mb-2`}>
-            Showing filtered sub-items only
-          </div>
-        )}
-        
-        {showSubItems && (
-          <div>
-            {visibleSubItems.map((subItem, index) => (
-              <div 
-                key={subItem.id} 
-                className={`flex items-start gap-2 group/subitem py-2 ${
-                  index > 0 ? (darkMode ? 'border-t border-slate-700' : 'border-t border-slate-100') : ''
-                }`}
-              >
-                <button
-                  onClick={() => toggleSubItem(subItem.id)}
-                  className={`flex-shrink-0 w-5 h-5 rounded border-2 flex items-center justify-center transition-all mt-0.5 ${
-                    subItem.completed 
-                      ? 'bg-teal-600 border-teal-600 scale-110' 
-                      : darkMode ? 'border-slate-600 hover:border-teal-500' : 'border-slate-300 hover:border-teal-500'
-                  }`}
-                >
-                  {subItem.completed && <Check size={12} className="text-white" />}
-                </button>
-                
-                <div className="flex-1">
-                  {editingSubItemId === subItem.id ? (
-                    <input
-                      type="text"
-                      value={editingSubItemText}
-                      onChange={(e) => setEditingSubItemText(e.target.value)}
-                      onKeyPress={(e) => e.key === 'Enter' && saveSubItemEdit()}
-                      onBlur={saveSubItemEdit}
-                      onMouseDown={(e) => e.stopPropagation()}
-                      className={`w-full px-2 py-1 text-sm border ${darkMode ? 'bg-slate-700 border-slate-600 text-white' : 'border-slate-300'} rounded focus:outline-none focus:ring-1 focus:ring-teal-500`}
-                      autoFocus
-                    />
-                  ) : (
-                    <div>
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span 
-                          onClick={() => startEditingSubItem(subItem)}
-                          className={`text-sm cursor-pointer flex-1 ${
-                            subItem.completed 
-                              ? darkMode ? 'line-through text-slate-500' : 'line-through text-slate-400'
-                              : darkMode ? 'text-slate-300' : 'text-slate-700'
-                          }`}
-                        >
-                          {subItem.text}
-                        </span>
-                        
-                        <select
-                          value={subItem.status}
-                          onChange={(e) => updateSubItem(subItem.id, { status: e.target.value })}
-                          onClick={(e) => e.stopPropagation()}
-                          className={`text-xs px-2 py-0.5 rounded border ${
-                            statusConfig[subItem.status].color
-                          } cursor-pointer font-medium`}
-                        >
-                          <option value="new">New</option>
-                          <option value="working">Working</option>
-                          <option value="paused">Paused</option>
-                          <option value="stuck">Stuck</option>
-                        </select>
-
-                        <select
-                          value={subItem.priority}
-                          onChange={(e) => updateSubItem(subItem.id, { priority: e.target.value })}
-                          onClick={(e) => e.stopPropagation()}
-                          className={`text-xs px-2 py-0.5 rounded ${
-                            priorityConfig[subItem.priority].color
-                          } cursor-pointer font-medium`}
-                        >
-                          <option value="urgent">Urgent</option>
-                          <option value="high">High</option>
-                          <option value="medium">Medium</option>
-                          <option value="low">Low</option>
-                        </select>
-
-                        <button
-                          onClick={() => copySubItem(subItem.text)}
-                          className={`opacity-0 group-hover/subitem:opacity-100 transition-all ${darkMode ? 'text-slate-500 hover:text-teal-400' : 'text-slate-400 hover:text-teal-600'}`}
-                          title="Copy sub-item"
-                        >
-                          <Copy size={14} />
-                        </button>
-                        <button
-                          onClick={() => deleteSubItem(subItem.id)}
-                          className={`opacity-0 group-hover/subitem:opacity-100 transition-all ${darkMode ? 'text-slate-500 hover:text-red-400' : 'text-slate-400 hover:text-red-600'}`}
-                        >
-                          <X size={14} />
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-            ))}
-            
-            {!showingFilteredSubItems && (
-              <div className="flex gap-2 mt-3">
-                <input
-                  type="text"
-                  value={newSubItemText}
-                  onChange={(e) => setNewSubItemText(e.target.value)}
-                  onKeyPress={(e) => e.key === 'Enter' && addSubItem()}
-                  placeholder="Add sub-item..."
-                  className={`flex-1 px-2 py-1 text-sm border ${darkMode ? 'bg-slate-700 border-slate-600 text-white placeholder-slate-500' : 'border-slate-300'} rounded focus:outline-none focus:ring-1 focus:ring-teal-500 transition-all`}
-                />
-                <button
-                  onClick={addSubItem}
-                  className="px-3 py-1 bg-teal-600 text-white rounded text-sm hover:bg-teal-700 transition-all hover:scale-105"
-                >
-                  <Plus size={14} />
-                </button>
-              </div>
-            )}
-          </div>
-        )}
-      </div>
-
-      {project.linkedItems && project.linkedItems.length > 0 && (
-        <div className={`mb-3 pt-3 border-t ${darkMode ? 'border-slate-700' : 'border-slate-100'}`}>
-          <div className="flex flex-wrap gap-2">
-            {project.linkedItems.map(linkedItem => {
-              const item = getLinkedItem(linkedItem);
-              if (!item) return null;
-              
-              return (
-                <button
-                  key={linkedItem.id}
-                  onClick={() => navigateToLinkedItem(linkedItem)}
-                  className="flex items-center gap-1 px-3 py-1.5 bg-teal-50 text-teal-700 rounded-lg text-sm border border-teal-200 hover:bg-teal-100 transition-all hover:scale-105"
-                >
-                  {linkedItem.type === 'link' ? <Link2 size={14} /> : <StickyNote size={14} />}
-                  <span className="truncate max-w-[150px]">{linkedItem.title}</span>
-                  <ExternalLink size={12} />
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-      <button
-        onClick={onOpenLinkModal}
-        className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-all hover:scale-105 ${
-          darkMode ? 'bg-slate-700 text-teal-400 hover:bg-slate-600' : 'bg-teal-50 text-teal-700 hover:bg-teal-100'
-        }`}
-      >
-        <Link2 size={16} />
-        <span className="text-sm font-medium">Link Items</span>
-      </button>
-    </div>
-  );
-}
-
-// LINKS VIEW - Complete with filtering and tag editing
-function LinksView({
-  links,
-  addLink,
-  updateLink,
-  deleteLink,
-  reorderLinks,
-  showNewLinkForm,
-  setShowNewLinkForm,
-  projects,
-  notes,
-  getLinkedItem,
-  navigateToLinkedItem,
-  highlightedItemId,
-  darkMode,
-  allTags,
-  viewMode,
-  toggleViewMode
-}) {
-  const [filterTag, setFilterTag] = useState('all');
-  const [draggedItem, setDraggedItem] = useState(null);
-  const [dragOverItem, setDragOverItem] = useState(null);
-
-  const linkTags = [...new Set(links.flatMap(l => l.tags || []))];
-
-  const filteredLinks = filterTag === 'all' 
-    ? links 
-    : links.filter(link => link.tags && link.tags.includes(filterTag));
-
-  const handleDragStart = (e, link) => {
-    setDraggedItem(link);
-    e.dataTransfer.effectAllowed = 'move';
-  };
-
-  const handleDragOver = (e, link) => {
-    e.preventDefault();
-    if (draggedItem && draggedItem.id !== link.id) {
-      setDragOverItem(link);
-    }
-  };
-
-  const handleDrop = (e, targetLink) => {
-    e.preventDefault();
-    if (!draggedItem || draggedItem.id === targetLink.id) return;
-
-    const linksCopy = [...links];
-    const draggedIndex = linksCopy.findIndex(l => l.id === draggedItem.id);
-    const targetIndex = linksCopy.findIndex(l => l.id === targetLink.id);
-
-    const [removed] = linksCopy.splice(draggedIndex, 1);
-    linksCopy.splice(targetIndex, 0, removed);
-
-    reorderLinks(linksCopy);
-
-    setDraggedItem(null);
-    setDragOverItem(null);
-  };
-
-  const handleDragEnd = () => {
-    setDraggedItem(null);
-    setDragOverItem(null);
-  };
-
-  return (
-    <div className="max-w-7xl animate-fadeIn">
-      <div className="flex items-center justify-between mb-8">
-        <div>
-          <h2 className={`text-4xl font-bold ${darkMode ? 'text-white' : 'text-slate-800'} accent-font`}>Links</h2>
-          <p className={`${darkMode ? 'text-slate-400' : 'text-slate-500'} mt-1`}>{links.length} saved links</p>
-        </div>
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => setShowNewLinkForm(true)}
-            className="flex items-center gap-2 px-6 py-3 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-all shadow-lg hover:shadow-xl hover:scale-105"
-          >
-            <Plus size={20} />
-            New Link
-          </button>
-        </div>
-      </div>
-
-      {/* Filter by Tags */}
-      {linkTags.length > 0 && (
-        <div className="mb-6">
-          <div className="flex flex-wrap items-center gap-3">
-            <Filter size={18} className={darkMode ? 'text-slate-400' : 'text-slate-500'} />
-            <button
-              onClick={() => setFilterTag('all')}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-                filterTag === 'all'
-                  ? 'bg-teal-600 text-white'
-                  : darkMode ? 'bg-slate-700 text-slate-300 hover:bg-slate-600' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-              }`}
-            >
-              All
-            </button>
-            {linkTags.map(tag => (
-              <button
-                key={tag}
-                onClick={() => setFilterTag(tag)}
-                className={`flex items-center gap-1 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-                  filterTag === tag
-                    ? 'bg-teal-600 text-white'
-                    : darkMode ? 'bg-slate-700 text-slate-300 hover:bg-slate-600' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                }`}
-              >
-                <Tag size={14} />
-                {tag}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {showNewLinkForm && (
-        <NewLinkForm
-          onSave={addLink}
-          onCancel={() => setShowNewLinkForm(false)}
-          darkMode={darkMode}
-          allTags={allTags}
-        />
-      )}
-
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
-        {filteredLinks.map((link, index) => (
-          <LinkCard
-            key={link.id}
-            link={link}
-            updateLink={updateLink}
-            deleteLink={deleteLink}
-            isHighlighted={highlightedItemId === link.id}
-            darkMode={darkMode}
-            allTags={allTags}
-            onDragStart={handleDragStart}
-            onDragOver={handleDragOver}
-            onDrop={handleDrop}
-            onDragEnd={handleDragEnd}
-            isDragging={draggedItem?.id === link.id}
-            isDragOver={dragOverItem?.id === link.id}
-            style={{ animationDelay: `${index * 0.03}s` }}
-          />
-        ))}
-      </div>
-
-      {filteredLinks.length === 0 && !showNewLinkForm && (
-        <div className={`text-center py-16 ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>
-          <Link2 size={48} className="mx-auto mb-4 opacity-30" />
-          <p>No links yet. Add your first link!</p>
-        </div>
-      )}
-    </div>
-  );
-}
-
-function NewLinkForm({ onSave, onCancel, darkMode, allTags }) {
-  const [url, setUrl] = useState('');
-  const [title, setTitle] = useState('');
-  const [tagInput, setTagInput] = useState('');
-  const [selectedTags, setSelectedTags] = useState([]);
-
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    if (url.trim()) {
-      onSave({ url, title, tags: selectedTags });
-      setUrl('');
-      setTitle('');
-      setSelectedTags([]);
-    }
-  };
-
-  const addTag = (tag) => {
-    const trimmedTag = tag.trim();
-    if (trimmedTag && !selectedTags.includes(trimmedTag)) {
-      setSelectedTags([...selectedTags, trimmedTag]);
-    }
-    setTagInput('');
-  };
-
-  const removeTag = (tagToRemove) => {
-    setSelectedTags(selectedTags.filter(t => t !== tagToRemove));
-  };
-
-  return (
-    <form onSubmit={handleSubmit} className={`mb-6 p-6 ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'} rounded-xl shadow-lg border animate-slideUp`}>
-      <input
-        type="url"
-        value={url}
-        onChange={(e) => setUrl(e.target.value)}
-        placeholder="https://example.com"
-        className={`w-full text-lg mb-3 px-3 py-2 border ${darkMode ? 'bg-slate-700 border-slate-600 text-white placeholder-slate-400' : 'border-slate-300'} rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 transition-all`}
-        autoFocus
-      />
-      <input
-        type="text"
-        value={title}
-        onChange={(e) => setTitle(e.target.value)}
-        placeholder="Link label (optional)"
-        className={`w-full mb-3 px-3 py-2 border ${darkMode ? 'bg-slate-700 border-slate-600 text-white placeholder-slate-400' : 'border-slate-300'} rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 transition-all`}
-      />
-
-      <div className="mt-4">
-        <label className={`block text-sm ${darkMode ? 'text-slate-300' : 'text-slate-600'} mb-2`}>Tags</label>
-        <div className="flex flex-wrap gap-2 mb-2">
-          {selectedTags.map(tag => (
-            <span key={tag} className="inline-flex items-center gap-1 px-3 py-1 bg-teal-100 text-teal-700 rounded-full text-sm">
-              <Tag size={12} />
-              {tag}
-              <button type="button" onClick={() => removeTag(tag)} className="hover:text-teal-900">
-                <X size={14} />
-              </button>
-            </span>
-          ))}
-        </div>
-        <div className="flex gap-2">
-          <input
-            type="text"
-            value={tagInput}
-            onChange={(e) => setTagInput(e.target.value)}
-            onKeyPress={(e) => {
-              if (e.key === 'Enter') {
-                e.preventDefault();
-                addTag(tagInput);
-              }
-            }}
-            placeholder="Add tag and press Enter..."
-            list="link-tags"
-            className={`flex-1 px-3 py-2 border ${darkMode ? 'bg-slate-700 border-slate-600 text-white placeholder-slate-400' : 'border-slate-300'} rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 transition-all`}
-          />
-          <datalist id="link-tags">
-            {allTags.filter(t => !selectedTags.includes(t)).map(tag => (
-              <option key={tag} value={tag} />
-            ))}
-          </datalist>
-          <button
-            type="button"
-            onClick={() => addTag(tagInput)}
-            className="px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-all"
-          >
-            <Plus size={16} />
-          </button>
-        </div>
-      </div>
-
-      <div className="flex gap-2 mt-4">
-        <button type="submit" className="flex items-center gap-2 px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-all">
-          <Save size={16} />
-          Save
-        </button>
-        <button type="button" onClick={onCancel} className={`px-4 py-2 ${darkMode ? 'text-slate-300 hover:bg-slate-700' : 'text-slate-600 hover:bg-slate-100'} rounded-lg transition-all`}>
-          Cancel
-        </button>
-      </div>
-    </form>
-  );
-}
-
-function LinkCard({ link, updateLink, deleteLink, isHighlighted, darkMode, allTags, onDragStart, onDragOver, onDrop, onDragEnd, isDragging, isDragOver, style }) {
-  const [isEditingTitle, setIsEditingTitle] = useState(false);
-  const [editedTitle, setEditedTitle] = useState(link.title || '');
-  const [isEditingUrl, setIsEditingUrl] = useState(false);
-  const [editedUrl, setEditedUrl] = useState(link.url);
-  const [isEditingTags, setIsEditingTags] = useState(false);
-  const [tagInput, setTagInput] = useState('');
-  const [editingTags, setEditingTags] = useState(link.tags || []);
-
-  const saveTitle = () => {
-    updateLink(link.id, { title: editedTitle });
-    setIsEditingTitle(false);
-  };
-
-  const saveUrl = () => {
-    if (editedUrl.trim()) {
-      updateLink(link.id, { url: editedUrl });
-    }
-    setIsEditingUrl(false);
-  };
-
-  const saveTags = () => {
-    updateLink(link.id, { tags: editingTags });
-    setIsEditingTags(false);
-  };
-
-  const addTag = (tag) => {
-    const trimmedTag = tag.trim();
-    if (trimmedTag && !editingTags.includes(trimmedTag)) {
-      setEditingTags([...editingTags, trimmedTag]);
-    }
-    setTagInput('');
-  };
-
-  const removeTag = (tagToRemove) => {
-    setEditingTags(editingTags.filter(t => t !== tagToRemove));
-  };
-
-  return (
-    <div
-      id={`item-${link.id}`}
-      onDragOver={(e) => onDragOver(e, link)}
-      onDrop={(e) => onDrop(e, link)}
-      className={`task-card p-4 ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'} rounded-xl shadow-md border animate-slideUp group relative ${
-        isHighlighted ? 'animate-highlight ring-2 ring-teal-500' : ''
-      } ${isDragging ? 'opacity-50 scale-95' : ''} ${isDragOver ? 'border-teal-500 border-2' : ''}`}
-      style={style}
-    >
-      <div
-        draggable
-        onDragStart={(e) => onDragStart(e, link)}
-        onDragEnd={onDragEnd}
-        className={`absolute top-3 right-3 p-1.5 rounded cursor-move transition-all ${
-          darkMode ? 'text-slate-400 hover:bg-slate-700 hover:text-teal-400' : 'text-slate-500 hover:bg-slate-100 hover:text-teal-600'
-        }`}
-        title="Drag to reorder"
-      >
-        <Move size={18} />
-      </div>
-
-      <div className="mb-3 pr-8">
-        {isEditingTitle ? (
-          <input
-            type="text"
-            value={editedTitle}
-            onChange={(e) => setEditedTitle(e.target.value)}
-            onKeyPress={(e) => e.key === 'Enter' && saveTitle()}
-            onBlur={saveTitle}
-            placeholder="Link label..."
-            className={`w-full font-medium px-2 py-1 border ${darkMode ? 'bg-slate-700 border-slate-600 text-white' : 'bg-white border-slate-300'} rounded focus:outline-none focus:ring-2 focus:ring-teal-500`}
-            autoFocus
-          />
-        ) : link.title ? (
-          <div
-            onClick={() => setIsEditingTitle(true)}
-            className={`font-medium ${darkMode ? 'text-white' : 'text-slate-800'} cursor-pointer hover:text-teal-600 transition-colors`}
-          >
-            {link.title}
-          </div>
-        ) : (
-          <button
-            onClick={() => setIsEditingTitle(true)}
-            className={`text-sm ${darkMode ? 'text-slate-500 hover:text-teal-400' : 'text-slate-400 hover:text-teal-600'}`}
-          >
-            + Add label
-          </button>
-        )}
-      </div>
-
-      {isEditingUrl ? (
-        <div className="mb-3">
-          <input
-            type="url"
-            value={editedUrl}
-            onChange={(e) => setEditedUrl(e.target.value)}
-            onKeyPress={(e) => e.key === 'Enter' && saveUrl()}
-            onBlur={saveUrl}
-            className={`w-full text-sm px-2 py-1 border ${darkMode ? 'bg-slate-700 border-slate-600 text-white' : 'bg-white border-slate-300'} rounded focus:outline-none focus:ring-2 focus:ring-teal-500`}
-            autoFocus
-          />
-        </div>
-      ) : (
-        <a
-          href={link.url}
-          target="_blank"
-          rel="noopener noreferrer"
-          className={`text-sm ${darkMode ? 'text-teal-400' : 'text-teal-600'} hover:underline mb-3 block truncate`}
-          onDoubleClick={(e) => {
-            e.preventDefault();
-            setIsEditingUrl(true);
-          }}
-        >
-          {link.url}
-        </a>
-      )}
-
-      {isEditingTags ? (
-        <div className="mb-3">
-          <div className="flex flex-wrap gap-1 mb-2">
-            {editingTags.map(tag => (
-              <span key={tag} className="inline-flex items-center gap-1 px-2 py-0.5 bg-teal-100 text-teal-700 rounded text-xs">
-                <Tag size={10} />
-                {tag}
-                <button onClick={() => removeTag(tag)} className="hover:text-teal-900">
-                  <X size={10} />
-                </button>
-              </span>
-            ))}
-          </div>
-          <div className="flex gap-2 mb-2">
-            <input
-              type="text"
-              value={tagInput}
-              onChange={(e) => setTagInput(e.target.value)}
-              onKeyPress={(e) => {
-                if (e.key === 'Enter') {
-                  e.preventDefault();
-                  addTag(tagInput);
-                }
-              }}
-              placeholder="Add tag..."
-              list="edit-link-tags"
-              className={`flex-1 px-2 py-1 text-xs border ${darkMode ? 'bg-slate-700 border-slate-600 text-white' : 'bg-white border-slate-300'} rounded focus:outline-none focus:ring-1 focus:ring-teal-500`}
-            />
-            <datalist id="edit-link-tags">
-              {allTags.filter(t => !editingTags.includes(t)).map(tag => (
-                <option key={tag} value={tag} />
-              ))}
-            </datalist>
-            <button onClick={() => addTag(tagInput)} className="px-2 py-1 bg-teal-600 text-white rounded text-xs hover:bg-teal-700">
-              <Plus size={12} />
-            </button>
-          </div>
-          <div className="flex gap-2">
-            <button onClick={saveTags} className="px-2 py-1 bg-teal-600 text-white rounded text-xs hover:bg-teal-700">
-              Save
-            </button>
-            <button
-              onClick={() => {
-                setEditingTags(link.tags || []);
-                setIsEditingTags(false);
-              }}
-              className={`px-2 py-1 text-xs rounded ${darkMode ? 'text-slate-300 hover:bg-slate-700' : 'text-slate-600 hover:bg-slate-100'}`}
-            >
-              Cancel
-            </button>
-          </div>
-        </div>
-      ) : (link.tags && link.tags.length > 0) ? (
-        <div className="flex flex-wrap gap-1 mb-3 group/tags relative">
-          {link.tags.map(tag => (
-            <span key={tag} className="inline-flex items-center gap-1 px-2 py-0.5 bg-teal-50 text-teal-700 rounded text-xs border border-teal-200">
-              <Tag size={10} />
-              {tag}
-            </span>
-          ))}
-          <button
-            onClick={() => {
-              setEditingTags(link.tags || []);
-              setIsEditingTags(true);
-            }}
-            className={`ml-1 px-2 py-0.5 text-xs rounded opacity-0 group-hover/tags:opacity-100 transition-opacity ${darkMode ? 'bg-slate-700 text-teal-400 hover:bg-slate-600' : 'bg-teal-50 text-teal-700 hover:bg-teal-100'}`}
-          >
-            <Edit2 size={10} />
-          </button>
-        </div>
-      ) : (
-        <button
-          onClick={() => {
-            setEditingTags([]);
-            setIsEditingTags(true);
-          }}
-          className={`text-xs ${darkMode ? 'text-slate-500 hover:text-teal-400' : 'text-slate-400 hover:text-teal-600'} mb-3`}
-        >
-          + Add tags
-        </button>
-      )}
-
-      <div className="flex justify-end">
-        <button
-          onClick={() => deleteLink(link.id)}
-          className={`${darkMode ? 'text-slate-500 hover:text-red-400' : 'text-slate-400 hover:text-red-600'} transition-all hover:scale-110`}
-        >
-          <Trash2 size={16} />
-        </button>
-      </div>
-    </div>
-  );
-}
-
-// NOTES VIEW - With masonry and drag-drop
-function NotesView({
-  notes,
-  addNote,
-  updateNote,
-  deleteNote,
-  reorderNotes,
-  showNewNoteForm,
-  setShowNewNoteForm,
-  projects,
-  links,
-  getLinkedItem,
-  navigateToLinkedItem,
-  highlightedItemId,
-  darkMode,
-  allTags,
-  viewMode,
-  toggleViewMode
-}) {
-  const [filterTag, setFilterTag] = useState('all');
-  const [draggedItem, setDraggedItem] = useState(null);
-  const [dragOverItem, setDragOverItem] = useState(null);
-
-  const noteTags = [...new Set(notes.flatMap(n => n.tags || []))];
-
-  const filteredNotes = filterTag === 'all'
-    ? notes
-    : notes.filter(note => note.tags && note.tags.includes(filterTag));
-
-  const handleDragStart = (e, note) => {
-    setDraggedItem(note);
-    e.dataTransfer.effectAllowed = 'move';
-  };
-
-  const handleDragOver = (e, note) => {
-    e.preventDefault();
-    if (draggedItem && draggedItem.id !== note.id) {
-      setDragOverItem(note);
-    }
-  };
-
-  const handleDrop = (e, targetNote) => {
-    e.preventDefault();
-    if (!draggedItem || draggedItem.id === targetNote.id) return;
-
-    const notesCopy = [...notes];
-    const draggedIndex = notesCopy.findIndex(n => n.id === draggedItem.id);
-    const targetIndex = notesCopy.findIndex(n => n.id === targetNote.id);
-
-    const [removed] = notesCopy.splice(draggedIndex, 1);
-    notesCopy.splice(targetIndex, 0, removed);
-
-    reorderNotes(notesCopy);
-
-    setDraggedItem(null);
-    setDragOverItem(null);
-  };
-
-  const handleDragEnd = () => {
-    setDraggedItem(null);
-    setDragOverItem(null);
-  };
-
-  return (
-    <div className="max-w-7xl animate-fadeIn">
-      <div className="flex items-center justify-between mb-8">
-        <div>
-          <h2 className={`text-4xl font-bold ${darkMode ? 'text-white' : 'text-slate-800'} accent-font`}>Notes</h2>
-          <p className={`${darkMode ? 'text-slate-400' : 'text-slate-500'} mt-1`}>{notes.length} notes</p>
-        </div>
-        <div className="flex items-center gap-3">
-          <div className={`flex gap-1 p-1 rounded-lg ${darkMode ? 'bg-slate-700' : 'bg-slate-200'}`}>
-            <button
-              onClick={() => toggleViewMode('notes', 'list')}
-              className={`p-2 rounded transition-all ${viewMode === 'list' ? (darkMode ? 'bg-slate-600 shadow' : 'bg-white shadow') : (darkMode ? 'hover:bg-slate-600' : 'hover:bg-slate-300')}`}
-              title="List view"
-            >
-              <LayoutList size={18} className={darkMode ? 'text-slate-300' : 'text-slate-700'} />
-            </button>
-            <button
-              onClick={() => toggleViewMode('notes', 'grid')}
-              className={`p-2 rounded transition-all ${viewMode === 'grid' ? (darkMode ? 'bg-slate-600 shadow' : 'bg-white shadow') : (darkMode ? 'hover:bg-slate-600' : 'hover:bg-slate-300')}`}
-              title="Grid view"
-            >
-              <Grid size={18} className={darkMode ? 'text-slate-300' : 'text-slate-700'} />
-            </button>
-          </div>
-          <button
-            onClick={() => setShowNewNoteForm(true)}
-            className="flex items-center gap-2 px-6 py-3 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-all shadow-lg hover:shadow-xl hover:scale-105"
-          >
-            <Plus size={20} />
-            New Note
-          </button>
-        </div>
-      </div>
-
-      {noteTags.length > 0 && (
-        <div className="mb-6">
-          <div className="flex flex-wrap items-center gap-3">
-            <Filter size={18} className={darkMode ? 'text-slate-400' : 'text-slate-500'} />
-            <button
-              onClick={() => setFilterTag('all')}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-                filterTag === 'all'
-                  ? 'bg-teal-600 text-white'
-                  : darkMode ? 'bg-slate-700 text-slate-300 hover:bg-slate-600' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-              }`}
-            >
-              All
-            </button>
-            {noteTags.map(tag => (
-              <button
-                key={tag}
-                onClick={() => setFilterTag(tag)}
-                className={`flex items-center gap-1 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-                  filterTag === tag
-                    ? 'bg-teal-600 text-white'
-                    : darkMode ? 'bg-slate-700 text-slate-300 hover:bg-slate-600' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                }`}
-              >
-                <Tag size={14} />
-                {tag}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {showNewNoteForm && (
-        <NewNoteForm
-          onSave={addNote}
-          onCancel={() => setShowNewNoteForm(false)}
-          darkMode={darkMode}
-          allTags={allTags}
-        />
-      )}
-
-      {viewMode === 'grid' ? (
-        <div className="masonry mb-8">
-          {filteredNotes.map((note, index) => (
-            <div key={note.id} className="masonry-item">
-              <NoteCard
-                note={note}
-                updateNote={updateNote}
-                deleteNote={deleteNote}
-                isHighlighted={highlightedItemId === note.id}
-                darkMode={darkMode}
-                allTags={allTags}
-                onDragStart={handleDragStart}
-                onDragOver={handleDragOver}
-                onDrop={handleDrop}
-                onDragEnd={handleDragEnd}
-                isDragging={draggedItem?.id === note.id}
-                isDragOver={dragOverItem?.id === note.id}
-                style={{ animationDelay: `${index * 0.03}s` }}
-              />
-            </div>
-          ))}
-        </div>
-      ) : (
-        <div className="space-y-4 mb-8">
-          {filteredNotes.map((note, index) => (
-            <NoteCard
-              key={note.id}
-              note={note}
-              updateNote={updateNote}
-              deleteNote={deleteNote}
-              isHighlighted={highlightedItemId === note.id}
-              darkMode={darkMode}
-              allTags={allTags}
-              onDragStart={handleDragStart}
-              onDragOver={handleDragOver}
-              onDrop={handleDrop}
-              onDragEnd={handleDragEnd}
-              isDragging={draggedItem?.id === note.id}
-              isDragOver={dragOverItem?.id === note.id}
-              style={{ animationDelay: `${index * 0.03}s` }}
-            />
-          ))}
-        </div>
-      )}
-
-      {filteredNotes.length === 0 && !showNewNoteForm && (
-        <div className={`text-center py-16 ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>
-          <StickyNote size={48} className="mx-auto mb-4 opacity-30" />
-          <p>No notes yet. Create your first note!</p>
-        </div>
-      )}
-    </div>
-  );
-}
-
-function NewNoteForm({ onSave, onCancel, darkMode, allTags }) {
-  const [title, setTitle] = useState('');
-  const [content, setContent] = useState('');
-  const [tagInput, setTagInput] = useState('');
-  const [selectedTags, setSelectedTags] = useState([]);
-
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    if (title.trim()) {
-      onSave({ title, content, tags: selectedTags });
-      setTitle('');
-      setContent('');
-      setSelectedTags([]);
-    }
-  };
-
-  const addTag = (tag) => {
-    const trimmedTag = tag.trim();
-    if (trimmedTag && !selectedTags.includes(trimmedTag)) {
-      setSelectedTags([...selectedTags, trimmedTag]);
-    }
-    setTagInput('');
-  };
-
-  const removeTag = (tagToRemove) => {
-    setSelectedTags(selectedTags.filter(t => t !== tagToRemove));
-  };
-
-  return (
-    <form onSubmit={handleSubmit} className={`mb-6 p-6 ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'} rounded-xl shadow-lg border animate-slideUp`}>
-      <input
-        type="text"
-        value={title}
-        onChange={(e) => setTitle(e.target.value)}
-        placeholder="Note title..."
-        className={`w-full text-lg font-medium mb-3 px-3 py-2 border ${darkMode ? 'bg-slate-700 border-slate-600 text-white placeholder-slate-400' : 'border-slate-300'} rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 transition-all`}
-        autoFocus
-      />
-      <RichTextEditor
-        value={content}
-        onChange={setContent}
-        placeholder="Note content..."
-        darkMode={darkMode}
-        rows={10}
-      />
-
-      <div className="mt-4">
-        <label className={`block text-sm ${darkMode ? 'text-slate-300' : 'text-slate-600'} mb-2`}>Tags</label>
-        <div className="flex flex-wrap gap-2 mb-2">
-          {selectedTags.map(tag => (
-            <span key={tag} className="inline-flex items-center gap-1 px-3 py-1 bg-teal-100 text-teal-700 rounded-full text-sm">
-              <Tag size={12} />
-              {tag}
-              <button type="button" onClick={() => removeTag(tag)} className="hover:text-teal-900">
-                <X size={14} />
-              </button>
-            </span>
-          ))}
-        </div>
-        <div className="flex gap-2">
-          <input
-            type="text"
-            value={tagInput}
-            onChange={(e) => setTagInput(e.target.value)}
-            onKeyPress={(e) => {
-              if (e.key === 'Enter') {
-                e.preventDefault();
-                addTag(tagInput);
-              }
-            }}
-            placeholder="Add tag and press Enter..."
-            list="note-tags"
-            className={`flex-1 px-3 py-2 border ${darkMode ? 'bg-slate-700 border-slate-600 text-white placeholder-slate-400' : 'border-slate-300'} rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 transition-all`}
-          />
-          <datalist id="note-tags">
-            {allTags.filter(t => !selectedTags.includes(t)).map(tag => (
-              <option key={tag} value={tag} />
-            ))}
-          </datalist>
-          <button
-            type="button"
-            onClick={() => addTag(tagInput)}
-            className="px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-all"
-          >
-            <Plus size={16} />
-          </button>
-        </div>
-      </div>
-
-      <div className="flex gap-2 mt-4">
-        <button type="submit" className="flex items-center gap-2 px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-all">
-          <Save size={16} />
-          Save
-        </button>
-        <button type="button" onClick={onCancel} className={`px-4 py-2 ${darkMode ? 'text-slate-300 hover:bg-slate-700' : 'text-slate-600 hover:bg-slate-100'} rounded-lg transition-all`}>
-          Cancel
-        </button>
-      </div>
-    </form>
-  );
-}
-
-function NoteCard({ note, updateNote, deleteNote, isHighlighted, darkMode, allTags, onDragStart, onDragOver, onDrop, onDragEnd, isDragging, isDragOver, style }) {
-  const [isEditing, setIsEditing] = useState(false);
-  const [editedTitle, setEditedTitle] = useState(note.title);
-  const [editedContent, setEditedContent] = useState(note.content || '');
-  const [isEditingTags, setIsEditingTags] = useState(false);
-  const [tagInput, setTagInput] = useState('');
-  const [editingTags, setEditingTags] = useState(note.tags || []);
-
-  // Post-it note colors with better contrast
-  const noteColors = [
-    { bg: '#FEF08A', border: '#EAB308' }, // yellow - darker, more saturated
-    { bg: '#FBCFE8', border: '#DB2777' }, // pink
-    { bg: '#BFDBFE', border: '#2563EB' }, // blue
-    { bg: '#BBF7D0', border: '#16A34A' }, // green
-    { bg: '#E9D5FF', border: '#9333EA' }, // purple
-    { bg: '#FED7AA', border: '#EA580C' }, // orange
-    { bg: '#99F6E4', border: '#0D9488' }, // teal
-    { bg: '#FECDD3', border: '#E11D48' }  // rose
-  ];
-
-  const getNoteColor = () => {
-    // Use colors in BOTH light and dark mode for visibility
-    const hash = note.id.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
-    return noteColors[hash % noteColors.length];
-  };
-
-  const colorStyle = getNoteColor();
-  const noteStyle = {
-    ...style,
-    backgroundColor: colorStyle.bg,
-    borderColor: colorStyle.border,
-    borderWidth: '2px',
-    borderStyle: 'solid'
-  };
-  
-  // Force dark text on colorful backgrounds
-  const textColorClass = 'text-slate-900';
-
-  const saveNote = () => {
-    if (editedTitle.trim()) {
-      updateNote(note.id, { title: editedTitle, content: editedContent });
-    }
-    setIsEditing(false);
-  };
-
-  const saveTags = () => {
-    updateNote(note.id, { tags: editingTags });
-    setIsEditingTags(false);
-  };
-
-  const addTag = (tag) => {
-    const trimmedTag = tag.trim();
-    if (trimmedTag && !editingTags.includes(trimmedTag)) {
-      setEditingTags([...editingTags, trimmedTag]);
-    }
-    setTagInput('');
-  };
-
-  const removeTag = (tagToRemove) => {
-    setEditingTags(editingTags.filter(t => t !== tagToRemove));
-  };
-
-  return (
-    <div
-      id={`item-${note.id}`}
-      onDragOver={(e) => onDragOver(e, note)}
-      onDrop={(e) => onDrop(e, note)}
-      className={`task-card p-6 rounded-xl shadow-md animate-slideUp group relative ${
-        isHighlighted ? 'animate-highlight ring-2 ring-teal-500' : ''
-      } ${isDragging ? 'opacity-50 scale-95' : ''} ${isDragOver ? 'border-teal-500 border-2' : ''}`}
-      style={noteStyle}
-    >
-      {!isEditing && (
-        <div
-          draggable
-          onDragStart={(e) => onDragStart(e, note)}
-          onDragEnd={onDragEnd}
-          className={`absolute top-4 right-4 p-2 rounded cursor-move transition-all ${
-            darkMode ? 'text-slate-400 hover:bg-slate-700 hover:text-teal-400' : 'text-slate-500 hover:bg-slate-100 hover:text-teal-600'
-          }`}
-          title="Drag to reorder"
-        >
-          <Move size={20} />
-        </div>
-      )}
-
-      {isEditing ? (
-        <div>
-          <input
-            type="text"
-            value={editedTitle}
-            onChange={(e) => setEditedTitle(e.target.value)}
-            className={`w-full text-xl font-semibold mb-3 px-2 py-1 border ${darkMode ? 'bg-slate-700 border-slate-600 text-white' : 'bg-white border-slate-300'} rounded focus:outline-none focus:ring-2 focus:ring-teal-500`}
-          />
-          <RichTextEditor
-            value={editedContent}
-            onChange={setEditedContent}
-            placeholder="Note content..."
-            darkMode={darkMode}
-            rows={10}
-          />
-          <div className="flex gap-2 mt-3">
-            <button
-              onClick={saveNote}
-              className="flex items-center gap-1 px-3 py-1 bg-teal-600 text-white rounded text-sm hover:bg-teal-700"
-            >
-              <Save size={14} />
-              Save
-            </button>
-            <button
-              onClick={() => setIsEditing(false)}
-              className={`px-3 py-1 text-sm rounded ${darkMode ? 'text-slate-300 hover:bg-slate-700' : 'text-slate-600 hover:bg-slate-100'}`}
-            >
-              Cancel
-            </button>
-          </div>
-        </div>
-      ) : (
-        <div>
-          <div className="flex items-start justify-between mb-3 pr-10">
-            <h3
-              onClick={() => setIsEditing(true)}
-              className={`text-xl font-semibold ${textColorClass} cursor-pointer hover:text-teal-600 transition-colors`}
-            >
-              {note.title}
-            </h3>
-            <button
-              onClick={() => deleteNote(note.id)}
-              className={`text-slate-600 hover:text-red-600 transition-all hover:scale-110`}
-            >
-              <Trash2 size={18} />
-            </button>
-          </div>
-
-          {note.content && (
-            <div
-              onClick={() => setIsEditing(true)}
-              className={`${textColorClass} text-sm mb-3 cursor-pointer rich-text-editor`}
-              dangerouslySetInnerHTML={{ __html: note.content }}
-            />
-          )}
-
-          {isEditingTags ? (
-            <div className="mb-3">
-              <div className="flex flex-wrap gap-1 mb-2">
-                {editingTags.map(tag => (
-                  <span key={tag} className="inline-flex items-center gap-1 px-2 py-1 bg-teal-100 text-teal-700 rounded text-xs">
-                    <Tag size={10} />
-                    {tag}
-                    <button onClick={() => removeTag(tag)} className="hover:text-teal-900">
-                      <X size={10} />
-                    </button>
-                  </span>
-                ))}
-              </div>
-              <div className="flex gap-2 mb-2">
-                <input
-                  type="text"
-                  value={tagInput}
-                  onChange={(e) => setTagInput(e.target.value)}
-                  onKeyPress={(e) => {
-                    if (e.key === 'Enter') {
-                      e.preventDefault();
-                      addTag(tagInput);
-                    }
-                  }}
-                  placeholder="Add tag..."
-                  list="edit-note-tags"
-                  className={`flex-1 px-2 py-1 text-xs border ${darkMode ? 'bg-slate-700 border-slate-600 text-white' : 'bg-white border-slate-300'} rounded focus:outline-none focus:ring-1 focus:ring-teal-500`}
-                />
-                <datalist id="edit-note-tags">
-                  {allTags.filter(t => !editingTags.includes(t)).map(tag => (
-                    <option key={tag} value={tag} />
-                  ))}
-                </datalist>
-                <button onClick={() => addTag(tagInput)} className="px-2 py-1 bg-teal-600 text-white rounded text-xs hover:bg-teal-700">
-                  <Plus size={12} />
-                </button>
-              </div>
-              <div className="flex gap-2">
-                <button onClick={saveTags} className="px-2 py-1 bg-teal-600 text-white rounded text-xs hover:bg-teal-700">
-                  Save
-                </button>
-                <button
-                  onClick={() => {
-                    setEditingTags(note.tags || []);
-                    setIsEditingTags(false);
-                  }}
-                  className={`px-2 py-1 text-xs rounded ${darkMode ? 'text-slate-300 hover:bg-slate-700' : 'text-slate-600 hover:bg-slate-100'}`}
-                >
-                  Cancel
-                </button>
-              </div>
-            </div>
-          ) : (note.tags && note.tags.length > 0) ? (
-            <div className="flex flex-wrap gap-1 group/tags relative">
-              {note.tags.map(tag => (
-                <span key={tag} className="inline-flex items-center gap-1 px-2 py-1 bg-teal-50 text-teal-700 rounded text-xs border border-teal-200">
-                  <Tag size={10} />
-                  {tag}
-                </span>
-              ))}
-              <button
-                onClick={() => {
-                  setEditingTags(note.tags || []);
-                  setIsEditingTags(true);
-                }}
-                className={`ml-1 px-2 py-1 text-xs rounded opacity-0 group-hover/tags:opacity-100 transition-opacity ${darkMode ? 'bg-slate-700 text-teal-400 hover:bg-slate-600' : 'bg-teal-50 text-teal-700 hover:bg-teal-100'}`}
-              >
-                <Edit2 size={10} />
-              </button>
-            </div>
-          ) : (
-            <button
-              onClick={() => {
-                setEditingTags([]);
-                setIsEditingTags(true);
-              }}
-              className={`text-xs ${darkMode ? 'text-slate-500 hover:text-teal-400' : 'text-slate-400 hover:text-teal-600'}`}
-            >
-              + Add tags
-            </button>
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
-
-// CALENDAR VIEW - Simple event list for now
-function CalendarView({
-  events,
-  addEvent,
-  updateEvent,
-  deleteEvent,
-  showNewEventForm,
-  setShowNewEventForm,
-  selectedDate,
-  setSelectedDate,
-  darkMode,
-  allTags
-}) {
-  return (
-    <div className="max-w-4xl animate-fadeIn">
-      <div className="flex items-center justify-between mb-8">
-        <div>
-          <h2 className={`text-4xl font-bold ${darkMode ? 'text-white' : 'text-slate-800'} accent-font`}>Calendar</h2>
-          <p className={`${darkMode ? 'text-slate-400' : 'text-slate-500'} mt-1`}>{events.length} events</p>
-        </div>
-        <button
-          onClick={() => setShowNewEventForm(true)}
-          className="flex items-center gap-2 px-6 py-3 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-all shadow-lg hover:shadow-xl hover:scale-105"
-        >
-          <Plus size={20} />
-          New Event
-        </button>
-      </div>
-
-      {showNewEventForm && (
-        <NewEventForm
-          onSave={addEvent}
-          onCancel={() => setShowNewEventForm(false)}
-          darkMode={darkMode}
-          allTags={allTags}
-        />
-      )}
-
-      <div className="space-y-4">
-        {events.length === 0 && !showNewEventForm ? (
-          <div className={`text-center py-16 ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>
-            <Calendar size={48} className="mx-auto mb-4 opacity-30" />
-            <p>No events yet. Add your first event!</p>
-          </div>
-        ) : (
-          events.map((event, index) => (
-            <EventCard
-              key={event.id}
-              event={event}
-              updateEvent={updateEvent}
-              deleteEvent={deleteEvent}
-              darkMode={darkMode}
-              allTags={allTags}
-              style={{ animationDelay: `${index * 0.03}s` }}
-            />
-          ))
-        )}
-      </div>
-    </div>
-  );
-}
-
-function NewEventForm({ onSave, onCancel, darkMode, allTags }) {
-  const [title, setTitle] = useState('');
-  const [date, setDate] = useState('');
-  const [time, setTime] = useState('');
-  const [description, setDescription] = useState('');
-  const [tagInput, setTagInput] = useState('');
-  const [selectedTags, setSelectedTags] = useState([]);
-
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    if (title.trim() && date) {
-      onSave({ title, date, time, description, tags: selectedTags });
-      setTitle('');
-      setDate('');
-      setTime('');
-      setDescription('');
-      setSelectedTags([]);
-    }
-  };
-
-  const addTag = (tag) => {
-    const trimmedTag = tag.trim();
-    if (trimmedTag && !selectedTags.includes(trimmedTag)) {
-      setSelectedTags([...selectedTags, trimmedTag]);
-    }
-    setTagInput('');
-  };
-
-  const removeTag = (tagToRemove) => {
-    setSelectedTags(selectedTags.filter(t => t !== tagToRemove));
-  };
-
-  return (
-    <form onSubmit={handleSubmit} className={`mb-6 p-6 ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'} rounded-xl shadow-lg border animate-slideUp`}>
-      <input
-        type="text"
-        value={title}
-        onChange={(e) => setTitle(e.target.value)}
-        placeholder="Event title..."
-        className={`w-full text-lg font-medium mb-3 px-3 py-2 border ${darkMode ? 'bg-slate-700 border-slate-600 text-white placeholder-slate-400' : 'border-slate-300'} rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 transition-all`}
-        autoFocus
-      />
-      <div className="grid grid-cols-2 gap-3 mb-3">
-        <input
-          type="date"
-          value={date}
-          onChange={(e) => setDate(e.target.value)}
-          className={`px-3 py-2 border ${darkMode ? 'bg-slate-700 border-slate-600 text-white' : 'border-slate-300'} rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 transition-all`}
-        />
-        <input
-          type="time"
-          value={time}
-          onChange={(e) => setTime(e.target.value)}
-          className={`px-3 py-2 border ${darkMode ? 'bg-slate-700 border-slate-600 text-white' : 'border-slate-300'} rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 transition-all`}
-        />
-      </div>
-      <RichTextEditor
-        value={description}
-        onChange={setDescription}
-        placeholder="Description (optional)..."
-        darkMode={darkMode}
-        rows={6}
-      />
-
-      <div className="mt-4">
-        <label className={`block text-sm ${darkMode ? 'text-slate-300' : 'text-slate-600'} mb-2`}>Tags</label>
-        <div className="flex flex-wrap gap-2 mb-2">
-          {selectedTags.map(tag => (
-            <span key={tag} className="inline-flex items-center gap-1 px-3 py-1 bg-teal-100 text-teal-700 rounded-full text-sm">
-              <Tag size={12} />
-              {tag}
-              <button type="button" onClick={() => removeTag(tag)} className="hover:text-teal-900">
-                <X size={14} />
-              </button>
-            </span>
-          ))}
-        </div>
-        <div className="flex gap-2">
-          <input
-            type="text"
-            value={tagInput}
-            onChange={(e) => setTagInput(e.target.value)}
-            onKeyPress={(e) => {
-              if (e.key === 'Enter') {
-                e.preventDefault();
-                addTag(tagInput);
-              }
-            }}
-            placeholder="Add tag and press Enter..."
-            list="event-tags"
-            className={`flex-1 px-3 py-2 border ${darkMode ? 'bg-slate-700 border-slate-600 text-white placeholder-slate-400' : 'border-slate-300'} rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 transition-all`}
-          />
-          <datalist id="event-tags">
-            {allTags.filter(t => !selectedTags.includes(t)).map(tag => (
-              <option key={tag} value={tag} />
-            ))}
-          </datalist>
-          <button
-            type="button"
-            onClick={() => addTag(tagInput)}
-            className="px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-all"
-          >
-            <Plus size={16} />
-          </button>
-        </div>
-      </div>
-
-      <div className="flex gap-2 mt-4">
-        <button type="submit" className="flex items-center gap-2 px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-all">
-          <Save size={16} />
-          Save
-        </button>
-        <button type="button" onClick={onCancel} className={`px-4 py-2 ${darkMode ? 'text-slate-300 hover:bg-slate-700' : 'text-slate-600 hover:bg-slate-100'} rounded-lg transition-all`}>
-          Cancel
-        </button>
-      </div>
-    </form>
-  );
-}
-
-function EventCard({ event, updateEvent, deleteEvent, darkMode, allTags, style }) {
-  const [isEditing, setIsEditing] = useState(false);
-  const [editedTitle, setEditedTitle] = useState(event.title);
-  const [editedDate, setEditedDate] = useState(event.date);
-  const [editedTime, setEditedTime] = useState(event.time || '');
-  const [editedDescription, setEditedDescription] = useState(event.description || '');
-  const [isEditingTags, setIsEditingTags] = useState(false);
-  const [tagInput, setTagInput] = useState('');
-  const [editingTags, setEditingTags] = useState(event.tags || []);
-
-  const saveEvent = () => {
-    if (editedTitle.trim() && editedDate) {
-      updateEvent(event.id, {
-        title: editedTitle,
-        date: editedDate,
-        time: editedTime,
-        description: editedDescription
-      });
-    }
-    setIsEditing(false);
-  };
-
-  const saveTags = () => {
-    updateEvent(event.id, { tags: editingTags });
-    setIsEditingTags(false);
-  };
-
-  const addTag = (tag) => {
-    const trimmedTag = tag.trim();
-    if (trimmedTag && !editingTags.includes(trimmedTag)) {
-      setEditingTags([...editingTags, trimmedTag]);
-    }
-    setTagInput('');
-  };
-
-  const removeTag = (tagToRemove) => {
-    setEditingTags(editingTags.filter(t => t !== tagToRemove));
-  };
-
-  const formattedDate = new Date(event.date).toLocaleDateString('en-US', {
-    weekday: 'short',
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric'
-  });
-
-  return (
-    <div
-      className={`task-card p-6 ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'} rounded-xl shadow-md border animate-slideUp`}
-      style={style}
-    >
-      {isEditing ? (
-        <div>
-          <input
-            type="text"
-            value={editedTitle}
-            onChange={(e) => setEditedTitle(e.target.value)}
-            className={`w-full text-xl font-semibold mb-3 px-2 py-1 border ${darkMode ? 'bg-slate-700 border-slate-600 text-white' : 'bg-white border-slate-300'} rounded focus:outline-none focus:ring-2 focus:ring-teal-500`}
-          />
-          <div className="grid grid-cols-2 gap-3 mb-3">
-            <input
-              type="date"
-              value={editedDate}
-              onChange={(e) => setEditedDate(e.target.value)}
-              className={`px-3 py-2 border ${darkMode ? 'bg-slate-700 border-slate-600 text-white' : 'border-slate-300'} rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500`}
-            />
-            <input
-              type="time"
-              value={editedTime}
-              onChange={(e) => setEditedTime(e.target.value)}
-              className={`px-3 py-2 border ${darkMode ? 'bg-slate-700 border-slate-600 text-white' : 'border-slate-300'} rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500`}
-            />
-          </div>
-          <RichTextEditor
-            value={editedDescription}
-            onChange={setEditedDescription}
-            placeholder="Description..."
-            darkMode={darkMode}
-            rows={6}
-          />
-          <div className="flex gap-2 mt-3">
-            <button onClick={saveEvent} className="flex items-center gap-1 px-3 py-1 bg-teal-600 text-white rounded text-sm hover:bg-teal-700">
-              <Save size={14} />
-              Save
-            </button>
-            <button
-              onClick={() => setIsEditing(false)}
-              className={`px-3 py-1 text-sm rounded ${darkMode ? 'text-slate-300 hover:bg-slate-700' : 'text-slate-600 hover:bg-slate-100'}`}
-            >
-              Cancel
-            </button>
-          </div>
-        </div>
-      ) : (
-        <div>
-          <div className="flex items-start justify-between mb-3">
-            <div className="flex-1">
-              <h3
-                onClick={() => setIsEditing(true)}
-                className={`text-xl font-semibold ${darkMode ? 'text-white' : 'text-slate-800'} cursor-pointer hover:text-teal-600 transition-colors mb-2`}
-              >
-                {event.title}
-              </h3>
-              <div className={`flex items-center gap-2 text-sm ${darkMode ? 'text-slate-400' : 'text-slate-600'}`}>
-                <Calendar size={16} />
-                <span>{formattedDate}</span>
-                {event.time && (
-                  <>
-                    <Clock size={16} />
-                    <span>{event.time}</span>
-                  </>
-                )}
-              </div>
-            </div>
-            <button
-              onClick={() => deleteEvent(event.id)}
-              className={`${darkMode ? 'text-slate-500 hover:text-red-400' : 'text-slate-400 hover:text-red-600'} transition-all hover:scale-110`}
-            >
-              <Trash2 size={18} />
-            </button>
-          </div>
-
-          {event.description && (
-            <div
-              onClick={() => setIsEditing(true)}
-              className={`${darkMode ? 'text-slate-300' : 'text-slate-600'} text-sm mb-3 cursor-pointer rich-text-editor`}
-              dangerouslySetInnerHTML={{ __html: event.description }}
-            />
-          )}
-
-          {isEditingTags ? (
-            <div className="mb-3 mt-4">
-              <div className="flex flex-wrap gap-1 mb-2">
-                {editingTags.map(tag => (
-                  <span key={tag} className="inline-flex items-center gap-1 px-2 py-1 bg-teal-100 text-teal-700 rounded text-xs">
-                    <Tag size={10} />
-                    {tag}
-                    <button onClick={() => removeTag(tag)} className="hover:text-teal-900">
-                      <X size={10} />
-                    </button>
-                  </span>
-                ))}
-              </div>
-              <div className="flex gap-2 mb-2">
-                <input
-                  type="text"
-                  value={tagInput}
-                  onChange={(e) => setTagInput(e.target.value)}
-                  onKeyPress={(e) => {
-                    if (e.key === 'Enter') {
-                      e.preventDefault();
-                      addTag(tagInput);
-                    }
-                  }}
-                  placeholder="Add tag..."
-                  list="edit-event-tags"
-                  className={`flex-1 px-2 py-1 text-xs border ${darkMode ? 'bg-slate-700 border-slate-600 text-white' : 'bg-white border-slate-300'} rounded focus:outline-none focus:ring-1 focus:ring-teal-500`}
-                />
-                <datalist id="edit-event-tags">
-                  {allTags.filter(t => !editingTags.includes(t)).map(tag => (
-                    <option key={tag} value={tag} />
-                  ))}
-                </datalist>
-                <button onClick={() => addTag(tagInput)} className="px-2 py-1 bg-teal-600 text-white rounded text-xs hover:bg-teal-700">
-                  <Plus size={12} />
-                </button>
-              </div>
-              <div className="flex gap-2">
-                <button onClick={saveTags} className="px-2 py-1 bg-teal-600 text-white rounded text-xs hover:bg-teal-700">
-                  Save
-                </button>
-                <button
-                  onClick={() => {
-                    setEditingTags(event.tags || []);
-                    setIsEditingTags(false);
-                  }}
-                  className={`px-2 py-1 text-xs rounded ${darkMode ? 'text-slate-300 hover:bg-slate-700' : 'text-slate-600 hover:bg-slate-100'}`}
-                >
-                  Cancel
-                </button>
-              </div>
-            </div>
-          ) : (event.tags && event.tags.length > 0) ? (
-            <div className="flex flex-wrap gap-1 mt-4 group/tags relative">
-              {event.tags.map(tag => (
-                <span key={tag} className="inline-flex items-center gap-1 px-2 py-1 bg-teal-50 text-teal-700 rounded text-xs border border-teal-200">
-                  <Tag size={10} />
-                  {tag}
-                </span>
-              ))}
-              <button
-                onClick={() => {
-                  setEditingTags(event.tags || []);
-                  setIsEditingTags(true);
-                }}
-                className={`ml-1 px-2 py-1 text-xs rounded opacity-0 group-hover/tags:opacity-100 transition-opacity ${darkMode ? 'bg-slate-700 text-teal-400 hover:bg-slate-600' : 'bg-teal-50 text-teal-700 hover:bg-teal-100'}`}
-              >
-                <Edit2 size={10} />
-              </button>
-            </div>
-          ) : (
-            <button
-              onClick={() => {
-                setEditingTags([]);
-                setIsEditingTags(true);
-              }}
-              className={`text-xs ${darkMode ? 'text-slate-500 hover:text-teal-400' : 'text-slate-400 hover:text-teal-600'} mt-4`}
-            >
-              + Add tags
-            </button>
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
-
-// TAGS VIEW - Shows all items with a specific tag
-function TagsView({
-  projects,
-  links,
-  notes,
-  events,
-  navigateToLinkedItem,
-  darkMode,
-  allTags
-}) {
-  const [selectedTag, setSelectedTag] = useState(allTags[0] || '');
-  const [viewMode, setViewMode] = useState('grid');
+  const tagCounts = getTagCounts();
+  const sortedTags = Object.keys(tagCounts).sort((a, b) => tagCounts[b] - tagCounts[a]);
 
   const getItemsWithTag = (tag) => {
     const items = [];
-
-    projects.forEach(p => {
-      if (p.tags && p.tags.includes(tag)) {
-        items.push({ ...p, type: 'project', icon: List });
-      }
-    });
-
-    links.forEach(l => {
-      if (l.tags && l.tags.includes(tag)) {
-        items.push({ ...l, type: 'link', icon: Link2 });
-      }
-    });
-
-    notes.forEach(n => {
-      if (n.tags && n.tags.includes(tag)) {
-        items.push({ ...n, type: 'note', icon: StickyNote });
-      }
-    });
-
-    events.forEach(e => {
-      if (e.tags && e.tags.includes(tag)) {
-        items.push({ ...e, type: 'event', icon: Calendar });
-      }
-    });
-
+    projects.filter(p => p.tags?.includes(tag)).forEach(p => items.push({ type: 'project', item: p }));
+    links.filter(l => l.tags?.includes(tag)).forEach(l => items.push({ type: 'link', item: l }));
+    notes.filter(n => n.tags?.includes(tag)).forEach(n => items.push({ type: 'note', item: n }));
+    inspirations.filter(i => i.tags?.includes(tag)).forEach(i => items.push({ type: 'inspo', item: i }));
     return items;
   };
 
-  const itemsWithTag = selectedTag ? getItemsWithTag(selectedTag) : [];
-
   return (
-    <div className="max-w-7xl animate-fadeIn">
-      <div className="flex items-center justify-between mb-8">
+    <div>
+      <div className="content-header">
         <div>
-          <h2 className={`text-4xl font-bold ${darkMode ? 'text-white' : 'text-slate-800'} accent-font`}>Tags</h2>
-          <p className={`${darkMode ? 'text-slate-400' : 'text-slate-500'} mt-1`}>{allTags.length} tags</p>
+          <h1 className="content-title">Tags</h1>
+          <p className="content-subtitle">{sortedTags.length} Tags</p>
         </div>
       </div>
 
-      {allTags.length === 0 ? (
-        <div className={`text-center py-16 ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>
-          <Tag size={48} className="mx-auto mb-4 opacity-30" />
-          <p>No tags yet. Add tags to your items to see them here!</p>
+      {sortedTags.length === 0 ? (
+        <div className="empty-state">
+          <Tag size={48} className="empty-state-icon" />
+          <h3 className="empty-state-title">No tags yet</h3>
+          <p className="empty-state-text">Add tags to your projects, links, and notes to organize them</p>
         </div>
       ) : (
         <>
-          <div className="mb-6">
-            <div className="flex flex-wrap gap-2">
-              {allTags.map(tag => (
-                <button
-                  key={tag}
-                  onClick={() => setSelectedTag(tag)}
-                  className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-all ${
-                    selectedTag === tag
-                      ? 'bg-teal-600 text-white shadow-lg scale-105'
-                      : darkMode
-                        ? 'bg-slate-700 text-slate-300 hover:bg-slate-600'
-                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                  }`}
-                >
-                  <Tag size={16} />
-                  <span className="font-medium">{tag}</span>
-                  <span
-                    className={`px-2 py-0.5 rounded-full text-xs ${
-                      selectedTag === tag ? 'bg-white/20' : darkMode ? 'bg-slate-600' : 'bg-slate-200'
-                    }`}
-                  >
-                    {getItemsWithTag(tag).length}
-                  </span>
-                </button>
-              ))}
-            </div>
+          <div className="tags-grid" style={{ marginBottom: '32px' }}>
+            {sortedTags.map(tag => (
+              <div 
+                key={tag}
+                className={`tag-card ${activeTagFilter === tag ? 'active' : ''}`}
+                onClick={() => setActiveTagFilter(activeTagFilter === tag ? null : tag)}
+              >
+                <h3 className="tag-name">
+                  <Tag size={16} style={{ marginRight: '8px' }} />
+                  {tag}
+                </h3>
+                <p className="tag-count">{tagCounts[tag]} items</p>
+              </div>
+            ))}
           </div>
 
-          {selectedTag && (
+          {activeTagFilter && (
             <div>
-              <h3 className={`text-2xl font-semibold ${darkMode ? 'text-white' : 'text-slate-800'} mb-6`}>
-                Items tagged with "{selectedTag}"
-              </h3>
-
-              {itemsWithTag.length === 0 ? (
-                <div className={`text-center py-16 ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>
-                  <p>No items with this tag</p>
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {itemsWithTag.map((item, index) => (
-                    <button
-                      key={`${item.type}-${item.id}`}
-                      onClick={() => navigateToLinkedItem({ id: item.id, type: item.type })}
-                      className={`text-left p-4 ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'} rounded-lg border hover:shadow-lg transition-all animate-slideUp hover:scale-105`}
-                      style={{ animationDelay: `${index * 0.03}s` }}
-                    >
-                      <div className="flex items-start gap-3 mb-2">
-                        <item.icon size={20} className="text-teal-600 flex-shrink-0 mt-1" />
-                        <div className="flex-1">
-                          <div className={`font-semibold ${darkMode ? 'text-white' : 'text-slate-800'} mb-1`}>
-                            {item.title || item.url}
-                          </div>
-                          <div className={`text-xs uppercase font-medium ${darkMode ? 'text-slate-500' : 'text-slate-400'}`}>
-                            {item.type}
-                          </div>
-                        </div>
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              )}
+              <h2 style={{ fontSize: '20px', fontWeight: 600, marginBottom: '16px' }}>
+                Items tagged "{activeTagFilter}"
+              </h2>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                {getItemsWithTag(activeTagFilter).map(({ type, item }) => (
+                  <div 
+                    key={item.id}
+                    style={{
+                      padding: '16px',
+                      background: 'var(--bg-card)',
+                      border: '1px solid var(--border)',
+                      borderRadius: '6px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '12px'
+                    }}
+                  >
+                    {type === 'project' && <List size={16} />}
+                    {type === 'link' && <Link2 size={16} />}
+                    {type === 'note' && <FileText size={16} />}
+                    {type === 'inspo' && <Image size={16} />}
+                    <span style={{ textTransform: 'capitalize', color: 'var(--text-secondary)', fontSize: '12px' }}>
+                      {type}
+                    </span>
+                    <span style={{ fontWeight: 500 }}>{item.title || item.name}</span>
+                  </div>
+                ))}
+              </div>
             </div>
           )}
         </>
+      )}
+    </div>
+  );
+}
+
+// ============================================================================
+// DESIGN INSPO VIEW
+// ============================================================================
+
+function InspoView({ inspirations, addInspiration, deleteInspiration, onTagClick, darkMode }) {
+  const [tagFilter, setTagFilter] = useState('all');
+  const [uploading, setUploading] = useState(false);
+  const [uploadModal, setUploadModal] = useState(false);
+  const [lightbox, setLightbox] = useState(null);
+  const [dragOver, setDragOver] = useState(false);
+  
+  // Upload form state
+  const [uploadFile, setUploadFile] = useState(null);
+  const [uploadName, setUploadName] = useState('');
+  const [uploadTags, setUploadTags] = useState('');
+  const [uploadPreview, setUploadPreview] = useState(null);
+
+  const allTags = [...new Set(inspirations.flatMap(i => i.tags || []))];
+  
+  const filteredInspirations = tagFilter === 'all' 
+    ? inspirations 
+    : inspirations.filter(i => i.tags?.includes(tagFilter));
+
+  const handleFileSelect = (e) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setUploadFile(file);
+      setUploadName(file.name.split('.')[0]);
+      const reader = new FileReader();
+      reader.onload = (e) => setUploadPreview(e.target.result);
+      reader.readAsDataURL(file);
+      setUploadModal(true);
+    }
+  };
+
+  const handleDrop = (e) => {
+    e.preventDefault();
+    setDragOver(false);
+    const file = e.dataTransfer.files?.[0];
+    if (file && file.type.startsWith('image/')) {
+      setUploadFile(file);
+      setUploadName(file.name.split('.')[0]);
+      const reader = new FileReader();
+      reader.onload = (e) => setUploadPreview(e.target.result);
+      reader.readAsDataURL(file);
+      setUploadModal(true);
+    }
+  };
+
+  const handleUpload = async () => {
+    if (!uploadFile) return;
+    setUploading(true);
+    
+    const tags = uploadTags.split(',').map(t => t.trim()).filter(Boolean);
+    await addInspiration(uploadFile, uploadName, tags);
+    
+    setUploading(false);
+    setUploadModal(false);
+    setUploadFile(null);
+    setUploadName('');
+    setUploadTags('');
+    setUploadPreview(null);
+  };
+
+  const downloadImage = (url, name) => {
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = name || 'inspiration';
+    a.click();
+  };
+
+  return (
+    <div>
+      <div className="content-header">
+        <div>
+          <h1 className="content-title">Design Inspiration</h1>
+          <p className="content-subtitle">{inspirations.length} Images</p>
+        </div>
+        <div className="content-actions">
+          <label className="btn-primary" style={{ cursor: 'pointer' }}>
+            <Plus size={16} />
+            Upload Image
+            <input 
+              type="file" 
+              accept="image/*"
+              onChange={handleFileSelect}
+              style={{ display: 'none' }}
+            />
+          </label>
+        </div>
+      </div>
+
+      <div className="filters">
+        <div className="filter-pills">
+          <button
+            className={`filter-pill ${tagFilter === 'all' ? 'active' : ''}`}
+            onClick={() => setTagFilter('all')}
+          >
+            All
+          </button>
+          {allTags.map(tag => (
+            <button
+              key={tag}
+              className={`filter-pill ${tagFilter === tag ? 'active' : ''}`}
+              onClick={() => setTagFilter(tag)}
+            >
+              <Tag size={12} />
+              {tag}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Upload Area */}
+      <div 
+        className={`upload-area ${dragOver ? 'dragging' : ''}`}
+        onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+        onDragLeave={() => setDragOver(false)}
+        onDrop={handleDrop}
+        onClick={() => document.querySelector('input[type="file"]').click()}
+      >
+        <Upload size={48} className="upload-icon" />
+        <p className="upload-text">
+          <strong>Click to upload</strong> or drag and drop
+        </p>
+        <p className="upload-text" style={{ fontSize: '12px', marginTop: '8px' }}>
+          PNG, JPG up to 10MB
+        </p>
+      </div>
+
+      {filteredInspirations.length === 0 ? (
+        <div className="empty-state">
+          <Image size={48} className="empty-state-icon" />
+          <h3 className="empty-state-title">No inspiration yet</h3>
+          <p className="empty-state-text">Upload images to build your inspiration library</p>
+        </div>
+      ) : (
+        <div className="inspo-grid">
+          {filteredInspirations.map(inspo => (
+            <div key={inspo.id} className="inspo-card">
+              <img 
+                src={inspo.thumbnail || inspo.url} 
+                alt={inspo.name}
+                className="inspo-image"
+                onClick={() => setLightbox(inspo)}
+              />
+              <div className="inspo-info">
+                <h4 className="inspo-name">{inspo.name}</h4>
+                <div className="inspo-tags">
+                  {inspo.tags?.map(tag => (
+                    <span 
+                      key={tag}
+                      className="tag-pill"
+                      onClick={() => onTagClick(tag)}
+                      style={{ fontSize: '11px', padding: '2px 6px' }}
+                    >
+                      {tag}
+                    </span>
+                  ))}
+                </div>
+              </div>
+              <div className="inspo-actions">
+                <button 
+                  className="icon-btn"
+                  onClick={() => downloadImage(inspo.originalUrl || inspo.url, inspo.name)}
+                >
+                  <Download size={14} />
+                </button>
+                <button 
+                  className="icon-btn danger"
+                  onClick={() => deleteInspiration(inspo.id)}
+                >
+                  <Trash2 size={14} />
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Upload Modal */}
+      {uploadModal && (
+        <div className="modal-overlay" onClick={() => setUploadModal(false)}>
+          <div className="modal" onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3 className="modal-title">Upload Inspiration</h3>
+              <button className="icon-btn" onClick={() => setUploadModal(false)}>
+                <X size={20} />
+              </button>
+            </div>
+            <div className="modal-body">
+              {uploadPreview && (
+                <img 
+                  src={uploadPreview} 
+                  alt="Preview" 
+                  style={{ 
+                    width: '100%', 
+                    maxHeight: '200px', 
+                    objectFit: 'contain',
+                    marginBottom: '16px',
+                    borderRadius: '6px'
+                  }}
+                />
+              )}
+              <div className="form-group">
+                <label className="form-label">Name</label>
+                <input
+                  type="text"
+                  value={uploadName}
+                  onChange={(e) => setUploadName(e.target.value)}
+                  className="form-input"
+                  placeholder="Give it a name..."
+                />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Tags (comma separated)</label>
+                <input
+                  type="text"
+                  value={uploadTags}
+                  onChange={(e) => setUploadTags(e.target.value)}
+                  className="form-input"
+                  placeholder="ui, dashboard, minimal..."
+                />
+              </div>
+            </div>
+            <div className="modal-footer">
+              <button className="btn-secondary" onClick={() => setUploadModal(false)}>
+                Cancel
+              </button>
+              <button 
+                className="btn-primary" 
+                onClick={handleUpload}
+                disabled={uploading}
+              >
+                {uploading ? 'Uploading...' : 'Upload'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Lightbox */}
+      {lightbox && (
+        <div className="lightbox" onClick={() => setLightbox(null)}>
+          <button className="lightbox-close">
+            <X size={24} />
+          </button>
+          <img 
+            src={lightbox.originalUrl || lightbox.url} 
+            alt={lightbox.name}
+            className="lightbox-image"
+            onClick={e => e.stopPropagation()}
+          />
+          <div className="lightbox-actions" onClick={e => e.stopPropagation()}>
+            <button 
+              className="lightbox-btn"
+              onClick={() => downloadImage(lightbox.originalUrl || lightbox.url, lightbox.name)}
+            >
+              <Download size={16} />
+              Download Original
+            </button>
+          </div>
+        </div>
       )}
     </div>
   );
