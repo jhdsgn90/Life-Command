@@ -1,12 +1,12 @@
 import { useState, useEffect, useRef } from 'react';
 import { 
   List, Link2, FileText, Tag, Image, Plus, Trash2, Save, X, 
-  ChevronDown, ChevronUp, Moon, Sun, Download, Upload, 
-  GripVertical, Check, Copy, PanelLeftClose, PanelLeft, Filter
+  ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Moon, Sun, 
+  Download, Upload, GripVertical, Check, Copy, Filter, User
 } from 'lucide-react';
 
 // ============================================================================
-// LIFE COMMAND v7.0.1 - Properly Refined
+// LIFE COMMAND v7.0.2
 // ============================================================================
 
 const CLOUDINARY_CLOUD_NAME = 'dccblqxuy';
@@ -56,6 +56,7 @@ export default function App() {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
+  // CRUD Operations
   const addProject = () => {
     setProjects([{ id: `project_${Date.now()}`, title: 'New Project', subItems: [], tags: [], completed: false, createdAt: new Date().toISOString() }, ...projects]);
   };
@@ -94,7 +95,16 @@ export default function App() {
   };
   const deleteInspiration = (id) => setInspirations(inspirations.filter(i => i.id !== id));
 
+  // Navigation
   const handleTagClick = (tagName) => { setActiveView('tags'); setActiveTagFilter(tagName); };
+  
+  const navigateToItem = (type, id) => {
+    if (type === 'Project') setActiveView('projects');
+    else if (type === 'Link') setActiveView('links');
+    else if (type === 'Note') setActiveView('notes');
+    else if (type === 'Inspo') setActiveView('inspo');
+    setActiveTagFilter(null);
+  };
 
   const getAllTags = () => {
     const allTags = new Set();
@@ -106,7 +116,7 @@ export default function App() {
   };
 
   const exportData = () => {
-    const data = { version: '7.0.1', exportedAt: new Date().toISOString(), projects, links, notes, inspirations };
+    const data = { version: '7.0.2', exportedAt: new Date().toISOString(), projects, links, notes, inspirations };
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a'); a.href = url;
@@ -134,11 +144,11 @@ export default function App() {
   const formatDate = (date) => date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
 
   const viewConfig = {
-    projects: { title: 'Projects', subtitle: `${projects.filter(p => !p.completed).length} Active • ${projects.filter(p => p.completed).length} Completed`, action: 'New Project', onAction: addProject },
-    links: { title: 'Links', subtitle: `${links.length} Saved Links`, action: 'New Link', onAction: addLink },
-    notes: { title: 'Notes', subtitle: `${notes.length} Notes`, action: 'New Note', onAction: addNote },
-    tags: { title: 'Tags', subtitle: `${getAllTags().length} Tags`, action: null, onAction: null },
-    inspo: { title: 'Design Inspo', subtitle: `${inspirations.length} Images`, action: 'Upload Image', onAction: null }
+    projects: { title: 'Projects', subtitle: `${projects.filter(p => !p.completed).length} Active, ${projects.filter(p => p.completed).length} Completed` },
+    links: { title: 'Links', subtitle: `${links.length} Saved Links` },
+    notes: { title: 'Notes', subtitle: `${notes.length} Notes` },
+    tags: { title: 'Tags', subtitle: `${getAllTags().length} Tags` },
+    inspo: { title: 'Design Inspo', subtitle: `${inspirations.length} Images` }
   };
 
   const current = viewConfig[activeView];
@@ -148,120 +158,126 @@ export default function App() {
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600;700&display=swap');
         *{margin:0;padding:0;box-sizing:border-box}
-        :root{--font:'Inter Tight',-apple-system,BlinkMacSystemFont,sans-serif;--radius:6px;--transition:0.12s ease}
+        :root{--font:'Inter Tight',-apple-system,BlinkMacSystemFont,sans-serif;--radius:6px;--transition:0.15s ease}
         
         .lc.dark{
-          --bg-app:#1C1C1C;--bg-sidebar:#232323;--bg-header:#232323;--bg-card:#2A2A2A;--bg-card-hover:#323232;
-          --bg-input:#333;--text-1:#FFF;--text-2:#A0A0A0;--text-3:#666;--border:#363636;
+          --bg-app:#1C1C1C;--bg-sidebar:#232323;--bg-header:#232323;--bg-card:#2A2A2A;--bg-card-hover:#333;
+          --bg-input:#333;--text-1:#FFF;--text-2:#A0A0A0;--text-3:#666;--border:#383838;
           --accent:#1A9A8A;--accent-hover:#168A7A;--accent-soft:rgba(26,154,138,0.12);
         }
         .lc.light{
-          --bg-app:#F2F2ED;--bg-sidebar:#E8E8E3;--bg-header:#E8E8E3;--bg-card:#DDDDD8;--bg-card-hover:#D2D2CD;
-          --bg-input:#FFF;--text-1:#1A1A1A;--text-2:#666;--text-3:#999;--border:#CCCCC7;
+          --bg-app:#F2F2ED;--bg-sidebar:#E8E8E3;--bg-header:#E8E8E3;--bg-card:#DDDDD8;--bg-card-hover:#D0D0CB;
+          --bg-input:#FFF;--text-1:#1A1A1A;--text-2:#666;--text-3:#999;--border:#C8C8C3;
           --accent:#1A9A8A;--accent-hover:#168A7A;--accent-soft:rgba(26,154,138,0.08);
         }
         
-        .lc{font-family:var(--font);background:var(--bg-app);color:var(--text-1);min-height:100vh;display:flex;font-size:13px;line-height:1.4}
+        .lc{font-family:var(--font);background:var(--bg-app);color:var(--text-1);min-height:100vh;display:flex;font-size:13px;line-height:1.5}
         
         /* SIDEBAR */
-        .sb{width:200px;background:var(--bg-sidebar);border-right:1px solid var(--border);display:flex;flex-direction:column;flex-shrink:0;height:100vh;position:sticky;top:0;transition:width 0.2s ease}
-        .sb.collapsed{width:56px}
-        .sb-head{height:44px;padding:0 12px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border)}
+        .sb{width:220px;background:var(--bg-sidebar);border-right:1px solid var(--border);display:flex;flex-direction:column;flex-shrink:0;height:100vh;position:sticky;top:0;transition:width 0.2s ease}
+        .sb.collapsed{width:60px}
+        .sb-head{height:52px;padding:0 16px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border)}
         .sb.collapsed .sb-head{justify-content:center;padding:0}
-        .logo{font-size:13px;font-weight:700;white-space:nowrap}
+        .logo{font-size:15px;font-weight:700;white-space:nowrap}
         .logo span{font-weight:400;color:var(--text-2)}
         .sb.collapsed .logo{display:none}
-        .collapse-btn{width:28px;height:28px;display:flex;align-items:center;justify-content:center;background:none;border:none;color:var(--text-2);cursor:pointer;border-radius:var(--radius)}
+        .collapse-btn{width:24px;height:24px;display:flex;align-items:center;justify-content:center;background:none;border:none;color:var(--text-3);cursor:pointer;border-radius:var(--radius);transition:var(--transition)}
         .collapse-btn:hover{background:var(--bg-card);color:var(--text-1)}
         
-        .sb-nav{flex:1;padding:6px;overflow-y:auto}
-        .nav-item{display:flex;align-items:center;gap:8px;padding:7px 10px;margin-bottom:1px;border-radius:var(--radius);cursor:pointer;color:var(--text-2);font-size:13px;font-weight:500;transition:var(--transition)}
-        .sb.collapsed .nav-item{justify-content:center;padding:8px}
+        .sb-nav{flex:1;padding:8px;overflow-y:auto}
+        .nav-item{display:flex;align-items:center;gap:12px;padding:10px 12px;margin-bottom:2px;border-radius:var(--radius);cursor:pointer;color:var(--text-2);font-size:13px;font-weight:500;transition:var(--transition)}
+        .sb.collapsed .nav-item{justify-content:center;padding:12px}
         .sb.collapsed .nav-label,.sb.collapsed .nav-count{display:none}
         .nav-item:hover{background:var(--bg-card);color:var(--text-1)}
         .nav-item.active{background:var(--accent);color:#fff}
-        .nav-icon{width:16px;height:16px;flex-shrink:0}
-        .nav-count{margin-left:auto;font-size:10px;font-weight:600;min-width:18px;height:18px;display:flex;align-items:center;justify-content:center;background:var(--bg-app);border-radius:9px;color:var(--text-2)}
+        .nav-icon{width:18px;height:18px;flex-shrink:0}
+        .nav-count{margin-left:auto;font-size:11px;font-weight:600;min-width:22px;height:22px;display:flex;align-items:center;justify-content:center;background:var(--bg-app);border-radius:11px;color:var(--text-2)}
         .nav-item.active .nav-count{background:rgba(255,255,255,0.2);color:#fff}
         
-        .sb-foot{padding:10px 12px;border-top:1px solid var(--border)}
-        .sb.collapsed .sb-foot{padding:8px 4px;text-align:center}
-        .time{font-size:16px;font-weight:700;line-height:1}
-        .sb.collapsed .time{font-size:9px}
-        .date{font-size:10px;color:var(--text-2);margin-top:2px}
+        .sb-foot{padding:16px;border-top:1px solid var(--border)}
+        .sb.collapsed .sb-foot{padding:12px 8px;text-align:center}
+        .time{font-size:20px;font-weight:700;line-height:1}
+        .sb.collapsed .time{font-size:11px}
+        .date{font-size:11px;color:var(--text-2);margin-top:4px}
         .sb.collapsed .date{display:none}
         
         /* MAIN */
         .main{flex:1;display:flex;flex-direction:column;min-width:0}
         
-        /* HEADER */
-        .hd{height:44px;padding:0 16px;display:flex;align-items:center;gap:12px;background:var(--bg-header);border-bottom:1px solid var(--border)}
-        .hd-title{font-size:14px;font-weight:700}
-        .hd-sub{font-size:11px;color:var(--text-2)}
+        /* HEADER - Only: Title, Subtitle, Theme, Export, Import, Greeting */
+        .hd{height:52px;padding:0 24px;display:flex;align-items:center;gap:16px;background:var(--bg-header);border-bottom:1px solid var(--border)}
+        .hd-title{font-size:18px;font-weight:700}
+        .hd-sub{font-size:12px;color:var(--text-2)}
         .hd-spacer{flex:1}
-        .hd-actions{display:flex;align-items:center;gap:2px}
+        .hd-actions{display:flex;align-items:center;gap:4px}
         
-        .theme-toggle{display:flex;background:var(--bg-card);border-radius:14px;padding:2px}
-        .theme-btn{width:24px;height:24px;display:flex;align-items:center;justify-content:center;background:none;border:none;color:var(--text-3);cursor:pointer;border-radius:12px;transition:var(--transition)}
+        .theme-toggle{display:flex;background:var(--bg-card);border-radius:16px;padding:3px}
+        .theme-btn{width:26px;height:26px;display:flex;align-items:center;justify-content:center;background:none;border:none;color:var(--text-3);cursor:pointer;border-radius:13px;transition:var(--transition)}
         .theme-btn.active{background:var(--accent);color:#fff}
         
-        .hd-btn{display:flex;align-items:center;gap:4px;padding:5px 10px;background:none;border:none;color:var(--text-2);font-size:11px;font-weight:500;cursor:pointer;font-family:var(--font);transition:var(--transition)}
+        .hd-btn{display:flex;align-items:center;gap:6px;padding:8px 12px;background:none;border:none;color:var(--text-2);font-size:12px;font-weight:500;cursor:pointer;font-family:var(--font);transition:var(--transition)}
         .hd-btn:hover{color:var(--text-1)}
         
-        .greeting{font-size:11px;color:var(--text-2);padding-left:10px;border-left:1px solid var(--border)}
+        .greeting{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--text-2);padding-left:12px;border-left:1px solid var(--border)}
         .greeting strong{color:var(--text-1)}
-        
-        .view-toggle{display:flex;background:var(--bg-card);border-radius:var(--radius);padding:2px;margin-right:8px}
-        .view-btn{width:26px;height:26px;display:flex;align-items:center;justify-content:center;background:none;border:none;color:var(--text-3);cursor:pointer;border-radius:4px;transition:var(--transition)}
-        .view-btn.active{background:var(--bg-app);color:var(--text-1)}
-        
-        .btn-primary{display:flex;align-items:center;gap:5px;padding:6px 12px;background:var(--accent);color:#fff;border:none;border-radius:var(--radius);font-size:12px;font-weight:600;cursor:pointer;font-family:var(--font);transition:var(--transition);white-space:nowrap}
-        .btn-primary:hover{background:var(--accent-hover)}
+        .user-icon{width:28px;height:28px;background:var(--bg-card);border-radius:14px;display:flex;align-items:center;justify-content:center;color:var(--text-2)}
         
         /* CONTENT */
-        .content{flex:1;padding:16px;overflow-y:auto}
+        .content{flex:1;padding:24px;overflow-y:auto}
         
-        /* TOOLBAR */
-        .toolbar{display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap}
-        .filter-group{display:flex;align-items:center;gap:6px}
-        .filter-label{display:flex;align-items:center;gap:4px;font-size:11px;color:var(--text-2)}
-        .filter-pills{display:flex;gap:4px;flex-wrap:wrap}
-        .filter-pill{padding:4px 8px;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);color:var(--text-2);font-size:11px;font-weight:500;cursor:pointer;font-family:var(--font);transition:var(--transition);display:flex;align-items:center;gap:3px}
+        /* CONTENT TOOLBAR - View toggle and action buttons go here */
+        .content-toolbar{display:flex;align-items:center;gap:12px;margin-bottom:20px;flex-wrap:wrap}
+        .toolbar-left{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+        .toolbar-right{display:flex;align-items:center;gap:8px;margin-left:auto}
+        
+        .filter-label{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text-2)}
+        .filter-pills{display:flex;gap:6px;flex-wrap:wrap}
+        .filter-pill{padding:6px 12px;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);color:var(--text-2);font-size:12px;font-weight:500;cursor:pointer;font-family:var(--font);transition:var(--transition);display:flex;align-items:center;gap:4px}
         .filter-pill:hover{border-color:var(--accent);color:var(--text-1)}
         .filter-pill.active{background:var(--accent);border-color:var(--accent);color:#fff}
         
-        /* CARDS */
-        .projects-list{display:flex;flex-direction:column;gap:8px}
-        .project-card{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:12px;transition:var(--transition)}
-        .project-card:hover{border-color:var(--accent)}
-        .project-header{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:6px}
-        .project-title{font-size:14px;font-weight:600;cursor:pointer}
-        .project-title:hover{color:var(--accent)}
-        .project-actions{display:flex;gap:2px}
+        .view-toggle{display:flex;background:var(--bg-card);border-radius:var(--radius);padding:3px}
+        .view-btn{width:32px;height:32px;display:flex;align-items:center;justify-content:center;background:none;border:none;color:var(--text-3);cursor:pointer;border-radius:4px;transition:var(--transition)}
+        .view-btn.active{background:var(--bg-app);color:var(--text-1)}
         
-        .icon-btn{width:26px;height:26px;display:flex;align-items:center;justify-content:center;background:none;border:none;color:var(--text-3);cursor:pointer;border-radius:var(--radius);transition:var(--transition)}
+        .btn-primary{display:flex;align-items:center;gap:6px;padding:8px 16px;background:var(--accent);color:#fff;border:none;border-radius:var(--radius);font-size:13px;font-weight:600;cursor:pointer;font-family:var(--font);transition:var(--transition);white-space:nowrap}
+        .btn-primary:hover{background:var(--accent-hover)}
+        
+        .btn-secondary{display:flex;align-items:center;gap:6px;padding:8px 14px;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);font-size:12px;font-weight:500;color:var(--text-1);cursor:pointer;font-family:var(--font);transition:var(--transition)}
+        .btn-secondary:hover{background:var(--bg-card-hover)}
+        
+        /* CARDS */
+        .projects-list{display:flex;flex-direction:column;gap:12px}
+        .project-card{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:16px;transition:var(--transition)}
+        .project-card:hover{border-color:var(--accent)}
+        .project-header{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:10px}
+        .project-title{font-size:16px;font-weight:600;cursor:pointer}
+        .project-title:hover{color:var(--accent)}
+        .project-actions{display:flex;gap:4px}
+        
+        .icon-btn{width:28px;height:28px;display:flex;align-items:center;justify-content:center;background:none;border:none;color:var(--text-3);cursor:pointer;border-radius:var(--radius);transition:var(--transition)}
         .icon-btn:hover{background:var(--bg-app);color:var(--text-1)}
         .icon-btn.danger:hover{background:#3D2020;color:#F87171}
         
-        .project-progress{margin-bottom:8px}
-        .progress-text{font-size:10px;color:var(--text-2);margin-bottom:3px}
-        .progress-bar{width:100%;height:3px;background:var(--bg-app);border-radius:2px;overflow:hidden}
+        .project-progress{margin-bottom:12px}
+        .progress-text{font-size:11px;color:var(--text-2);margin-bottom:4px}
+        .progress-bar{width:100%;height:4px;background:var(--bg-app);border-radius:2px;overflow:hidden}
         .progress-fill{height:100%;background:var(--accent);border-radius:2px;transition:width 0.3s ease}
         
-        .project-tags{display:flex;gap:4px;flex-wrap:wrap;margin-bottom:8px}
-        .tag-pill{display:inline-flex;align-items:center;gap:3px;padding:2px 6px;background:var(--bg-app);border:1px solid var(--border);border-radius:4px;font-size:10px;color:var(--text-2);cursor:pointer;transition:var(--transition)}
+        .project-tags{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}
+        .tag-pill{display:inline-flex;align-items:center;gap:4px;padding:4px 8px;background:var(--bg-app);border:1px solid var(--border);border-radius:4px;font-size:11px;color:var(--text-2);cursor:pointer;transition:var(--transition)}
         .tag-pill:hover{border-color:var(--accent);color:var(--accent)}
         
-        .sub-toggle{display:flex;align-items:center;gap:4px;padding:3px 0;color:var(--text-2);font-size:11px;font-weight:500;cursor:pointer}
+        .sub-toggle{display:flex;align-items:center;gap:6px;padding:6px 0;color:var(--text-2);font-size:12px;font-weight:500;cursor:pointer}
         .sub-toggle:hover{color:var(--text-1)}
-        .sub-list{margin-top:6px;display:flex;flex-direction:column;gap:4px}
-        .sub-item{display:flex;align-items:center;gap:8px;padding:6px 8px;background:var(--bg-app);border-radius:var(--radius)}
-        .sub-checkbox{width:14px;height:14px;border:1.5px solid var(--border);border-radius:3px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:var(--transition)}
+        .sub-list{margin-top:8px;display:flex;flex-direction:column;gap:6px}
+        .sub-item{display:flex;align-items:center;gap:12px;padding:10px 12px;background:var(--bg-app);border-radius:var(--radius)}
+        .sub-checkbox{width:16px;height:16px;border:2px solid var(--border);border-radius:4px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:var(--transition)}
         .sub-checkbox.checked{background:var(--accent);border-color:var(--accent);color:#fff}
-        .sub-text{flex:1;font-size:12px}
+        .sub-text{flex:1;font-size:13px}
         .sub-text.done{text-decoration:line-through;color:var(--text-3)}
-        .sub-badges{display:flex;gap:4px}
-        .status-badge,.priority-badge{padding:2px 6px;border-radius:4px;font-size:10px;font-weight:500;border:none;cursor:pointer;font-family:var(--font)}
+        .sub-badges{display:flex;gap:6px}
+        .status-badge,.priority-badge{padding:4px 8px;border-radius:4px;font-size:11px;font-weight:500;border:none;cursor:pointer;font-family:var(--font)}
         .status-badge.new{background:#2AA89A;color:#fff}
         .status-badge.working{background:#1A9A8A;color:#fff}
         .status-badge.paused{background:#666;color:#fff}
@@ -270,26 +286,26 @@ export default function App() {
         .priority-badge.medium{background:#E8C547;color:#78350F}
         .priority-badge.high{background:#E89A9A;color:#7F1D1D}
         .priority-badge.urgent{background:#D66BA0;color:#831843}
-        .sub-actions{display:flex;gap:1px}
+        .sub-actions{display:flex;gap:2px}
         
         /* LINKS GRID */
-        .links-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+        .links-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
         @media(max-width:1100px){.links-grid{grid-template-columns:repeat(2,1fr)}}
         @media(max-width:700px){.links-grid{grid-template-columns:1fr}}
-        .link-card{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:12px;transition:var(--transition);position:relative}
+        .link-card{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:16px;transition:var(--transition);display:flex;flex-direction:column}
         .link-card:hover{border-color:var(--accent)}
-        .link-header{display:flex;justify-content:space-between;margin-bottom:4px}
-        .link-title{font-size:13px;font-weight:600;cursor:pointer}
+        .link-header{display:flex;justify-content:space-between;margin-bottom:6px}
+        .link-title{font-size:14px;font-weight:600;cursor:pointer}
         .link-title:hover{color:var(--accent)}
-        .link-url{font-size:11px;color:var(--accent);text-decoration:none;display:block;margin-bottom:8px;word-break:break-all}
+        .link-url{font-size:12px;color:var(--accent);text-decoration:none;display:block;margin-bottom:12px;word-break:break-all}
         .link-url:hover{text-decoration:underline}
-        .link-footer{display:flex;justify-content:space-between;align-items:flex-end}
-        .link-tags{display:flex;gap:3px;flex-wrap:wrap}
+        .link-footer{display:flex;justify-content:space-between;align-items:flex-end;margin-top:auto}
+        .link-tags{display:flex;gap:4px;flex-wrap:wrap}
         
         /* NOTES GRID */
-        .notes-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px}
-        .note-card{padding:12px;border-radius:var(--radius);position:relative;min-height:100px;display:flex;flex-direction:column;transition:var(--transition)}
-        .note-card:hover{transform:translateY(-1px);box-shadow:0 4px 12px rgba(0,0,0,0.15)}
+        .notes-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:16px}
+        .note-card{padding:16px;border-radius:var(--radius);position:relative;min-height:140px;display:flex;flex-direction:column;transition:var(--transition)}
+        .note-card:hover{transform:translateY(-2px);box-shadow:0 6px 16px rgba(0,0,0,0.15)}
         .note-card.yellow{background:#FEF08A}
         .note-card.pink{background:#FBCFE8}
         .note-card.orange{background:#FDBA74}
@@ -298,88 +314,82 @@ export default function App() {
         .note-card.purple{background:#C4B5FD}
         .note-card.coral{background:#FCA5A5}
         .note-card.peach{background:#FECACA}
-        .note-header{display:flex;justify-content:space-between;margin-bottom:4px}
-        .note-title{font-size:13px;font-weight:600;color:#1A1A1A;cursor:pointer}
-        .note-content{font-size:11px;color:#1A1A1A;opacity:0.7;line-height:1.4;flex:1}
-        .note-tags{display:flex;gap:3px;flex-wrap:wrap;margin-top:8px}
-        .note-tag{padding:2px 5px;background:rgba(0,0,0,0.1);border-radius:3px;font-size:9px;font-weight:500;color:#1A1A1A;cursor:pointer;display:flex;align-items:center;gap:2px}
-        .note-actions{position:absolute;top:6px;right:6px;display:flex;gap:1px}
-        .note-actions .icon-btn{color:rgba(0,0,0,0.3);width:22px;height:22px}
-        .note-actions .icon-btn:hover{color:rgba(0,0,0,0.6);background:rgba(0,0,0,0.1)}
+        .note-header{display:flex;justify-content:space-between;margin-bottom:8px}
+        .note-title{font-size:14px;font-weight:600;color:#1A1A1A;cursor:pointer}
+        .note-content{font-size:12px;color:#1A1A1A;opacity:0.75;line-height:1.5;flex:1}
+        .note-tags{display:flex;gap:4px;flex-wrap:wrap;margin-top:12px}
+        .note-tag{padding:3px 6px;background:rgba(0,0,0,0.12);border-radius:4px;font-size:10px;font-weight:500;color:#1A1A1A;cursor:pointer;display:flex;align-items:center;gap:3px}
+        .note-actions{position:absolute;top:10px;right:10px;display:flex;gap:2px}
+        .note-actions .icon-btn{color:rgba(0,0,0,0.35);width:26px;height:26px}
+        .note-actions .icon-btn:hover{color:rgba(0,0,0,0.7);background:rgba(0,0,0,0.1)}
+        
+        /* Note editing - better contrast */
+        .note-edit-input{width:100%;padding:8px 10px;background:rgba(255,255,255,0.9);border:1px solid rgba(0,0,0,0.2);border-radius:var(--radius);font-size:14px;font-weight:600;color:#1A1A1A;font-family:var(--font);margin-bottom:8px}
+        .note-edit-input:focus{outline:none;border-color:rgba(0,0,0,0.4)}
         
         /* INSPO GRID */
-        .inspo-grid{column-count:4;column-gap:10px}
+        .inspo-grid{column-count:4;column-gap:16px}
         @media(max-width:1200px){.inspo-grid{column-count:3}}
         @media(max-width:900px){.inspo-grid{column-count:2}}
         @media(max-width:500px){.inspo-grid{column-count:1}}
-        .inspo-card{break-inside:avoid;margin-bottom:10px;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;transition:var(--transition)}
-        .inspo-card:hover{border-color:var(--accent);transform:translateY(-1px)}
+        .inspo-card{break-inside:avoid;margin-bottom:16px;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;transition:var(--transition)}
+        .inspo-card:hover{border-color:var(--accent);transform:translateY(-2px)}
         .inspo-image{width:100%;display:block;cursor:pointer}
-        .inspo-info{padding:8px}
-        .inspo-name{font-size:12px;font-weight:600;margin-bottom:4px}
-        .inspo-tags{display:flex;gap:3px;flex-wrap:wrap}
-        .inspo-actions{display:flex;gap:3px;padding:6px 8px;border-top:1px solid var(--border)}
+        .inspo-info{padding:12px}
+        .inspo-name{font-size:13px;font-weight:600;margin-bottom:6px}
+        .inspo-tags{display:flex;gap:4px;flex-wrap:wrap}
+        .inspo-actions{display:flex;gap:4px;padding:8px 12px;border-top:1px solid var(--border)}
         
-        .upload-area{border:1px dashed var(--border);border-radius:var(--radius);padding:24px;text-align:center;cursor:pointer;transition:var(--transition);margin-bottom:12px}
+        .upload-area{border:2px dashed var(--border);border-radius:var(--radius);padding:32px;text-align:center;cursor:pointer;transition:var(--transition);margin-bottom:20px}
         .upload-area:hover{border-color:var(--accent);background:var(--accent-soft)}
-        .upload-icon{color:var(--text-3);margin-bottom:6px}
-        .upload-text{color:var(--text-2);font-size:12px}
+        .upload-icon{color:var(--text-3);margin-bottom:8px}
+        .upload-text{color:var(--text-2);font-size:13px}
         .upload-text strong{color:var(--accent)}
         
         /* TAGS VIEW */
-        .tags-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:8px}
-        .tag-card{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:12px;cursor:pointer;transition:var(--transition)}
+        .tags-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px}
+        .tag-card{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:16px;cursor:pointer;transition:var(--transition)}
         .tag-card:hover{border-color:var(--accent)}
         .tag-card.active{border-color:var(--accent);background:var(--accent-soft)}
-        .tag-name{font-size:13px;font-weight:600;margin-bottom:2px;display:flex;align-items:center;gap:4px}
-        .tag-count{font-size:11px;color:var(--text-2)}
-        .tagged-items{margin-top:16px}
-        .tagged-items h3{font-size:13px;font-weight:600;margin-bottom:8px}
-        .tagged-item{display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);margin-bottom:4px}
-        .tagged-item-type{font-size:10px;color:var(--text-2);text-transform:uppercase}
-        .tagged-item-name{font-size:12px;font-weight:500}
+        .tag-name{font-size:14px;font-weight:600;margin-bottom:4px;display:flex;align-items:center;gap:6px}
+        .tag-count{font-size:12px;color:var(--text-2)}
+        .tagged-items{margin-top:24px}
+        .tagged-items h3{font-size:14px;font-weight:600;margin-bottom:12px}
+        .tagged-item{display:flex;align-items:center;gap:12px;padding:12px 16px;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);margin-bottom:8px;cursor:pointer;transition:var(--transition)}
+        .tagged-item:hover{border-color:var(--accent);background:var(--bg-card-hover)}
+        .tagged-item-type{font-size:11px;color:var(--text-2);text-transform:uppercase;font-weight:500}
+        .tagged-item-name{font-size:13px;font-weight:500}
         
         /* EMPTY STATE */
-        .empty{text-align:center;padding:40px 20px}
-        .empty-icon{color:var(--text-3);margin-bottom:8px}
-        .empty-title{font-size:14px;font-weight:600;margin-bottom:4px}
-        .empty-text{font-size:12px;color:var(--text-2)}
+        .empty{text-align:center;padding:60px 24px}
+        .empty-title{font-size:16px;font-weight:600;margin-bottom:6px}
+        .empty-text{font-size:13px;color:var(--text-2)}
         
-        /* MODAL */
-        .modal-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.6);display:flex;align-items:center;justify-content:center;z-index:1000;padding:16px}
-        .modal{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);width:100%;max-width:360px}
-        .modal-header{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-bottom:1px solid var(--border)}
-        .modal-title{font-size:13px;font-weight:600}
-        .modal-body{padding:14px}
-        .modal-footer{display:flex;gap:6px;justify-content:flex-end;padding:10px 14px;border-top:1px solid var(--border)}
-        .form-group{margin-bottom:10px}
-        .form-label{display:block;font-size:11px;font-weight:500;color:var(--text-2);margin-bottom:3px}
-        .form-input{width:100%;padding:7px 9px;background:var(--bg-input);border:1px solid var(--border);border-radius:var(--radius);font-size:12px;color:var(--text-1);font-family:var(--font)}
+        /* FORM */
+        .form-input{width:100%;padding:8px 12px;background:var(--bg-input);border:1px solid var(--border);border-radius:var(--radius);font-size:13px;color:var(--text-1);font-family:var(--font)}
         .form-input:focus{outline:none;border-color:var(--accent)}
-        .btn-secondary{padding:5px 12px;background:var(--bg-app);border:1px solid var(--border);border-radius:var(--radius);font-size:11px;font-weight:500;color:var(--text-1);cursor:pointer;font-family:var(--font)}
-        .btn-secondary:hover{background:var(--bg-card)}
         
         /* LIGHTBOX */
-        .lightbox{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.95);display:flex;align-items:center;justify-content:center;z-index:2000;padding:32px}
+        .lightbox{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.95);display:flex;align-items:center;justify-content:center;z-index:2000;padding:40px}
         .lightbox-image{max-width:90%;max-height:90%;object-fit:contain}
-        .lightbox-close{position:absolute;top:12px;right:12px;width:36px;height:36px;background:rgba(255,255,255,0.1);border:none;border-radius:18px;color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center}
+        .lightbox-close{position:absolute;top:16px;right:16px;width:40px;height:40px;background:rgba(255,255,255,0.1);border:none;border-radius:20px;color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center}
         .lightbox-close:hover{background:rgba(255,255,255,0.2)}
-        .lightbox-actions{position:absolute;bottom:20px;left:50%;transform:translateX(-50%);display:flex;gap:10px}
-        .lightbox-btn{display:flex;align-items:center;gap:5px;padding:7px 14px;background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);border-radius:var(--radius);color:#fff;font-size:12px;cursor:pointer}
+        .lightbox-actions{position:absolute;bottom:24px;left:50%;transform:translateX(-50%);display:flex;gap:12px}
+        .lightbox-btn{display:flex;align-items:center;gap:6px;padding:10px 18px;background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);border-radius:var(--radius);color:#fff;font-size:13px;cursor:pointer}
         .lightbox-btn:hover{background:rgba(255,255,255,0.2)}
         
         /* QUILL */
-        .quill-wrapper{border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;background:rgba(255,255,255,0.5)}
-        .quill-wrapper .ql-toolbar{background:rgba(0,0,0,0.05);border:none;border-bottom:1px solid rgba(0,0,0,0.1);padding:4px}
+        .quill-wrapper{border:1px solid rgba(0,0,0,0.2);border-radius:var(--radius);overflow:hidden;background:rgba(255,255,255,0.9)}
+        .quill-wrapper .ql-toolbar{background:rgba(0,0,0,0.05);border:none;border-bottom:1px solid rgba(0,0,0,0.1);padding:6px}
         .quill-wrapper .ql-container{border:none}
-        .quill-wrapper .ql-editor{min-height:60px;font-family:var(--font);font-size:12px;color:#1A1A1A}
+        .quill-wrapper .ql-editor{min-height:80px;font-family:var(--font);font-size:13px;color:#1A1A1A}
       `}</style>
 
       <aside className={`sb ${sidebarCollapsed ? 'collapsed' : ''}`}>
         <div className="sb-head">
           <div className="logo">Life <span>Command</span></div>
           <button className="collapse-btn" onClick={() => setSidebarCollapsed(!sidebarCollapsed)}>
-            {sidebarCollapsed ? <PanelLeft size={14} /> : <PanelLeftClose size={14} />}
+            {sidebarCollapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
           </button>
         </div>
         <nav className="sb-nav">
@@ -391,7 +401,7 @@ export default function App() {
             { id: 'inspo', icon: Image, label: 'Design Inspo', count: inspirations.length },
           ].map(item => (
             <div key={item.id} className={`nav-item ${activeView === item.id ? 'active' : ''}`} onClick={() => { setActiveView(item.id); setActiveTagFilter(null); }}>
-              <item.icon className="nav-icon" size={16} />
+              <item.icon className="nav-icon" size={18} />
               <span className="nav-label">{item.label}</span>
               <span className="nav-count">{item.count}</span>
             </div>
@@ -410,46 +420,26 @@ export default function App() {
           <div className="hd-spacer" />
           <div className="hd-actions">
             <div className="theme-toggle">
-              <button className={`theme-btn ${!darkMode ? 'active' : ''}`} onClick={() => setDarkMode(false)}><Sun size={12} /></button>
-              <button className={`theme-btn ${darkMode ? 'active' : ''}`} onClick={() => setDarkMode(true)}><Moon size={12} /></button>
+              <button className={`theme-btn ${!darkMode ? 'active' : ''}`} onClick={() => setDarkMode(false)}><Sun size={14} /></button>
+              <button className={`theme-btn ${darkMode ? 'active' : ''}`} onClick={() => setDarkMode(true)}><Moon size={14} /></button>
             </div>
-            <button className="hd-btn" onClick={exportData}><Download size={12} /> Export</button>
+            <button className="hd-btn" onClick={exportData}><Download size={14} /> Export</button>
             <label className="hd-btn" style={{ cursor: 'pointer' }}>
-              <Upload size={12} /> Import
+              <Upload size={14} /> Import
               <input type="file" accept=".json" onChange={importData} style={{ display: 'none' }} />
             </label>
-            <span className="greeting">Let's work, <strong>Jake</strong></span>
-            {activeView !== 'tags' && (
-              <div className="view-toggle">
-                <button className="view-btn active"><List size={12} /></button>
-                <button className="view-btn"><GridIcon /></button>
-              </div>
-            )}
-            {current.action && (
-              activeView === 'inspo' ? (
-                <label className="btn-primary" style={{ cursor: 'pointer' }}>
-                  <Plus size={12} /> {current.action}
-                  <input type="file" accept="image/*" onChange={e => {
-                    const file = e.target.files?.[0];
-                    if (file) {
-                      const name = prompt('Name this inspiration:', file.name.split('.')[0]);
-                      const tags = prompt('Tags (comma separated):', '');
-                      if (name !== null) addInspiration(file, name, tags?.split(',').map(t => t.trim()).filter(Boolean) || []);
-                    }
-                  }} style={{ display: 'none' }} />
-                </label>
-              ) : (
-                <button className="btn-primary" onClick={current.onAction}><Plus size={12} /> {current.action}</button>
-              )
-            )}
+            <div className="greeting">
+              Let's work, <strong>Jake</strong>
+              <div className="user-icon"><User size={14} /></div>
+            </div>
           </div>
         </header>
 
         <div className="content">
-          {activeView === 'projects' && <ProjectsView projects={projects} updateProject={updateProject} deleteProject={deleteProject} onTagClick={handleTagClick} />}
-          {activeView === 'links' && <LinksView links={links} updateLink={updateLink} deleteLink={deleteLink} onTagClick={handleTagClick} />}
-          {activeView === 'notes' && <NotesView notes={notes} updateNote={updateNote} deleteNote={deleteNote} onTagClick={handleTagClick} />}
-          {activeView === 'tags' && <TagsView projects={projects} links={links} notes={notes} inspirations={inspirations} activeTagFilter={activeTagFilter} setActiveTagFilter={setActiveTagFilter} />}
+          {activeView === 'projects' && <ProjectsView projects={projects} addProject={addProject} updateProject={updateProject} deleteProject={deleteProject} onTagClick={handleTagClick} />}
+          {activeView === 'links' && <LinksView links={links} addLink={addLink} updateLink={updateLink} deleteLink={deleteLink} onTagClick={handleTagClick} />}
+          {activeView === 'notes' && <NotesView notes={notes} addNote={addNote} updateNote={updateNote} deleteNote={deleteNote} onTagClick={handleTagClick} />}
+          {activeView === 'tags' && <TagsView projects={projects} links={links} notes={notes} inspirations={inspirations} activeTagFilter={activeTagFilter} setActiveTagFilter={setActiveTagFilter} navigateToItem={navigateToItem} />}
           {activeView === 'inspo' && <InspoView inspirations={inspirations} addInspiration={addInspiration} deleteInspiration={deleteInspiration} onTagClick={handleTagClick} />}
         </div>
       </main>
@@ -458,29 +448,41 @@ export default function App() {
 }
 
 function GridIcon() {
-  return <svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor"><rect x="0" y="0" width="5" height="5" rx="1" /><rect x="7" y="0" width="5" height="5" rx="1" /><rect x="0" y="7" width="5" height="5" rx="1" /><rect x="7" y="7" width="5" height="5" rx="1" /></svg>;
+  return <svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor"><rect x="0" y="0" width="6" height="6" rx="1" /><rect x="8" y="0" width="6" height="6" rx="1" /><rect x="0" y="8" width="6" height="6" rx="1" /><rect x="8" y="8" width="6" height="6" rx="1" /></svg>;
 }
 
 // ============================================================================
 // PROJECTS VIEW
 // ============================================================================
-function ProjectsView({ projects, updateProject, deleteProject, onTagClick }) {
+function ProjectsView({ projects, addProject, updateProject, deleteProject, onTagClick }) {
   const [statusFilter, setStatusFilter] = useState('all');
+  const [viewMode, setViewMode] = useState('list');
+  
   const getProgress = (p) => { if (!p.subItems?.length) return 0; return Math.round((p.subItems.filter(i => i.completed).length / p.subItems.length) * 100); };
   const filtered = projects.filter(p => { if (statusFilter === 'all') return true; return p.subItems?.some(i => i.status === statusFilter); });
 
   return (
     <div>
-      <div className="toolbar">
-        <span className="filter-label"><Filter size={10} /> Filter by Status</span>
-        <div className="filter-pills">
-          {['all', 'new', 'working', 'paused', 'stuck'].map(s => (
-            <button key={s} className={`filter-pill ${statusFilter === s ? 'active' : ''}`} onClick={() => setStatusFilter(s)}>{s.charAt(0).toUpperCase() + s.slice(1)}</button>
-          ))}
+      <div className="content-toolbar">
+        <div className="toolbar-left">
+          <span className="filter-label"><Filter size={12} /> Filter by Status</span>
+          <div className="filter-pills">
+            {['all', 'new', 'working', 'paused', 'stuck'].map(s => (
+              <button key={s} className={`filter-pill ${statusFilter === s ? 'active' : ''}`} onClick={() => setStatusFilter(s)}>{s.charAt(0).toUpperCase() + s.slice(1)}</button>
+            ))}
+          </div>
+        </div>
+        <div className="toolbar-right">
+          <div className="view-toggle">
+            <button className={`view-btn ${viewMode === 'list' ? 'active' : ''}`} onClick={() => setViewMode('list')}><List size={14} /></button>
+            <button className={`view-btn ${viewMode === 'grid' ? 'active' : ''}`} onClick={() => setViewMode('grid')}><GridIcon /></button>
+          </div>
+          <button className="btn-primary" onClick={addProject}><Plus size={14} /> New Project</button>
         </div>
       </div>
+      
       {filtered.length === 0 ? (
-        <div className="empty"><List size={32} className="empty-icon" /><div className="empty-title">No projects yet</div><div className="empty-text">Create your first project to get started</div></div>
+        <div className="empty"><div className="empty-title">No projects yet</div><div className="empty-text">Create your first project to get started</div></div>
       ) : (
         <div className="projects-list">{filtered.map(p => <ProjectCard key={p.id} project={p} updateProject={updateProject} deleteProject={deleteProject} onTagClick={onTagClick} getProgress={getProgress} />)}</div>
       )}
@@ -509,11 +511,11 @@ function ProjectCard({ project, updateProject, deleteProject, onTagClick, getPro
   return (
     <div className="project-card">
       <div className="project-header">
-        {isEditing ? <input className="form-input" value={editedTitle} onChange={e => setEditedTitle(e.target.value)} onBlur={saveTitle} onKeyDown={e => e.key === 'Enter' && saveTitle()} autoFocus style={{ flex: 1, marginRight: 8 }} />
+        {isEditing ? <input className="form-input" value={editedTitle} onChange={e => setEditedTitle(e.target.value)} onBlur={saveTitle} onKeyDown={e => e.key === 'Enter' && saveTitle()} autoFocus style={{ flex: 1, marginRight: 12 }} />
           : <div className="project-title" onClick={() => setIsEditing(true)}>{project.title}</div>}
         <div className="project-actions">
-          <button className="icon-btn danger" onClick={() => deleteProject(project.id)}><Trash2 size={12} /></button>
-          <button className="icon-btn"><GripVertical size={12} /></button>
+          <button className="icon-btn danger" onClick={() => deleteProject(project.id)}><Trash2 size={14} /></button>
+          <button className="icon-btn"><GripVertical size={14} /></button>
         </div>
       </div>
       <div className="project-progress">
@@ -521,32 +523,32 @@ function ProjectCard({ project, updateProject, deleteProject, onTagClick, getPro
         <div className="progress-bar"><div className="progress-fill" style={{ width: `${progress}%` }} /></div>
       </div>
       <div className="project-tags">
-        {project.tags?.map(t => <span key={t} className="tag-pill" onClick={() => onTagClick(t)}><Tag size={8} />{t}</span>)}
+        {project.tags?.map(t => <span key={t} className="tag-pill" onClick={() => onTagClick(t)}><Tag size={10} />{t}</span>)}
         {editingTags ? <>
-          <input className="form-input" value={tagInput} onChange={e => setTagInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && addTag()} placeholder="Tag..." style={{ width: 60, padding: '2px 5px', fontSize: 10 }} autoFocus />
-          <button className="icon-btn" onClick={() => setEditingTags(false)} style={{ width: 18, height: 18 }}><X size={10} /></button>
-        </> : <span className="tag-pill" onClick={() => setEditingTags(true)} style={{ cursor: 'pointer' }}><Plus size={8} /></span>}
+          <input className="form-input" value={tagInput} onChange={e => setTagInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && addTag()} placeholder="Tag..." style={{ width: 80, padding: '4px 8px', fontSize: 11 }} autoFocus />
+          <button className="icon-btn" onClick={() => setEditingTags(false)} style={{ width: 24, height: 24 }}><X size={12} /></button>
+        </> : <span className="tag-pill" onClick={() => setEditingTags(true)} style={{ cursor: 'pointer' }}><Plus size={10} /></span>}
       </div>
-      <div className="sub-toggle" onClick={() => setShowSub(!showSub)}>{showSub ? <ChevronUp size={12} /> : <ChevronDown size={12} />} Sub Items</div>
+      <div className="sub-toggle" onClick={() => setShowSub(!showSub)}>{showSub ? <ChevronUp size={14} /> : <ChevronDown size={14} />} Sub Items ({total})</div>
       {showSub && (
         <div className="sub-list">
           {project.subItems?.map(item => (
             <div key={item.id} className="sub-item">
-              <div className={`sub-checkbox ${item.completed ? 'checked' : ''}`} onClick={() => updateSub(item.id, { completed: !item.completed })}>{item.completed && <Check size={8} />}</div>
+              <div className={`sub-checkbox ${item.completed ? 'checked' : ''}`} onClick={() => updateSub(item.id, { completed: !item.completed })}>{item.completed && <Check size={10} />}</div>
               <span className={`sub-text ${item.completed ? 'done' : ''}`}>{item.text}</span>
               <div className="sub-badges">
                 <select className={`status-badge ${item.status}`} value={item.status} onChange={e => updateSub(item.id, { status: e.target.value })}><option value="new">New</option><option value="working">Working</option><option value="paused">Paused</option><option value="stuck">Stuck</option></select>
                 <select className={`priority-badge ${item.priority}`} value={item.priority} onChange={e => updateSub(item.id, { priority: e.target.value })}><option value="low">Low</option><option value="medium">Medium</option><option value="high">High</option><option value="urgent">Urgent</option></select>
               </div>
               <div className="sub-actions">
-                <button className="icon-btn" onClick={() => navigator.clipboard.writeText(item.text)}><Copy size={10} /></button>
-                <button className="icon-btn danger" onClick={() => deleteSub(item.id)}><X size={10} /></button>
+                <button className="icon-btn" onClick={() => navigator.clipboard.writeText(item.text)}><Copy size={12} /></button>
+                <button className="icon-btn danger" onClick={() => deleteSub(item.id)}><X size={12} /></button>
               </div>
             </div>
           ))}
-          <div style={{ display: 'flex', gap: 6, marginTop: 4 }}>
+          <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
             <input className="form-input" value={newSub} onChange={e => setNewSub(e.target.value)} onKeyDown={e => e.key === 'Enter' && addSub()} placeholder="Add sub-item..." style={{ flex: 1 }} />
-            <button className="btn-secondary" onClick={addSub}><Plus size={10} /></button>
+            <button className="btn-secondary" onClick={addSub}><Plus size={12} /></button>
           </div>
         </div>
       )}
@@ -557,21 +559,33 @@ function ProjectCard({ project, updateProject, deleteProject, onTagClick, getPro
 // ============================================================================
 // LINKS VIEW
 // ============================================================================
-function LinksView({ links, updateLink, deleteLink, onTagClick }) {
+function LinksView({ links, addLink, updateLink, deleteLink, onTagClick }) {
   const [tagFilter, setTagFilter] = useState('all');
+  const [viewMode, setViewMode] = useState('grid');
+  
   const allTags = [...new Set(links.flatMap(l => l.tags || []))];
   const filtered = tagFilter === 'all' ? links : links.filter(l => l.tags?.includes(tagFilter));
 
   return (
     <div>
-      <div className="toolbar">
-        <div className="filter-pills">
-          <button className={`filter-pill ${tagFilter === 'all' ? 'active' : ''}`} onClick={() => setTagFilter('all')}>All</button>
-          {allTags.map(t => <button key={t} className={`filter-pill ${tagFilter === t ? 'active' : ''}`} onClick={() => setTagFilter(t)}><Tag size={8} />{t}</button>)}
+      <div className="content-toolbar">
+        <div className="toolbar-left">
+          <div className="filter-pills">
+            <button className={`filter-pill ${tagFilter === 'all' ? 'active' : ''}`} onClick={() => setTagFilter('all')}>All</button>
+            {allTags.map(t => <button key={t} className={`filter-pill ${tagFilter === t ? 'active' : ''}`} onClick={() => setTagFilter(t)}><Tag size={10} />{t}</button>)}
+          </div>
+        </div>
+        <div className="toolbar-right">
+          <div className="view-toggle">
+            <button className={`view-btn ${viewMode === 'list' ? 'active' : ''}`} onClick={() => setViewMode('list')}><List size={14} /></button>
+            <button className={`view-btn ${viewMode === 'grid' ? 'active' : ''}`} onClick={() => setViewMode('grid')}><GridIcon /></button>
+          </div>
+          <button className="btn-primary" onClick={addLink}><Plus size={14} /> New Link</button>
         </div>
       </div>
+      
       {filtered.length === 0 ? (
-        <div className="empty"><Link2 size={32} className="empty-icon" /><div className="empty-title">No links yet</div><div className="empty-text">Save useful links for easy access</div></div>
+        <div className="empty"><div className="empty-title">No links yet</div><div className="empty-text">Save useful links for easy access</div></div>
       ) : (
         <div className="links-grid">{filtered.map(l => <LinkCard key={l.id} link={l} updateLink={updateLink} deleteLink={deleteLink} onTagClick={onTagClick} />)}</div>
       )}
@@ -592,21 +606,21 @@ function LinkCard({ link, updateLink, deleteLink, onTagClick }) {
   return (
     <div className="link-card">
       <div className="link-header">
-        {isEditing ? <input className="form-input" value={editedTitle} onChange={e => setEditedTitle(e.target.value)} onBlur={save} style={{ fontSize: 13, fontWeight: 600 }} autoFocus />
+        {isEditing ? <input className="form-input" value={editedTitle} onChange={e => setEditedTitle(e.target.value)} onBlur={save} style={{ fontSize: 14, fontWeight: 600 }} autoFocus />
           : <div className="link-title" onClick={() => setIsEditing(true)}>{link.title}</div>}
-        <button className="icon-btn"><GripVertical size={12} /></button>
+        <button className="icon-btn"><GripVertical size={14} /></button>
       </div>
-      {isEditing ? <input className="form-input" value={editedUrl} onChange={e => setEditedUrl(e.target.value)} onBlur={save} style={{ marginBottom: 8 }} />
+      {isEditing ? <input className="form-input" value={editedUrl} onChange={e => setEditedUrl(e.target.value)} onBlur={save} style={{ marginBottom: 12 }} />
         : <a href={link.url} target="_blank" rel="noopener noreferrer" className="link-url">{link.url}</a>}
       <div className="link-footer">
         <div className="link-tags">
-          {link.tags?.map(t => <span key={t} className="tag-pill" onClick={() => onTagClick(t)}><Tag size={7} />{t}</span>)}
+          {link.tags?.map(t => <span key={t} className="tag-pill" onClick={() => onTagClick(t)}><Tag size={9} />{t}</span>)}
           {editingTags ? <>
-            <input className="form-input" value={tagInput} onChange={e => setTagInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && addTag()} placeholder="Tag" style={{ width: 50, padding: '2px 4px', fontSize: 9 }} autoFocus />
-            <button className="icon-btn" onClick={() => setEditingTags(false)} style={{ width: 16, height: 16 }}><X size={8} /></button>
-          </> : <span className="tag-pill" onClick={() => setEditingTags(true)} style={{ cursor: 'pointer' }}><Plus size={7} /></span>}
+            <input className="form-input" value={tagInput} onChange={e => setTagInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && addTag()} placeholder="Tag" style={{ width: 60, padding: '3px 6px', fontSize: 10 }} autoFocus />
+            <button className="icon-btn" onClick={() => setEditingTags(false)} style={{ width: 20, height: 20 }}><X size={10} /></button>
+          </> : <span className="tag-pill" onClick={() => setEditingTags(true)} style={{ cursor: 'pointer' }}><Plus size={9} /></span>}
         </div>
-        <button className="icon-btn danger" onClick={() => deleteLink(link.id)}><Trash2 size={12} /></button>
+        <button className="icon-btn danger" onClick={() => deleteLink(link.id)}><Trash2 size={14} /></button>
       </div>
     </div>
   );
@@ -615,8 +629,10 @@ function LinkCard({ link, updateLink, deleteLink, onTagClick }) {
 // ============================================================================
 // NOTES VIEW
 // ============================================================================
-function NotesView({ notes, updateNote, deleteNote, onTagClick }) {
+function NotesView({ notes, addNote, updateNote, deleteNote, onTagClick }) {
   const [tagFilter, setTagFilter] = useState('all');
+  const [viewMode, setViewMode] = useState('grid');
+  
   const colors = ['yellow', 'pink', 'orange', 'cyan', 'green', 'purple', 'coral', 'peach'];
   const getColor = (id) => colors[id.split('').reduce((a, c) => a + c.charCodeAt(0), 0) % colors.length];
   const allTags = [...new Set(notes.flatMap(n => n.tags || []))];
@@ -624,14 +640,24 @@ function NotesView({ notes, updateNote, deleteNote, onTagClick }) {
 
   return (
     <div>
-      <div className="toolbar">
-        <div className="filter-pills">
-          <button className={`filter-pill ${tagFilter === 'all' ? 'active' : ''}`} onClick={() => setTagFilter('all')}>All</button>
-          {allTags.map(t => <button key={t} className={`filter-pill ${tagFilter === t ? 'active' : ''}`} onClick={() => setTagFilter(t)}><Tag size={8} />{t}</button>)}
+      <div className="content-toolbar">
+        <div className="toolbar-left">
+          <div className="filter-pills">
+            <button className={`filter-pill ${tagFilter === 'all' ? 'active' : ''}`} onClick={() => setTagFilter('all')}>All</button>
+            {allTags.map(t => <button key={t} className={`filter-pill ${tagFilter === t ? 'active' : ''}`} onClick={() => setTagFilter(t)}><Tag size={10} />{t}</button>)}
+          </div>
+        </div>
+        <div className="toolbar-right">
+          <div className="view-toggle">
+            <button className={`view-btn ${viewMode === 'list' ? 'active' : ''}`} onClick={() => setViewMode('list')}><List size={14} /></button>
+            <button className={`view-btn ${viewMode === 'grid' ? 'active' : ''}`} onClick={() => setViewMode('grid')}><GridIcon /></button>
+          </div>
+          <button className="btn-primary" onClick={addNote}><Plus size={14} /> New Note</button>
         </div>
       </div>
+      
       {filtered.length === 0 ? (
-        <div className="empty"><FileText size={32} className="empty-icon" /><div className="empty-title">No notes yet</div><div className="empty-text">Create your first note</div></div>
+        <div className="empty"><div className="empty-title">No notes yet</div><div className="empty-text">Create your first note</div></div>
       ) : (
         <div className="notes-grid">{filtered.map(n => <NoteCard key={n.id} note={n} color={getColor(n.id)} updateNote={updateNote} deleteNote={deleteNote} onTagClick={onTagClick} />)}</div>
       )}
@@ -653,10 +679,10 @@ function NoteCard({ note, color, updateNote, deleteNote, onTagClick }) {
   if (isEditing) {
     return (
       <div className={`note-card ${color}`}>
-        <input className="form-input" value={editedTitle} onChange={e => setEditedTitle(e.target.value)} style={{ marginBottom: 6, fontWeight: 600, background: 'rgba(255,255,255,0.5)' }} autoFocus />
+        <input className="note-edit-input" value={editedTitle} onChange={e => setEditedTitle(e.target.value)} autoFocus />
         <RichTextEditor value={editedContent} onChange={setEditedContent} />
-        <div style={{ display: 'flex', gap: 6, marginTop: 8 }}>
-          <button className="btn-primary" onClick={save}><Save size={10} /> Save</button>
+        <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
+          <button className="btn-primary" onClick={save}><Save size={12} /> Save</button>
           <button className="btn-secondary" onClick={() => setIsEditing(false)}>Cancel</button>
         </div>
       </div>
@@ -668,15 +694,15 @@ function NoteCard({ note, color, updateNote, deleteNote, onTagClick }) {
       <div className="note-header"><div className="note-title" onClick={() => setIsEditing(true)}>{note.title}</div></div>
       <div className="note-content" onClick={() => setIsEditing(true)}>{getText(note.content) || 'Click to add content...'}</div>
       <div className="note-tags">
-        {note.tags?.map(t => <span key={t} className="note-tag" onClick={() => onTagClick(t)}><Tag size={7} />{t}</span>)}
+        {note.tags?.map(t => <span key={t} className="note-tag" onClick={() => onTagClick(t)}><Tag size={8} />{t}</span>)}
         {editingTags ? <>
-          <input value={tagInput} onChange={e => setTagInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && addTag()} placeholder="Tag" style={{ width: 40, padding: '2px 4px', fontSize: 9, border: '1px solid rgba(0,0,0,0.2)', borderRadius: 3, background: 'rgba(255,255,255,0.5)' }} autoFocus />
-          <button onClick={() => setEditingTags(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'rgba(0,0,0,0.5)' }}><X size={8} /></button>
-        </> : <span className="note-tag" onClick={() => setEditingTags(true)} style={{ cursor: 'pointer' }}><Plus size={7} /></span>}
+          <input value={tagInput} onChange={e => setTagInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && addTag()} placeholder="Tag" style={{ width: 50, padding: '3px 5px', fontSize: 10, border: '1px solid rgba(0,0,0,0.2)', borderRadius: 4, background: 'rgba(255,255,255,0.8)' }} autoFocus />
+          <button onClick={() => setEditingTags(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'rgba(0,0,0,0.5)' }}><X size={10} /></button>
+        </> : <span className="note-tag" onClick={() => setEditingTags(true)} style={{ cursor: 'pointer' }}><Plus size={8} /></span>}
       </div>
       <div className="note-actions">
-        <button className="icon-btn"><GripVertical size={12} /></button>
-        <button className="icon-btn" onClick={() => deleteNote(note.id)}><Trash2 size={12} /></button>
+        <button className="icon-btn"><GripVertical size={14} /></button>
+        <button className="icon-btn" onClick={() => deleteNote(note.id)}><Trash2 size={14} /></button>
       </div>
     </div>
   );
@@ -698,13 +724,13 @@ function RichTextEditor({ value, onChange }) {
 
   useEffect(() => { if (quillRef.current && value !== quillRef.current.root.innerHTML) quillRef.current.root.innerHTML = value || ''; }, [value]);
 
-  return <div className="quill-wrapper"><div ref={editorRef} style={{ minHeight: 60 }} /></div>;
+  return <div className="quill-wrapper"><div ref={editorRef} style={{ minHeight: 80 }} /></div>;
 }
 
 // ============================================================================
 // TAGS VIEW
 // ============================================================================
-function TagsView({ projects, links, notes, inspirations, activeTagFilter, setActiveTagFilter }) {
+function TagsView({ projects, links, notes, inspirations, activeTagFilter, setActiveTagFilter, navigateToItem }) {
   const getCounts = () => {
     const c = {};
     projects.forEach(p => p.tags?.forEach(t => c[t] = (c[t] || 0) + 1));
@@ -727,12 +753,12 @@ function TagsView({ projects, links, notes, inspirations, activeTagFilter, setAc
   return (
     <div>
       {tags.length === 0 ? (
-        <div className="empty"><Tag size={32} className="empty-icon" /><div className="empty-title">No tags yet</div><div className="empty-text">Add tags to organize your items</div></div>
+        <div className="empty"><div className="empty-title">No tags yet</div><div className="empty-text">Add tags to organize your items</div></div>
       ) : <>
         <div className="tags-grid">
           {tags.map(t => (
             <div key={t} className={`tag-card ${activeTagFilter === t ? 'active' : ''}`} onClick={() => setActiveTagFilter(activeTagFilter === t ? null : t)}>
-              <div className="tag-name"><Tag size={12} />{t}</div>
+              <div className="tag-name"><Tag size={14} />{t}</div>
               <div className="tag-count">{counts[t]} items</div>
             </div>
           ))}
@@ -741,11 +767,11 @@ function TagsView({ projects, links, notes, inspirations, activeTagFilter, setAc
           <div className="tagged-items">
             <h3>Items tagged "{activeTagFilter}"</h3>
             {getItems(activeTagFilter).map(({ type, item }) => (
-              <div key={item.id} className="tagged-item">
-                {type === 'Project' && <List size={12} />}
-                {type === 'Link' && <Link2 size={12} />}
-                {type === 'Note' && <FileText size={12} />}
-                {type === 'Inspo' && <Image size={12} />}
+              <div key={item.id} className="tagged-item" onClick={() => navigateToItem(type, item.id)}>
+                {type === 'Project' && <List size={14} />}
+                {type === 'Link' && <Link2 size={14} />}
+                {type === 'Note' && <FileText size={14} />}
+                {type === 'Inspo' && <Image size={14} />}
                 <span className="tagged-item-type">{type}</span>
                 <span className="tagged-item-name">{item.title || item.name}</span>
               </div>
@@ -764,13 +790,12 @@ function InspoView({ inspirations, addInspiration, deleteInspiration, onTagClick
   const [tagFilter, setTagFilter] = useState('all');
   const [lightbox, setLightbox] = useState(null);
   const [dragOver, setDragOver] = useState(false);
+  const fileInputRef = useRef(null);
 
   const allTags = [...new Set(inspirations.flatMap(i => i.tags || []))];
   const filtered = tagFilter === 'all' ? inspirations : inspirations.filter(i => i.tags?.includes(tagFilter));
 
-  const handleDrop = (e) => {
-    e.preventDefault(); setDragOver(false);
-    const file = e.dataTransfer.files?.[0];
+  const handleFileSelect = (file) => {
     if (file?.type.startsWith('image/')) {
       const name = prompt('Name this inspiration:', file.name.split('.')[0]);
       const tags = prompt('Tags (comma separated):', '');
@@ -778,25 +803,46 @@ function InspoView({ inspirations, addInspiration, deleteInspiration, onTagClick
     }
   };
 
+  const handleDrop = (e) => {
+    e.preventDefault(); setDragOver(false);
+    handleFileSelect(e.dataTransfer.files?.[0]);
+  };
+
+  const handleUploadClick = () => {
+    fileInputRef.current?.click();
+  };
+
   const download = (url, name) => { const a = document.createElement('a'); a.href = url; a.download = name || 'inspiration'; a.click(); };
 
   return (
     <div>
-      <div className="toolbar">
-        <div className="filter-pills">
-          <button className={`filter-pill ${tagFilter === 'all' ? 'active' : ''}`} onClick={() => setTagFilter('all')}>All</button>
-          {allTags.map(t => <button key={t} className={`filter-pill ${tagFilter === t ? 'active' : ''}`} onClick={() => setTagFilter(t)}><Tag size={8} />{t}</button>)}
+      <div className="content-toolbar">
+        <div className="toolbar-left">
+          <div className="filter-pills">
+            <button className={`filter-pill ${tagFilter === 'all' ? 'active' : ''}`} onClick={() => setTagFilter('all')}>All</button>
+            {allTags.map(t => <button key={t} className={`filter-pill ${tagFilter === t ? 'active' : ''}`} onClick={() => setTagFilter(t)}><Tag size={10} />{t}</button>)}
+          </div>
+        </div>
+        <div className="toolbar-right">
+          <button className="btn-primary" onClick={handleUploadClick}><Plus size={14} /> Upload Image</button>
+          <input ref={fileInputRef} type="file" accept="image/*" onChange={e => handleFileSelect(e.target.files?.[0])} style={{ display: 'none' }} />
         </div>
       </div>
 
-      <div className={`upload-area ${dragOver ? 'dragging' : ''}`} onDragOver={e => { e.preventDefault(); setDragOver(true); }} onDragLeave={() => setDragOver(false)} onDrop={handleDrop}>
-        <Upload size={24} className="upload-icon" />
+      <div 
+        className={`upload-area ${dragOver ? 'dragging' : ''}`} 
+        onClick={handleUploadClick}
+        onDragOver={e => { e.preventDefault(); setDragOver(true); }} 
+        onDragLeave={() => setDragOver(false)} 
+        onDrop={handleDrop}
+      >
+        <Upload size={28} className="upload-icon" />
         <p className="upload-text"><strong>Click to upload</strong> or drag and drop</p>
-        <p className="upload-text" style={{ fontSize: 10, marginTop: 2 }}>PNG, JPG up to 10MB</p>
+        <p className="upload-text" style={{ fontSize: 11, marginTop: 4 }}>PNG, JPG up to 10MB</p>
       </div>
 
       {filtered.length === 0 ? (
-        <div className="empty"><Image size={32} className="empty-icon" /><div className="empty-title">No inspiration yet</div><div className="empty-text">Upload images to build your library</div></div>
+        <div className="empty"><div className="empty-title">No inspiration yet</div><div className="empty-text">Upload images to build your library</div></div>
       ) : (
         <div className="inspo-grid">
           {filtered.map(i => (
@@ -804,11 +850,11 @@ function InspoView({ inspirations, addInspiration, deleteInspiration, onTagClick
               <img src={i.thumbnail || i.url} alt={i.name} className="inspo-image" onClick={() => setLightbox(i)} />
               <div className="inspo-info">
                 <div className="inspo-name">{i.name}</div>
-                <div className="inspo-tags">{i.tags?.map(t => <span key={t} className="tag-pill" onClick={() => onTagClick(t)} style={{ fontSize: 9, padding: '2px 4px' }}>{t}</span>)}</div>
+                <div className="inspo-tags">{i.tags?.map(t => <span key={t} className="tag-pill" onClick={() => onTagClick(t)} style={{ fontSize: 10, padding: '3px 6px' }}>{t}</span>)}</div>
               </div>
               <div className="inspo-actions">
-                <button className="icon-btn" onClick={() => download(i.originalUrl || i.url, i.name)}><Download size={10} /></button>
-                <button className="icon-btn danger" onClick={() => deleteInspiration(i.id)}><Trash2 size={10} /></button>
+                <button className="icon-btn" onClick={() => download(i.originalUrl || i.url, i.name)}><Download size={12} /></button>
+                <button className="icon-btn danger" onClick={() => deleteInspiration(i.id)}><Trash2 size={12} /></button>
               </div>
             </div>
           ))}
@@ -817,10 +863,10 @@ function InspoView({ inspirations, addInspiration, deleteInspiration, onTagClick
 
       {lightbox && (
         <div className="lightbox" onClick={() => setLightbox(null)}>
-          <button className="lightbox-close"><X size={18} /></button>
+          <button className="lightbox-close"><X size={20} /></button>
           <img src={lightbox.originalUrl || lightbox.url} alt={lightbox.name} className="lightbox-image" onClick={e => e.stopPropagation()} />
           <div className="lightbox-actions" onClick={e => e.stopPropagation()}>
-            <button className="lightbox-btn" onClick={() => download(lightbox.originalUrl || lightbox.url, lightbox.name)}><Download size={12} /> Download Original</button>
+            <button className="lightbox-btn" onClick={() => download(lightbox.originalUrl || lightbox.url, lightbox.name)}><Download size={14} /> Download Original</button>
           </div>
         </div>
       )}
