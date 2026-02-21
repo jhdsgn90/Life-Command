@@ -2,15 +2,26 @@ import { useState, useEffect, useRef } from 'react';
 import { 
   List, Link2, FileText, Tag, Image, Plus, Trash2, Save, X, 
   ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Moon, Sun, 
-  Download, Upload, Check, Copy, Filter, User, Search, Edit2
+  Download, Upload, Check, Copy, Filter, User, Search, Edit2, Settings
 } from 'lucide-react';
 
 // ============================================================================
-// LIFE COMMAND v7.0.3 - Refined & Polished
+// LIFE COMMAND v7.0.4 - Polished
 // ============================================================================
 
 const CLOUDINARY_CLOUD_NAME = 'dccblqxuy';
 const CLOUDINARY_UPLOAD_PRESET = 'Life Command';
+
+const NOTE_COLORS = [
+  { id: 'yellow', bg: '#FEF08A', name: 'Yellow' },
+  { id: 'pink', bg: '#FBCFE8', name: 'Pink' },
+  { id: 'orange', bg: '#FDBA74', name: 'Orange' },
+  { id: 'cyan', bg: '#67E8F9', name: 'Cyan' },
+  { id: 'green', bg: '#6EE7B7', name: 'Green' },
+  { id: 'purple', bg: '#C4B5FD', name: 'Purple' },
+  { id: 'coral', bg: '#FCA5A5', name: 'Coral' },
+  { id: 'peach', bg: '#FECACA', name: 'Peach' },
+];
 
 export default function App() {
   const [darkMode, setDarkMode] = useState(() => {
@@ -21,6 +32,11 @@ export default function App() {
   const [activeView, setActiveView] = useState('projects');
   const [searchQuery, setSearchQuery] = useState('');
   const [showSearch, setShowSearch] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
+  
+  // User settings
+  const [userName, setUserName] = useState(() => localStorage.getItem('lifeCommandUserName') || 'Jake');
+  const [userGreeting, setUserGreeting] = useState(() => localStorage.getItem('lifeCommandGreeting') || "Let's work");
   
   const [projects, setProjects] = useState([]);
   const [links, setLinks] = useState([]);
@@ -28,6 +44,7 @@ export default function App() {
   const [inspirations, setInspirations] = useState([]);
   const [activeTagFilter, setActiveTagFilter] = useState(null);
   const [currentTime, setCurrentTime] = useState(new Date());
+  const [highlightedItemId, setHighlightedItemId] = useState(null);
 
   // Load data
   useEffect(() => {
@@ -47,6 +64,8 @@ export default function App() {
   useEffect(() => { localStorage.setItem('lifeCommandNotes', JSON.stringify(notes)); }, [notes]);
   useEffect(() => { localStorage.setItem('lifeCommandInspirations', JSON.stringify(inspirations)); }, [inspirations]);
   useEffect(() => { localStorage.setItem('lifeCommandDarkMode', JSON.stringify(darkMode)); }, [darkMode]);
+  useEffect(() => { localStorage.setItem('lifeCommandUserName', userName); }, [userName]);
+  useEffect(() => { localStorage.setItem('lifeCommandGreeting', userGreeting); }, [userGreeting]);
 
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 60000);
@@ -59,6 +78,14 @@ export default function App() {
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
+
+  // Clear highlight after animation
+  useEffect(() => {
+    if (highlightedItemId) {
+      const timer = setTimeout(() => setHighlightedItemId(null), 2000);
+      return () => clearTimeout(timer);
+    }
+  }, [highlightedItemId]);
 
   // Get all tags across all items
   const getAllTags = () => {
@@ -96,7 +123,7 @@ export default function App() {
   };
 
   const addNote = () => {
-    setNotes([{ id: `note_${Date.now()}`, title: 'New Note', content: '', tags: [], createdAt: new Date().toISOString() }, ...notes]);
+    setNotes([{ id: `note_${Date.now()}`, title: 'New Note', content: '', tags: [], color: 'yellow', createdAt: new Date().toISOString() }, ...notes]);
   };
   const updateNote = (id, updates) => setNotes(notes.map(n => n.id === id ? { ...n, ...updates } : n));
   const deleteNote = (id) => setNotes(notes.filter(n => n.id !== id));
@@ -127,7 +154,7 @@ export default function App() {
   };
   const deleteInspiration = (id) => setInspirations(inspirations.filter(i => i.id !== id));
 
-  // Navigation
+  // Navigation with scroll-to-item
   const handleTagClick = (tagName) => { setActiveView('tags'); setActiveTagFilter(tagName); };
   
   const navigateToItem = (type, id) => {
@@ -136,6 +163,17 @@ export default function App() {
     else if (type === 'Note') setActiveView('notes');
     else if (type === 'Inspo') setActiveView('inspo');
     setActiveTagFilter(null);
+    setShowSearch(false);
+    setSearchQuery('');
+    
+    // Scroll to item after view change
+    setTimeout(() => {
+      const element = document.getElementById(id);
+      if (element) {
+        element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        setHighlightedItemId(id);
+      }
+    }, 100);
   };
 
   // Search
@@ -151,7 +189,7 @@ export default function App() {
   };
 
   const exportData = () => {
-    const data = { version: '7.0.3', exportedAt: new Date().toISOString(), projects, links, notes, inspirations };
+    const data = { version: '7.0.4', exportedAt: new Date().toISOString(), projects, links, notes, inspirations, settings: { userName, userGreeting } };
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a'); a.href = url;
@@ -170,6 +208,8 @@ export default function App() {
         if (data.links) setLinks(data.links);
         if (data.notes) setNotes(data.notes);
         if (data.inspirations) setInspirations(data.inspirations);
+        if (data.settings?.userName) setUserName(data.settings.userName);
+        if (data.settings?.userGreeting) setUserGreeting(data.settings.userGreeting);
       } catch (err) { console.error('Import failed:', err); }
     };
     reader.readAsText(file);
@@ -236,6 +276,11 @@ export default function App() {
         .date{font-size:11px;color:var(--text-2);margin-top:4px}
         .sb.collapsed .date{display:none}
         
+        .settings-btn{display:flex;align-items:center;gap:8px;padding:10px 12px;margin-top:12px;border-radius:var(--radius);cursor:pointer;color:var(--text-2);font-size:13px;font-weight:500;transition:var(--transition);background:none;border:none;width:100%;text-align:left;font-family:var(--font)}
+        .settings-btn:hover{background:var(--bg-card);color:var(--text-1)}
+        .sb.collapsed .settings-btn span{display:none}
+        .sb.collapsed .settings-btn{justify-content:center}
+        
         /* MAIN */
         .main{flex:1;display:flex;flex-direction:column;min-width:0}
         
@@ -262,12 +307,12 @@ export default function App() {
         .user-icon{width:28px;height:28px;background:var(--bg-card);border-radius:14px;display:flex;align-items:center;justify-content:center;color:var(--text-2)}
         
         /* SEARCH BAR */
-        .search-bar{padding:0 24px 16px;background:var(--bg-header);border-bottom:1px solid var(--border)}
+        .search-bar{padding:16px 24px;background:var(--bg-header);border-bottom:1px solid var(--border)}
         .search-input-wrap{position:relative}
         .search-input{width:100%;padding:10px 16px 10px 40px;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);font-size:14px;color:var(--text-1);font-family:var(--font)}
         .search-input:focus{outline:none;border-color:var(--accent)}
         .search-input-icon{position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--text-3)}
-        .search-results{margin-top:12px}
+        .search-results{margin-top:12px;max-height:400px;overflow-y:auto}
         .search-section{margin-bottom:16px}
         .search-section-title{font-size:11px;font-weight:600;color:var(--text-2);text-transform:uppercase;margin-bottom:8px}
         .search-item{display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--bg-card);border-radius:var(--radius);margin-bottom:4px;cursor:pointer;transition:var(--transition)}
@@ -295,11 +340,13 @@ export default function App() {
         
         /* CARDS */
         .projects-list{display:flex;flex-direction:column;gap:12px}
-        .project-card{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:16px;transition:var(--transition);cursor:grab}
+        .project-card{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:16px;transition:all 0.3s ease}
         .project-card:hover{border-color:var(--accent);box-shadow:0 2px 8px rgba(0,0,0,0.08)}
-        .project-card.dragging{opacity:0.5;cursor:grabbing}
-        .project-card.drag-over{border-color:var(--accent);background:var(--accent-soft)}
-        .project-header{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:12px}
+        .project-card.highlighted{animation:highlight-pulse 2s ease-out}
+        @keyframes highlight-pulse{0%,100%{box-shadow:0 0 0 0 transparent}50%{box-shadow:0 0 0 4px var(--accent-soft);border-color:var(--accent)}}
+        
+        .project-header{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:12px;cursor:grab}
+        .project-header:active{cursor:grabbing}
         .project-title{font-size:16px;font-weight:600;cursor:pointer;transition:var(--transition)}
         .project-title:hover{color:var(--accent)}
         .project-actions{display:flex;gap:4px}
@@ -331,25 +378,25 @@ export default function App() {
         .sub-item:hover{background:var(--bg-card-hover)}
         .sub-checkbox{width:16px;height:16px;border:2px solid var(--border);border-radius:4px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:var(--transition)}
         .sub-checkbox.checked{background:var(--accent);border-color:var(--accent);color:#fff}
-        .sub-text{flex:1;font-size:13px;cursor:pointer}
+        .sub-text{flex:1;font-size:13px;cursor:text;user-select:text}
         .sub-text.done{text-decoration:line-through;color:var(--text-3)}
         .sub-text-input{flex:1;padding:4px 8px;background:var(--bg-input);border:1px solid var(--border);border-radius:4px;font-size:13px;color:var(--text-1);font-family:var(--font)}
         .sub-text-input:focus{outline:none;border-color:var(--accent)}
         .sub-badges{display:flex;gap:6px}
         
-        /* REFINED STATUS BADGES - Industry Standard Colors */
-        .status-badge{padding:4px 8px;border-radius:4px;font-size:11px;font-weight:600;border:none;cursor:pointer;font-family:var(--font);transition:var(--transition)}
-        .status-badge.new{background:#E5E7EB;color:#374151}
-        .status-badge.working{background:#0EA5E9;color:#FFF}
-        .status-badge.paused{background:#F59E0B;color:#FFF}
-        .status-badge.stuck{background:#EF4444;color:#FFF}
+        /* REFINED STATUS BADGES */
+        .status-badge{padding:4px 20px 4px 8px;border-radius:4px;font-size:11px;font-weight:600;border:none;cursor:pointer;font-family:var(--font);transition:var(--transition);appearance:none;background-repeat:no-repeat;background-position:right 6px center;background-size:10px}
+        .status-badge.new{background-color:#E5E7EB;color:#374151;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 24 24' fill='none' stroke='%23374151' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E")}
+        .status-badge.working{background-color:#0EA5E9;color:#FFF;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E")}
+        .status-badge.paused{background-color:#F59E0B;color:#FFF;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E")}
+        .status-badge.stuck{background-color:#EF4444;color:#FFF;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E")}
         
-        /* REFINED PRIORITY BADGES - Industry Standard Colors */
-        .priority-badge{padding:4px 8px;border-radius:4px;font-size:11px;font-weight:600;border:none;cursor:pointer;font-family:var(--font);transition:var(--transition)}
-        .priority-badge.low{background:#E5E7EB;color:#6B7280}
-        .priority-badge.medium{background:#FCD34D;color:#92400E}
-        .priority-badge.high{background:#FB923C;color:#FFF}
-        .priority-badge.urgent{background:#EF4444;color:#FFF}
+        /* REFINED PRIORITY BADGES */
+        .priority-badge{padding:4px 20px 4px 8px;border-radius:4px;font-size:11px;font-weight:600;border:none;cursor:pointer;font-family:var(--font);transition:var(--transition);appearance:none;background-repeat:no-repeat;background-position:right 6px center;background-size:10px}
+        .priority-badge.low{background-color:#E5E7EB;color:#6B7280;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 24 24' fill='none' stroke='%236B7280' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E")}
+        .priority-badge.medium{background-color:#FCD34D;color:#92400E;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 24 24' fill='none' stroke='%2392400E' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E")}
+        .priority-badge.high{background-color:#FB923C;color:#FFF;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E")}
+        .priority-badge.urgent{background-color:#EF4444;color:#FFF;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E")}
         
         .sub-actions{display:flex;gap:2px}
         
@@ -357,10 +404,11 @@ export default function App() {
         .links-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
         @media(max-width:1100px){.links-grid{grid-template-columns:repeat(2,1fr)}}
         @media(max-width:700px){.links-grid{grid-template-columns:1fr}}
-        .link-card{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:16px;transition:var(--transition);display:flex;flex-direction:column;cursor:grab}
+        .link-card{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:16px;transition:all 0.3s ease;display:flex;flex-direction:column}
         .link-card:hover{border-color:var(--accent);box-shadow:0 2px 8px rgba(0,0,0,0.08)}
-        .link-card.dragging{opacity:0.5}
-        .link-header{display:flex;justify-content:space-between;margin-bottom:6px}
+        .link-card.highlighted{animation:highlight-pulse 2s ease-out}
+        .link-header{display:flex;justify-content:space-between;margin-bottom:6px;cursor:grab}
+        .link-header:active{cursor:grabbing}
         .link-title{font-size:14px;font-weight:600;cursor:pointer;transition:var(--transition)}
         .link-title:hover{color:var(--accent)}
         .link-url{font-size:12px;color:var(--accent);text-decoration:none;display:block;margin-bottom:12px;word-break:break-all;transition:var(--transition)}
@@ -370,8 +418,9 @@ export default function App() {
         
         /* NOTES GRID */
         .notes-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:16px}
-        .note-card{padding:16px;border-radius:var(--radius);position:relative;min-height:140px;display:flex;flex-direction:column;transition:var(--transition);cursor:grab}
+        .note-card{padding:16px;border-radius:var(--radius);position:relative;min-height:140px;display:flex;flex-direction:column;transition:all 0.3s ease}
         .note-card:hover{transform:translateY(-2px);box-shadow:0 6px 20px rgba(0,0,0,0.15)}
+        .note-card.highlighted{animation:highlight-pulse 2s ease-out}
         .note-card.yellow{background:#FEF08A}
         .note-card.pink{background:#FBCFE8}
         .note-card.orange{background:#FDBA74}
@@ -394,20 +443,26 @@ export default function App() {
         .note-edit-input{width:100%;padding:8px 10px;background:rgba(255,255,255,0.95);border:1px solid rgba(0,0,0,0.25);border-radius:var(--radius);font-size:14px;font-weight:600;color:#1A1A1A;font-family:var(--font);margin-bottom:8px}
         .note-edit-input:focus{outline:none;border-color:rgba(0,0,0,0.5)}
         
+        .color-picker{display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap}
+        .color-swatch{width:24px;height:24px;border-radius:50%;cursor:pointer;border:2px solid transparent;transition:var(--transition)}
+        .color-swatch:hover{transform:scale(1.1)}
+        .color-swatch.active{border-color:#1A1A1A}
+        
         /* INSPO GRID */
         .inspo-grid{column-count:4;column-gap:16px}
         @media(max-width:1200px){.inspo-grid{column-count:3}}
         @media(max-width:900px){.inspo-grid{column-count:2}}
         @media(max-width:500px){.inspo-grid{column-count:1}}
-        .inspo-card{break-inside:avoid;margin-bottom:16px;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;transition:var(--transition)}
+        .inspo-card{break-inside:avoid;margin-bottom:16px;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;transition:all 0.3s ease}
         .inspo-card:hover{border-color:var(--accent);transform:translateY(-2px);box-shadow:0 4px 12px rgba(0,0,0,0.1)}
+        .inspo-card.highlighted{animation:highlight-pulse 2s ease-out}
         .inspo-image{width:100%;display:block;cursor:pointer}
         .inspo-info{padding:12px}
         .inspo-name{font-size:13px;font-weight:600;margin-bottom:6px}
         .inspo-tags{display:flex;gap:4px;flex-wrap:wrap}
         .inspo-actions{display:flex;gap:4px;padding:8px 12px;border-top:1px solid var(--border)}
         
-        .upload-area{border:2px dashed var(--border);border-radius:var(--radius);padding:40px;text-align:center;cursor:pointer;transition:var(--transition);margin-bottom:20px}
+        .upload-area{border:2px dashed var(--border);border-radius:var(--radius);padding:40px;text-align:center;cursor:pointer;transition:var(--transition);margin-bottom:20px;display:flex;flex-direction:column;align-items:center;justify-content:center}
         .upload-area:hover{border-color:var(--accent);background:var(--accent-soft)}
         .upload-area.drag-over{border-color:var(--accent);background:var(--accent-soft)}
         .upload-icon{color:var(--text-3);margin-bottom:12px}
@@ -438,6 +493,16 @@ export default function App() {
         /* FORM */
         .form-input{width:100%;padding:8px 12px;background:var(--bg-input);border:1px solid var(--border);border-radius:var(--radius);font-size:13px;color:var(--text-1);font-family:var(--font);transition:var(--transition)}
         .form-input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+        
+        /* SETTINGS MODAL */
+        .modal-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:1000;padding:20px}
+        .modal{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);width:100%;max-width:400px;box-shadow:0 20px 40px rgba(0,0,0,0.3)}
+        .modal-header{display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid var(--border)}
+        .modal-title{font-size:16px;font-weight:600}
+        .modal-body{padding:20px}
+        .modal-footer{display:flex;gap:8px;justify-content:flex-end;padding:16px 20px;border-top:1px solid var(--border)}
+        .form-group{margin-bottom:16px}
+        .form-label{display:block;font-size:12px;font-weight:500;color:var(--text-2);margin-bottom:6px}
         
         /* LIGHTBOX */
         .lightbox{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.95);display:flex;align-items:center;justify-content:center;z-index:2000;padding:40px}
@@ -487,6 +552,10 @@ export default function App() {
         <div className="sb-foot">
           <div className="time">{formatTime(currentTime)}</div>
           <div className="date">{formatDate(currentTime)}</div>
+          <button className="settings-btn" onClick={() => setShowSettings(true)}>
+            <Settings size={16} />
+            <span>Settings</span>
+          </button>
         </div>
       </aside>
 
@@ -509,7 +578,7 @@ export default function App() {
               <input type="file" accept=".json" onChange={importData} style={{ display: 'none' }} />
             </label>
             <div className="greeting">
-              Let's work, <strong>Jake</strong>
+              {userGreeting}, <strong>{userName}</strong>
               <div className="user-icon"><User size={14} /></div>
             </div>
           </div>
@@ -521,18 +590,76 @@ export default function App() {
             setSearchQuery={setSearchQuery}
             results={getSearchResults()}
             navigateToItem={navigateToItem}
-            setShowSearch={setShowSearch}
           />
         )}
 
         <div className="content">
-          {activeView === 'projects' && <ProjectsView projects={projects} addProject={addProject} updateProject={updateProject} deleteProject={deleteProject} reorderProjects={reorderProjects} onTagClick={handleTagClick} allTags={getAllTags()} />}
-          {activeView === 'links' && <LinksView links={links} addLink={addLink} updateLink={updateLink} deleteLink={deleteLink} reorderLinks={reorderLinks} onTagClick={handleTagClick} allTags={getAllTags()} />}
-          {activeView === 'notes' && <NotesView notes={notes} addNote={addNote} updateNote={updateNote} deleteNote={deleteNote} reorderNotes={reorderNotes} onTagClick={handleTagClick} allTags={getAllTags()} />}
+          {activeView === 'projects' && <ProjectsView projects={projects} addProject={addProject} updateProject={updateProject} deleteProject={deleteProject} reorderProjects={reorderProjects} onTagClick={handleTagClick} allTags={getAllTags()} highlightedItemId={highlightedItemId} />}
+          {activeView === 'links' && <LinksView links={links} addLink={addLink} updateLink={updateLink} deleteLink={deleteLink} reorderLinks={reorderLinks} onTagClick={handleTagClick} allTags={getAllTags()} highlightedItemId={highlightedItemId} />}
+          {activeView === 'notes' && <NotesView notes={notes} addNote={addNote} updateNote={updateNote} deleteNote={deleteNote} reorderNotes={reorderNotes} onTagClick={handleTagClick} allTags={getAllTags()} highlightedItemId={highlightedItemId} />}
           {activeView === 'tags' && <TagsView projects={projects} links={links} notes={notes} inspirations={inspirations} activeTagFilter={activeTagFilter} setActiveTagFilter={setActiveTagFilter} navigateToItem={navigateToItem} />}
-          {activeView === 'inspo' && <InspoView inspirations={inspirations} addInspiration={addInspiration} deleteInspiration={deleteInspiration} onTagClick={handleTagClick} allTags={getAllTags()} />}
+          {activeView === 'inspo' && <InspoView inspirations={inspirations} addInspiration={addInspiration} deleteInspiration={deleteInspiration} onTagClick={handleTagClick} allTags={getAllTags()} highlightedItemId={highlightedItemId} />}
         </div>
       </main>
+
+      {showSettings && (
+        <SettingsModal 
+          userName={userName}
+          setUserName={setUserName}
+          userGreeting={userGreeting}
+          setUserGreeting={setUserGreeting}
+          onClose={() => setShowSettings(false)}
+        />
+      )}
+    </div>
+  );
+}
+
+// ============================================================================
+// SETTINGS MODAL
+// ============================================================================
+function SettingsModal({ userName, setUserName, userGreeting, setUserGreeting, onClose }) {
+  const [tempName, setTempName] = useState(userName);
+  const [tempGreeting, setTempGreeting] = useState(userGreeting);
+
+  const handleSave = () => {
+    setUserName(tempName);
+    setUserGreeting(tempGreeting);
+    onClose();
+  };
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal" onClick={e => e.stopPropagation()}>
+        <div className="modal-header">
+          <span className="modal-title">Settings</span>
+          <button className="icon-btn" onClick={onClose}><X size={18} /></button>
+        </div>
+        <div className="modal-body">
+          <div className="form-group">
+            <label className="form-label">Your Name</label>
+            <input 
+              className="form-input" 
+              value={tempName} 
+              onChange={e => setTempName(e.target.value)}
+              placeholder="Enter your name"
+            />
+          </div>
+          <div className="form-group">
+            <label className="form-label">Greeting Message</label>
+            <input 
+              className="form-input" 
+              value={tempGreeting} 
+              onChange={e => setTempGreeting(e.target.value)}
+              placeholder="e.g., Let's work, Hello, Welcome back"
+            />
+          </div>
+        </div>
+        <div className="modal-footer">
+          <button className="btn-secondary" onClick={onClose}>Cancel</button>
+          <button className="btn-primary" onClick={handleSave}><Save size={14} /> Save</button>
+        </div>
+      </div>
     </div>
   );
 }
@@ -540,7 +667,7 @@ export default function App() {
 // ============================================================================
 // SEARCH BAR
 // ============================================================================
-function SearchBar({ searchQuery, setSearchQuery, results, navigateToItem, setShowSearch }) {
+function SearchBar({ searchQuery, setSearchQuery, results, navigateToItem }) {
   const inputRef = useRef(null);
   const totalResults = results.projects.length + results.links.length + results.notes.length + results.inspirations.length;
 
@@ -569,7 +696,7 @@ function SearchBar({ searchQuery, setSearchQuery, results, navigateToItem, setSh
                 <div className="search-section">
                   <div className="search-section-title">Projects</div>
                   {results.projects.map(p => (
-                    <div key={p.id} className="search-item" onClick={() => { navigateToItem('Project', p.id); setShowSearch(false); setSearchQuery(''); }}>
+                    <div key={p.id} className="search-item" onClick={() => navigateToItem('Project', p.id)}>
                       <List size={14} /> <span>{p.title}</span>
                     </div>
                   ))}
@@ -579,7 +706,7 @@ function SearchBar({ searchQuery, setSearchQuery, results, navigateToItem, setSh
                 <div className="search-section">
                   <div className="search-section-title">Links</div>
                   {results.links.map(l => (
-                    <div key={l.id} className="search-item" onClick={() => { navigateToItem('Link', l.id); setShowSearch(false); setSearchQuery(''); }}>
+                    <div key={l.id} className="search-item" onClick={() => navigateToItem('Link', l.id)}>
                       <Link2 size={14} /> <span>{l.title}</span>
                     </div>
                   ))}
@@ -589,7 +716,7 @@ function SearchBar({ searchQuery, setSearchQuery, results, navigateToItem, setSh
                 <div className="search-section">
                   <div className="search-section-title">Notes</div>
                   {results.notes.map(n => (
-                    <div key={n.id} className="search-item" onClick={() => { navigateToItem('Note', n.id); setShowSearch(false); setSearchQuery(''); }}>
+                    <div key={n.id} className="search-item" onClick={() => navigateToItem('Note', n.id)}>
                       <FileText size={14} /> <span>{n.title}</span>
                     </div>
                   ))}
@@ -599,7 +726,7 @@ function SearchBar({ searchQuery, setSearchQuery, results, navigateToItem, setSh
                 <div className="search-section">
                   <div className="search-section-title">Inspiration</div>
                   {results.inspirations.map(i => (
-                    <div key={i.id} className="search-item" onClick={() => { navigateToItem('Inspo', i.id); setShowSearch(false); setSearchQuery(''); }}>
+                    <div key={i.id} className="search-item" onClick={() => navigateToItem('Inspo', i.id)}>
                       <Image size={14} /> <span>{i.name}</span>
                     </div>
                   ))}
@@ -672,7 +799,7 @@ function TagInput({ onAdd, allTags, existingTags }) {
 // ============================================================================
 // PROJECTS VIEW
 // ============================================================================
-function ProjectsView({ projects, addProject, updateProject, deleteProject, reorderProjects, onTagClick, allTags }) {
+function ProjectsView({ projects, addProject, updateProject, deleteProject, reorderProjects, onTagClick, allTags, highlightedItemId }) {
   const [statusFilter, setStatusFilter] = useState('all');
   const [tagFilter, setTagFilter] = useState('all');
   const [dragIndex, setDragIndex] = useState(null);
@@ -692,22 +819,9 @@ function ProjectsView({ projects, addProject, updateProject, deleteProject, reor
     return true;
   });
 
-  const handleDragStart = (e, index) => {
-    setDragIndex(index);
-    e.dataTransfer.effectAllowed = 'move';
-  };
-
-  const handleDragOver = (e, index) => {
-    e.preventDefault();
-    if (dragIndex !== null && dragIndex !== index) {
-      reorderProjects(dragIndex, index);
-      setDragIndex(index);
-    }
-  };
-
-  const handleDragEnd = () => {
-    setDragIndex(null);
-  };
+  const handleDragStart = (index) => { setDragIndex(index); };
+  const handleDragOver = (e, index) => { e.preventDefault(); if (dragIndex !== null && dragIndex !== index) { reorderProjects(dragIndex, index); setDragIndex(index); } };
+  const handleDragEnd = () => { setDragIndex(null); };
 
   return (
     <div>
@@ -757,7 +871,7 @@ function ProjectsView({ projects, addProject, updateProject, deleteProject, reor
               onDragStart={handleDragStart}
               onDragOver={handleDragOver}
               onDragEnd={handleDragEnd}
-              isDragging={dragIndex === index}
+              isHighlighted={highlightedItemId === p.id}
             />
           ))}
         </div>
@@ -766,7 +880,7 @@ function ProjectsView({ projects, addProject, updateProject, deleteProject, reor
   );
 }
 
-function ProjectCard({ project, index, updateProject, deleteProject, onTagClick, getProgress, allTags, onDragStart, onDragOver, onDragEnd, isDragging }) {
+function ProjectCard({ project, index, updateProject, deleteProject, onTagClick, getProgress, allTags, onDragStart, onDragOver, onDragEnd, isHighlighted }) {
   const [isEditing, setIsEditing] = useState(false);
   const [editedTitle, setEditedTitle] = useState(project.title);
   const [showSub, setShowSub] = useState(true);
@@ -786,13 +900,16 @@ function ProjectCard({ project, index, updateProject, deleteProject, onTagClick,
 
   return (
     <div 
-      className={`project-card ${isDragging ? 'dragging' : ''}`}
-      draggable
-      onDragStart={e => onDragStart(e, index)}
-      onDragOver={e => onDragOver(e, index)}
-      onDragEnd={onDragEnd}
+      id={project.id}
+      className={`project-card ${isHighlighted ? 'highlighted' : ''}`}
     >
-      <div className="project-header">
+      <div 
+        className="project-header"
+        draggable
+        onDragStart={() => onDragStart(index)}
+        onDragOver={e => onDragOver(e, index)}
+        onDragEnd={onDragEnd}
+      >
         {isEditing ? (
           <input className="form-input" value={editedTitle} onChange={e => setEditedTitle(e.target.value)} onBlur={saveTitle} onKeyDown={e => e.key === 'Enter' && saveTitle()} autoFocus style={{ flex: 1, marginRight: 12 }} />
         ) : (
@@ -889,14 +1006,14 @@ function SubItem({ item, updateSub, deleteSub }) {
 // ============================================================================
 // LINKS VIEW
 // ============================================================================
-function LinksView({ links, addLink, updateLink, deleteLink, reorderLinks, onTagClick, allTags }) {
+function LinksView({ links, addLink, updateLink, deleteLink, reorderLinks, onTagClick, allTags, highlightedItemId }) {
   const [tagFilter, setTagFilter] = useState('all');
   const [dragIndex, setDragIndex] = useState(null);
   
   const linkTags = [...new Set(links.flatMap(l => l.tags || []))];
   const filtered = tagFilter === 'all' ? links : links.filter(l => l.tags?.includes(tagFilter));
 
-  const handleDragStart = (e, index) => { setDragIndex(index); e.dataTransfer.effectAllowed = 'move'; };
+  const handleDragStart = (index) => { setDragIndex(index); };
   const handleDragOver = (e, index) => { e.preventDefault(); if (dragIndex !== null && dragIndex !== index) { reorderLinks(dragIndex, index); setDragIndex(index); } };
   const handleDragEnd = () => { setDragIndex(null); };
 
@@ -934,7 +1051,7 @@ function LinksView({ links, addLink, updateLink, deleteLink, reorderLinks, onTag
               onDragStart={handleDragStart}
               onDragOver={handleDragOver}
               onDragEnd={handleDragEnd}
-              isDragging={dragIndex === index}
+              isHighlighted={highlightedItemId === l.id}
             />
           ))}
         </div>
@@ -943,7 +1060,7 @@ function LinksView({ links, addLink, updateLink, deleteLink, reorderLinks, onTag
   );
 }
 
-function LinkCard({ link, index, updateLink, deleteLink, onTagClick, allTags, onDragStart, onDragOver, onDragEnd, isDragging }) {
+function LinkCard({ link, index, updateLink, deleteLink, onTagClick, allTags, onDragStart, onDragOver, onDragEnd, isHighlighted }) {
   const [isEditing, setIsEditing] = useState(false);
   const [editedTitle, setEditedTitle] = useState(link.title);
   const [editedUrl, setEditedUrl] = useState(link.url);
@@ -955,13 +1072,16 @@ function LinkCard({ link, index, updateLink, deleteLink, onTagClick, allTags, on
 
   return (
     <div 
-      className={`link-card ${isDragging ? 'dragging' : ''}`}
-      draggable
-      onDragStart={e => onDragStart(e, index)}
-      onDragOver={e => onDragOver(e, index)}
-      onDragEnd={onDragEnd}
+      id={link.id}
+      className={`link-card ${isHighlighted ? 'highlighted' : ''}`}
     >
-      <div className="link-header">
+      <div 
+        className="link-header"
+        draggable
+        onDragStart={() => onDragStart(index)}
+        onDragOver={e => onDragOver(e, index)}
+        onDragEnd={onDragEnd}
+      >
         {isEditing ? <input className="form-input" value={editedTitle} onChange={e => setEditedTitle(e.target.value)} onBlur={save} style={{ fontSize: 14, fontWeight: 600 }} autoFocus />
           : <div className="link-title" onClick={() => setIsEditing(true)}>{link.title}</div>}
       </div>
@@ -990,11 +1110,9 @@ function LinkCard({ link, index, updateLink, deleteLink, onTagClick, allTags, on
 // ============================================================================
 // NOTES VIEW
 // ============================================================================
-function NotesView({ notes, addNote, updateNote, deleteNote, reorderNotes, onTagClick, allTags }) {
+function NotesView({ notes, addNote, updateNote, deleteNote, reorderNotes, onTagClick, allTags, highlightedItemId }) {
   const [tagFilter, setTagFilter] = useState('all');
   
-  const colors = ['yellow', 'pink', 'orange', 'cyan', 'green', 'purple', 'coral', 'peach'];
-  const getColor = (id) => colors[id.split('').reduce((a, c) => a + c.charCodeAt(0), 0) % colors.length];
   const noteTags = [...new Set(notes.flatMap(n => n.tags || []))];
   const filtered = tagFilter === 'all' ? notes : notes.filter(n => n.tags?.includes(tagFilter));
 
@@ -1019,26 +1137,40 @@ function NotesView({ notes, addNote, updateNote, deleteNote, reorderNotes, onTag
           <div className="empty-text">Create notes to capture your thoughts</div>
         </div>
       ) : (
-        <div className="notes-grid">{filtered.map(n => <NoteCard key={n.id} note={n} color={getColor(n.id)} updateNote={updateNote} deleteNote={deleteNote} onTagClick={onTagClick} allTags={allTags} />)}</div>
+        <div className="notes-grid">{filtered.map(n => <NoteCard key={n.id} note={n} updateNote={updateNote} deleteNote={deleteNote} onTagClick={onTagClick} allTags={allTags} isHighlighted={highlightedItemId === n.id} />)}</div>
       )}
     </div>
   );
 }
 
-function NoteCard({ note, color, updateNote, deleteNote, onTagClick, allTags }) {
+function NoteCard({ note, updateNote, deleteNote, onTagClick, allTags, isHighlighted }) {
   const [isEditing, setIsEditing] = useState(false);
   const [editedTitle, setEditedTitle] = useState(note.title);
   const [editedContent, setEditedContent] = useState(note.content);
+  const [editedColor, setEditedColor] = useState(note.color || 'yellow');
   const [editingTags, setEditingTags] = useState(false);
 
-  const save = () => { updateNote(note.id, { title: editedTitle, content: editedContent }); setIsEditing(false); };
+  const save = () => { updateNote(note.id, { title: editedTitle, content: editedContent, color: editedColor }); setIsEditing(false); };
   const addTag = (tag) => { if (!note.tags?.includes(tag)) { updateNote(note.id, { tags: [...(note.tags || []), tag] }); } setEditingTags(false); };
   const removeTag = (tag) => updateNote(note.id, { tags: note.tags.filter(t => t !== tag) });
   const getText = (html) => { const d = document.createElement('div'); d.innerHTML = html || ''; return d.textContent || ''; };
 
+  const color = note.color || 'yellow';
+
   if (isEditing) {
     return (
-      <div className={`note-card ${color}`}>
+      <div id={note.id} className={`note-card ${editedColor}`}>
+        <div className="color-picker">
+          {NOTE_COLORS.map(c => (
+            <div 
+              key={c.id} 
+              className={`color-swatch ${editedColor === c.id ? 'active' : ''}`}
+              style={{ backgroundColor: c.bg }}
+              onClick={() => setEditedColor(c.id)}
+              title={c.name}
+            />
+          ))}
+        </div>
         <input className="note-edit-input" value={editedTitle} onChange={e => setEditedTitle(e.target.value)} autoFocus />
         <RichTextEditor value={editedContent} onChange={setEditedContent} />
         <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
@@ -1050,7 +1182,7 @@ function NoteCard({ note, color, updateNote, deleteNote, onTagClick, allTags }) 
   }
 
   return (
-    <div className={`note-card ${color}`}>
+    <div id={note.id} className={`note-card ${color} ${isHighlighted ? 'highlighted' : ''}`}>
       <div className="note-header"><div className="note-title" onClick={() => setIsEditing(true)}>{note.title}</div></div>
       <div className="note-content" onClick={() => setIsEditing(true)}>{getText(note.content) || 'Click to add content...'}</div>
       <div className="note-tags">
@@ -1063,12 +1195,10 @@ function NoteCard({ note, color, updateNote, deleteNote, onTagClick, allTags }) 
         {editingTags ? (
           <div style={{ display: 'inline-block' }}>
             <input
-              value=""
-              onChange={() => {}}
-              onFocus={() => {}}
               placeholder="Tag"
               style={{ width: 50, padding: '3px 5px', fontSize: 10, border: '1px solid rgba(0,0,0,0.2)', borderRadius: 4, background: 'rgba(255,255,255,0.8)' }}
-              onKeyDown={e => { if (e.key === 'Enter' && e.target.value.trim()) { addTag(e.target.value.trim()); } }}
+              onKeyDown={e => { if (e.key === 'Enter' && e.target.value.trim()) { addTag(e.target.value.trim()); e.target.value = ''; } if (e.key === 'Escape') setEditingTags(false); }}
+              autoFocus
             />
           </div>
         ) : (
@@ -1165,7 +1295,7 @@ function TagsView({ projects, links, notes, inspirations, activeTagFilter, setAc
 // ============================================================================
 // INSPO VIEW
 // ============================================================================
-function InspoView({ inspirations, addInspiration, deleteInspiration, onTagClick, allTags }) {
+function InspoView({ inspirations, addInspiration, deleteInspiration, onTagClick, allTags, highlightedItemId }) {
   const [tagFilter, setTagFilter] = useState('all');
   const [lightbox, setLightbox] = useState(null);
   const [dragOver, setDragOver] = useState(false);
@@ -1227,7 +1357,7 @@ function InspoView({ inspirations, addInspiration, deleteInspiration, onTagClick
       ) : (
         <div className="inspo-grid">
           {filtered.map(i => (
-            <div key={i.id} className="inspo-card">
+            <div key={i.id} id={i.id} className={`inspo-card ${highlightedItemId === i.id ? 'highlighted' : ''}`}>
               <img src={i.thumbnail || i.url} alt={i.name} className="inspo-image" onClick={() => setLightbox(i)} />
               <div className="inspo-info">
                 <div className="inspo-name">{i.name}</div>
