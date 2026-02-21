@@ -412,12 +412,10 @@ export default function App() {
         .link-footer{display:flex;justify-content:space-between;align-items:flex-end;margin-top:auto}
         .link-tags{display:flex;gap:4px;flex-wrap:wrap}
         
-        /* NOTES MASONRY GRID */
-        .notes-grid{column-count:4;column-gap:16px}
-        @media(max-width:1200px){.notes-grid{column-count:3}}
-        @media(max-width:900px){.notes-grid{column-count:2}}
-        @media(max-width:500px){.notes-grid{column-count:1}}
-        .note-card{break-inside:avoid;margin-bottom:16px;padding:16px;border-radius:var(--radius);position:relative;min-height:120px;display:flex;flex-direction:column;transition:all 0.3s ease}
+        /* NOTES GRID */
+        .notes-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:16px}
+        .note-card{padding:16px;border-radius:var(--radius);position:relative;min-height:120px;display:flex;flex-direction:column;transition:all 0.3s ease}
+        .note-card:focus-within{z-index:10}
         .note-card:hover{transform:translateY(-2px);box-shadow:0 6px 20px rgba(0,0,0,0.15)}
         .note-card.highlighted{animation:highlight-pulse 2s ease-out}
         .note-card.yellow{background:#FEF08A}
@@ -1231,7 +1229,7 @@ function NoteCard({ note, updateNote, deleteNote, onTagClick, allTags, isHighlig
           </span>
         ))}
         {editingTags ? (
-          <TagInput onAdd={addTag} allTags={allTags} existingTags={note.tags} small useFixedDropdown />
+          <TagInput onAdd={addTag} allTags={allTags} existingTags={note.tags} small />
         ) : (
           <span className="note-tag" onClick={() => setEditingTags(true)} style={{ cursor: 'pointer' }}><Plus size={8} /></span>
         )}
