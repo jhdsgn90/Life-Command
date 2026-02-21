@@ -357,8 +357,8 @@ export default function App() {
         .tag-pill:hover{border-color:var(--accent);color:var(--accent)}
         
         /* TAG INPUT WITH AUTOCOMPLETE */
-        .tag-input-wrap{position:relative;display:inline-block}
-        .tag-dropdown{position:absolute;top:100%;left:0;min-width:150px;max-height:200px;overflow-y:auto;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);box-shadow:0 4px 12px rgba(0,0,0,0.15);z-index:100;margin-top:4px}
+        .tag-input-wrap{position:relative;display:inline-block;z-index:10}
+        .tag-dropdown{position:absolute;top:100%;left:0;min-width:150px;max-height:200px;overflow-y:auto;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);box-shadow:0 4px 12px rgba(0,0,0,0.15);z-index:1000;margin-top:4px}
         .tag-dropdown-item{padding:8px 12px;cursor:pointer;font-size:12px;transition:var(--transition)}
         .tag-dropdown-item:hover{background:var(--accent-soft);color:var(--accent)}
         .tag-dropdown-item.new{color:var(--accent);font-weight:500}
@@ -411,9 +411,12 @@ export default function App() {
         .link-footer{display:flex;justify-content:space-between;align-items:flex-end;margin-top:auto}
         .link-tags{display:flex;gap:4px;flex-wrap:wrap}
         
-        /* NOTES GRID */
-        .notes-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:16px}
-        .note-card{padding:16px;border-radius:var(--radius);position:relative;min-height:140px;display:flex;flex-direction:column;transition:all 0.3s ease}
+        /* NOTES MASONRY GRID */
+        .notes-grid{column-count:4;column-gap:16px}
+        @media(max-width:1200px){.notes-grid{column-count:3}}
+        @media(max-width:900px){.notes-grid{column-count:2}}
+        @media(max-width:500px){.notes-grid{column-count:1}}
+        .note-card{break-inside:avoid;margin-bottom:16px;padding:16px;border-radius:var(--radius);position:relative;min-height:120px;display:flex;flex-direction:column;transition:all 0.3s ease}
         .note-card:hover{transform:translateY(-2px);box-shadow:0 6px 20px rgba(0,0,0,0.15)}
         .note-card.highlighted{animation:highlight-pulse 2s ease-out}
         .note-card.yellow{background:#FEF08A}
@@ -427,7 +430,7 @@ export default function App() {
         .note-header{display:flex;justify-content:space-between;margin-bottom:8px}
         .note-title{font-size:14px;font-weight:600;color:#1A1A1A;cursor:pointer}
         .note-content{font-size:12px;color:#1A1A1A;opacity:0.85;line-height:1.5;flex:1}
-        .note-content ul,.note-content ol{margin-left:16px;margin-top:4px;margin-bottom:4px}
+        .note-content ul,.note-content ol{margin-left:1em;margin-top:4px;margin-bottom:4px;padding-left:0}
         .note-content li{margin-bottom:2px}
         .note-tags{display:flex;gap:4px;flex-wrap:wrap;margin-top:12px}
         .note-tag{padding:3px 6px;background:rgba(0,0,0,0.12);border-radius:4px;font-size:10px;font-weight:500;color:#1A1A1A;cursor:pointer;display:flex;align-items:center;gap:3px;transition:var(--transition)}
@@ -450,11 +453,13 @@ export default function App() {
         @media(max-width:1200px){.inspo-grid{column-count:3}}
         @media(max-width:900px){.inspo-grid{column-count:2}}
         @media(max-width:500px){.inspo-grid{column-count:1}}
-        .inspo-card{break-inside:avoid;margin-bottom:16px;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;transition:all 0.3s ease}
+        .inspo-card{break-inside:avoid;margin-bottom:16px;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);transition:all 0.3s ease;position:relative;z-index:1}
+        .inspo-card:focus-within{z-index:100}
+        .inspo-card .inspo-image{border-radius:var(--radius) var(--radius) 0 0}
+        .inspo-info{position:relative;overflow:visible;padding:12px}
         .inspo-card:hover{border-color:var(--accent);transform:translateY(-2px);box-shadow:0 4px 12px rgba(0,0,0,0.1)}
         .inspo-card.highlighted{animation:highlight-pulse 2s ease-out}
         .inspo-image{width:100%;display:block;cursor:pointer}
-        .inspo-info{padding:12px}
         .inspo-name{font-size:13px;font-weight:600;margin-bottom:6px}
         .inspo-tags{display:flex;gap:4px;flex-wrap:wrap;align-items:center}
         .inspo-actions{display:flex;gap:4px;padding:8px 12px;border-top:1px solid var(--border)}
@@ -516,9 +521,45 @@ export default function App() {
         
         /* Responsive */
         @media(max-width:768px){
-          .hd{padding:0 16px}
+          .hd{padding:0 16px;gap:8px}
+          .hd-title{font-size:16px}
+          .hd-sub{display:none}
+          .hd-btn span{display:none}
+          .hd-btn{padding:8px}
           .content{padding:16px}
           .greeting{display:none}
+          .content-toolbar{flex-direction:column;align-items:stretch;gap:12px}
+          .toolbar-left{flex-wrap:wrap}
+          .toolbar-right{justify-content:flex-end}
+          .filter-label{display:none}
+          .filter-pills{flex-wrap:wrap}
+          .settings-row{flex-direction:column;align-items:stretch;gap:8px}
+          .settings-label{min-width:auto}
+          .settings-input{max-width:none}
+          .sub-item{flex-wrap:wrap;gap:8px}
+          .sub-badges{width:100%;justify-content:flex-start}
+          .sub-actions{margin-left:auto}
+          .search-bar{padding:12px 16px}
+          .upload-area{padding:24px}
+        }
+        @media(max-width:480px){
+          .sb{width:60px}
+          .sb .nav-label,.sb .nav-count{display:none}
+          .sb .nav-item{justify-content:center;padding:12px}
+          .sb-foot .date{display:none}
+          .sb-foot .time{font-size:12px}
+          .hd{height:48px}
+          .hd-actions{gap:4px}
+          .theme-toggle{display:none}
+          .links-grid{grid-template-columns:1fr}
+          .tags-grid{grid-template-columns:repeat(2,1fr)}
+          .btn-primary{padding:8px 12px;font-size:12px}
+          .btn-primary span{display:none}
+          .project-card{padding:12px}
+          .project-title{font-size:14px}
+          .link-card{padding:12px}
+          .note-card{padding:12px}
+          .inspo-info{padding:10px}
         }
       `}</style>
 
