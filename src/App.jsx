@@ -416,8 +416,7 @@ export default function App() {
         @media(max-width:1200px){.notes-grid{column-count:3}}
         @media(max-width:900px){.notes-grid{column-count:2}}
         @media(max-width:500px){.notes-grid{column-count:1}}
-        .note-card{break-inside:avoid;margin-bottom:16px;padding:16px;border-radius:var(--radius);position:relative;min-height:120px;display:flex;flex-direction:column;transition:all 0.3s ease;z-index:1}
-        .note-card:focus-within{z-index:100}
+        .note-card{break-inside:avoid;margin-bottom:16px;padding:16px;border-radius:var(--radius);position:relative;min-height:120px;display:flex;flex-direction:column;transition:all 0.3s ease}
         .note-card:hover{transform:translateY(-2px);box-shadow:0 6px 20px rgba(0,0,0,0.15)}
         .note-card.highlighted{animation:highlight-pulse 2s ease-out}
         .note-card.yellow{background:#FEF08A}
@@ -434,7 +433,7 @@ export default function App() {
         .note-content ul{margin:4px 0 4px 1.5em;padding:0;list-style:disc inside}
         .note-content ol{margin:4px 0 4px 1.5em;padding:0;list-style:decimal inside}
         .note-content li{margin-bottom:2px}
-        .note-tags{display:flex;gap:4px;flex-wrap:wrap;margin-top:12px}
+        .note-tags{display:flex;gap:4px;flex-wrap:wrap;margin-top:12px;position:relative;z-index:10}
         .note-tag{padding:3px 6px;background:rgba(0,0,0,0.12);border-radius:4px;font-size:10px;font-weight:500;color:#1A1A1A;cursor:pointer;display:flex;align-items:center;gap:3px;transition:var(--transition)}
         .note-tag:hover{background:rgba(0,0,0,0.2)}
         .note-card .tag-input-wrap .form-input{background:rgba(255,255,255,0.9);border-color:rgba(0,0,0,0.2);color:#1A1A1A}
