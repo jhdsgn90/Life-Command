@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useRef } from 'react';
 import { 
   List, Link2, FileText, Tag, Image, Plus, Trash2, Save, X, 
@@ -433,7 +434,7 @@ export default function App() {
         .note-content ul{margin:4px 0 4px 1.5em;padding:0;list-style:disc inside}
         .note-content ol{margin:4px 0 4px 1.5em;padding:0;list-style:decimal inside}
         .note-content li{margin-bottom:2px}
-        .note-tags{display:flex;gap:4px;flex-wrap:wrap;margin-top:12px;position:relative;z-index:10}
+        .note-tags{display:flex;gap:4px;flex-wrap:wrap;margin-top:12px}
         .note-tag{padding:3px 6px;background:rgba(0,0,0,0.12);border-radius:4px;font-size:10px;font-weight:500;color:#1A1A1A;cursor:pointer;display:flex;align-items:center;gap:3px;transition:var(--transition)}
         .note-tag:hover{background:rgba(0,0,0,0.2)}
         .note-card .tag-input-wrap .form-input{background:rgba(255,255,255,0.9);border-color:rgba(0,0,0,0.2);color:#1A1A1A}
@@ -456,8 +457,7 @@ export default function App() {
         @media(max-width:1200px){.inspo-grid{column-count:3}}
         @media(max-width:900px){.inspo-grid{column-count:2}}
         @media(max-width:500px){.inspo-grid{column-count:1}}
-        .inspo-card{break-inside:avoid;margin-bottom:16px;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);transition:all 0.3s ease;position:relative;z-index:1}
-        .inspo-card:focus-within{z-index:100}
+        .inspo-card{break-inside:avoid;margin-bottom:16px;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);transition:all 0.3s ease;position:relative}
         .inspo-card .inspo-image{border-radius:var(--radius) var(--radius) 0 0}
         .inspo-info{position:relative;overflow:visible;padding:12px}
         .inspo-card:hover{border-color:var(--accent);transform:translateY(-2px);box-shadow:0 4px 12px rgba(0,0,0,0.1)}
@@ -766,9 +766,10 @@ function SearchBar({ searchQuery, setSearchQuery, results, navigateToItem }) {
 // ============================================================================
 // TAG INPUT WITH AUTOCOMPLETE
 // ============================================================================
-function TagInput({ onAdd, allTags, existingTags, small }) {
+function TagInput({ onAdd, allTags, existingTags, small, useFixedDropdown }) {
   const [value, setValue] = useState('');
   const [showDropdown, setShowDropdown] = useState(false);
+  const [dropdownPos, setDropdownPos] = useState({ top: 0, left: 0 });
   const inputRef = useRef(null);
 
   const filteredTags = allTags.filter(t => 
@@ -790,6 +791,21 @@ function TagInput({ onAdd, allTags, existingTags, small }) {
     }
   };
 
+  const handleFocus = () => {
+    if (useFixedDropdown && inputRef.current) {
+      const rect = inputRef.current.getBoundingClientRect();
+      setDropdownPos({ top: rect.bottom + 4, left: rect.left });
+    }
+    setShowDropdown(true);
+  };
+
+  const dropdownStyle = useFixedDropdown ? {
+    position: 'fixed',
+    top: dropdownPos.top,
+    left: dropdownPos.left,
+    minWidth: 150
+  } : {};
+
   return (
     <div className="tag-input-wrap">
       <input
@@ -797,14 +813,14 @@ function TagInput({ onAdd, allTags, existingTags, small }) {
         className="form-input"
         value={value}
         onChange={e => { setValue(e.target.value); setShowDropdown(true); }}
-        onFocus={() => setShowDropdown(true)}
+        onFocus={handleFocus}
         onBlur={() => setTimeout(() => setShowDropdown(false), 150)}
         onKeyDown={handleKeyDown}
         placeholder="Add tag..."
         style={{ width: small ? 80 : 100, padding: small ? '3px 6px' : '4px 8px', fontSize: small ? 10 : 11 }}
       />
       {showDropdown && (value || filteredTags.length > 0) && (
-        <div className="tag-dropdown">
+        <div className="tag-dropdown" style={dropdownStyle}>
           {filteredTags.map(t => (
             <div key={t} className="tag-dropdown-item" onClick={() => handleAdd(t)}>{t}</div>
           ))}
@@ -1215,7 +1231,7 @@ function NoteCard({ note, updateNote, deleteNote, onTagClick, allTags, isHighlig
           </span>
         ))}
         {editingTags ? (
-          <TagInput onAdd={addTag} allTags={allTags} existingTags={note.tags} small />
+          <TagInput onAdd={addTag} allTags={allTags} existingTags={note.tags} small useFixedDropdown />
         ) : (
           <span className="note-tag" onClick={() => setEditingTags(true)} style={{ cursor: 'pointer' }}><Plus size={8} /></span>
         )}
@@ -1427,7 +1443,7 @@ function InspoCard({ inspo, updateInspiration, deleteInspiration, onTagClick, al
             </span>
           ))}
           {editingTags ? (
-            <TagInput onAdd={addTag} allTags={allTags} existingTags={inspo.tags} small />
+            <TagInput onAdd={addTag} allTags={allTags} existingTags={inspo.tags} small useFixedDropdown />
           ) : (
             <span className="tag-pill" onClick={() => setEditingTags(true)} style={{ fontSize: 10, padding: '3px 6px', cursor: 'pointer' }}><Plus size={8} /></span>
           )}
