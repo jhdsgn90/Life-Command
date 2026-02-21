@@ -213,7 +213,7 @@ export default function App() {
   const formatDate = (date) => date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
 
   const viewConfig = {
-    projects: { title: 'Projects', subtitle: `${projects.filter(p => !p.completed).length} Active, ${projects.filter(p => p.completed).length} Completed` },
+    projects: { title: 'Projects', subtitle: `${projects.filter(p => !p.archived).length} Active, ${projects.filter(p => p.archived).length} Archived` },
     links: { title: 'Links', subtitle: `${links.length} Saved Links` },
     notes: { title: 'Notes', subtitle: `${notes.length} Notes` },
     tags: { title: 'Tags', subtitle: `${getAllTags().length} Tags` },
@@ -334,8 +334,24 @@ export default function App() {
         .projects-list{display:flex;flex-direction:column;gap:12px}
         .project-card{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:16px;transition:all 0.3s ease}
         .project-card:hover{border-color:var(--accent);box-shadow:0 2px 8px rgba(0,0,0,0.08)}
+        .project-card.completed{border-color:#10B981;background:linear-gradient(135deg,var(--bg-card) 0%,rgba(16,185,129,0.08) 100%)}
         .project-card.highlighted{animation:highlight-pulse 2s ease-out}
         @keyframes highlight-pulse{0%,100%{box-shadow:0 0 0 0 transparent}50%{box-shadow:0 0 0 4px var(--accent-soft);border-color:var(--accent)}}
+        
+        .btn-archive{padding:6px 12px;background:#10B981;color:#fff;border:none;border-radius:var(--radius);font-size:11px;font-weight:600;cursor:pointer;font-family:var(--font);transition:var(--transition)}
+        .btn-archive:hover{background:#059669}
+        
+        .progress-fill.complete{background:#10B981}
+        
+        /* ARCHIVE SECTION */
+        .archive-section{margin-top:32px;border-top:1px solid var(--border);padding-top:16px}
+        .archive-header{display:flex;align-items:center;gap:8px;padding:12px 16px;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);cursor:pointer;color:var(--text-2);font-size:13px;font-weight:500;transition:var(--transition)}
+        .archive-header:hover{background:var(--bg-card-hover);color:var(--text-1)}
+        .archive-list{margin-top:8px;display:flex;flex-direction:column;gap:6px}
+        .archive-item{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);opacity:0.7;transition:var(--transition)}
+        .archive-item:hover{opacity:1}
+        .archive-item-title{font-size:13px;font-weight:500;color:var(--text-2)}
+        .archive-item-actions{display:flex;align-items:center;gap:8px}
         
         .project-header{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:12px;cursor:grab}
         .project-header:active{cursor:grabbing}
@@ -572,7 +588,7 @@ export default function App() {
         </div>
         <nav className="sb-nav">
           {[
-            { id: 'projects', icon: List, label: 'Projects', count: projects.filter(p => !p.completed).length },
+            { id: 'projects', icon: List, label: 'Projects', count: projects.filter(p => !p.archived).length },
             { id: 'links', icon: Link2, label: 'Links', count: links.length },
             { id: 'notes', icon: FileText, label: 'Notes', count: notes.length },
             { id: 'tags', icon: Tag, label: 'Tags', count: getAllTags().length },
@@ -822,16 +838,28 @@ function TagInput({ onAdd, allTags, existingTags, small }) {
 function ProjectsView({ projects, addProject, updateProject, deleteProject, reorderProjects, onTagClick, allTags, highlightedItemId }) {
   const [tagFilter, setTagFilter] = useState('all');
   const [dragIndex, setDragIndex] = useState(null);
+  const [showArchived, setShowArchived] = useState(false);
   
   const getProgress = (p) => { if (!p.subItems?.length) return 0; return Math.round((p.subItems.filter(i => i.completed).length / p.subItems.length) * 100); };
   
+  // Auto-complete logic: project is complete when 100% of sub-items are done
+  const isProjectComplete = (p) => p.subItems?.length > 0 && p.subItems.every(i => i.completed);
+  
   const projectTags = [...new Set(projects.flatMap(p => p.tags || []))];
   
-  const filtered = tagFilter === 'all' ? projects : projects.filter(p => p.tags?.includes(tagFilter));
+  // Separate active and archived projects
+  const activeProjects = projects.filter(p => !p.archived);
+  const archivedProjects = projects.filter(p => p.archived);
+  
+  // Filter active projects by tag
+  const filtered = tagFilter === 'all' ? activeProjects : activeProjects.filter(p => p.tags?.includes(tagFilter));
 
   const handleDragStart = (index) => { setDragIndex(index); };
   const handleDragOver = (e, index) => { e.preventDefault(); if (dragIndex !== null && dragIndex !== index) { reorderProjects(dragIndex, index); setDragIndex(index); } };
   const handleDragEnd = () => { setDragIndex(null); };
+  
+  const archiveProject = (id) => updateProject(id, { archived: true });
+  const restoreProject = (id) => updateProject(id, { archived: false });
 
   return (
     <div>
@@ -854,37 +882,70 @@ function ProjectsView({ projects, addProject, updateProject, deleteProject, reor
         </div>
       </div>
       
-      {filtered.length === 0 ? (
+      {filtered.length === 0 && archivedProjects.length === 0 ? (
         <div className="empty">
           <div className="empty-icon"><List size={28} /></div>
           <div className="empty-title">No projects yet</div>
           <div className="empty-text">Create your first project to start organizing your work</div>
         </div>
       ) : (
-        <div className="projects-list">
-          {filtered.map((p, index) => (
-            <ProjectCard 
-              key={p.id} 
-              project={p} 
-              index={index}
-              updateProject={updateProject} 
-              deleteProject={deleteProject} 
-              onTagClick={onTagClick} 
-              getProgress={getProgress}
-              allTags={allTags}
-              onDragStart={handleDragStart}
-              onDragOver={handleDragOver}
-              onDragEnd={handleDragEnd}
-              isHighlighted={highlightedItemId === p.id}
-            />
-          ))}
-        </div>
+        <>
+          {filtered.length === 0 ? (
+            <div className="empty" style={{ padding: '40px 24px' }}>
+              <div className="empty-title">No active projects</div>
+              <div className="empty-text">All projects are archived or filtered out</div>
+            </div>
+          ) : (
+            <div className="projects-list">
+              {filtered.map((p, index) => (
+                <ProjectCard 
+                  key={p.id} 
+                  project={p} 
+                  index={index}
+                  updateProject={updateProject} 
+                  deleteProject={deleteProject} 
+                  onTagClick={onTagClick} 
+                  getProgress={getProgress}
+                  isComplete={isProjectComplete(p)}
+                  onArchive={archiveProject}
+                  allTags={allTags}
+                  onDragStart={handleDragStart}
+                  onDragOver={handleDragOver}
+                  onDragEnd={handleDragEnd}
+                  isHighlighted={highlightedItemId === p.id}
+                />
+              ))}
+            </div>
+          )}
+          
+          {archivedProjects.length > 0 && (
+            <div className="archive-section">
+              <div className="archive-header" onClick={() => setShowArchived(!showArchived)}>
+                {showArchived ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                <span>Archived ({archivedProjects.length})</span>
+              </div>
+              {showArchived && (
+                <div className="archive-list">
+                  {archivedProjects.map(p => (
+                    <div key={p.id} className="archive-item">
+                      <span className="archive-item-title">{p.title}</span>
+                      <div className="archive-item-actions">
+                        <button className="btn-secondary" onClick={() => restoreProject(p.id)}>Restore</button>
+                        <button className="icon-btn danger" onClick={() => deleteProject(p.id)}><Trash2 size={14} /></button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </>
       )}
     </div>
   );
 }
 
-function ProjectCard({ project, index, updateProject, deleteProject, onTagClick, getProgress, allTags, onDragStart, onDragOver, onDragEnd, isHighlighted }) {
+function ProjectCard({ project, index, updateProject, deleteProject, onTagClick, getProgress, isComplete, onArchive, allTags, onDragStart, onDragOver, onDragEnd, isHighlighted }) {
   const [isEditing, setIsEditing] = useState(false);
   const [editedTitle, setEditedTitle] = useState(project.title);
   const [showSub, setShowSub] = useState(true);
@@ -905,7 +966,7 @@ function ProjectCard({ project, index, updateProject, deleteProject, onTagClick,
   return (
     <div 
       id={project.id}
-      className={`project-card ${isHighlighted ? 'highlighted' : ''}`}
+      className={`project-card ${isComplete ? 'completed' : ''} ${isHighlighted ? 'highlighted' : ''}`}
     >
       <div 
         className="project-header"
@@ -920,12 +981,15 @@ function ProjectCard({ project, index, updateProject, deleteProject, onTagClick,
           <div className="project-title" onClick={() => setIsEditing(true)}>{project.title}</div>
         )}
         <div className="project-actions">
+          {isComplete && (
+            <button className="btn-archive" onClick={() => onArchive(project.id)}>Archive</button>
+          )}
           <button className="icon-btn danger" onClick={() => deleteProject(project.id)}><Trash2 size={14} /></button>
         </div>
       </div>
       <div className="project-progress">
-        <span className="progress-text">Progress {completed}/{total} ({progress}%)</span>
-        <div className="progress-bar"><div className="progress-fill" style={{ width: `${progress}%` }} /></div>
+        <span className="progress-text">{isComplete ? 'Complete!' : `Progress ${completed}/${total} (${progress}%)`}</span>
+        <div className="progress-bar"><div className={`progress-fill ${isComplete ? 'complete' : ''}`} style={{ width: `${progress}%` }} /></div>
       </div>
       <div className="project-tags">
         {project.tags?.map(t => (
