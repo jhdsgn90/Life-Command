@@ -416,7 +416,8 @@ export default function App() {
         @media(max-width:1200px){.notes-grid{column-count:3}}
         @media(max-width:900px){.notes-grid{column-count:2}}
         @media(max-width:500px){.notes-grid{column-count:1}}
-        .note-card{break-inside:avoid;margin-bottom:16px;padding:16px;border-radius:var(--radius);position:relative;min-height:120px;display:flex;flex-direction:column;transition:all 0.3s ease}
+        .note-card{break-inside:avoid;margin-bottom:16px;padding:16px;border-radius:var(--radius);position:relative;min-height:120px;display:flex;flex-direction:column;transition:all 0.3s ease;z-index:1}
+        .note-card:focus-within{z-index:100}
         .note-card:hover{transform:translateY(-2px);box-shadow:0 6px 20px rgba(0,0,0,0.15)}
         .note-card.highlighted{animation:highlight-pulse 2s ease-out}
         .note-card.yellow{background:#FEF08A}
@@ -430,11 +431,14 @@ export default function App() {
         .note-header{display:flex;justify-content:space-between;margin-bottom:8px}
         .note-title{font-size:14px;font-weight:600;color:#1A1A1A;cursor:pointer}
         .note-content{font-size:12px;color:#1A1A1A;opacity:0.85;line-height:1.5;flex:1}
-        .note-content ul,.note-content ol{margin-left:1em;margin-top:4px;margin-bottom:4px;padding-left:0}
+        .note-content ul{margin:4px 0 4px 1.5em;padding:0;list-style:disc inside}
+        .note-content ol{margin:4px 0 4px 1.5em;padding:0;list-style:decimal inside}
         .note-content li{margin-bottom:2px}
         .note-tags{display:flex;gap:4px;flex-wrap:wrap;margin-top:12px}
         .note-tag{padding:3px 6px;background:rgba(0,0,0,0.12);border-radius:4px;font-size:10px;font-weight:500;color:#1A1A1A;cursor:pointer;display:flex;align-items:center;gap:3px;transition:var(--transition)}
         .note-tag:hover{background:rgba(0,0,0,0.2)}
+        .note-card .tag-input-wrap .form-input{background:rgba(255,255,255,0.9);border-color:rgba(0,0,0,0.2);color:#1A1A1A}
+        .note-card .tag-dropdown{background:#fff;border-color:rgba(0,0,0,0.15);color:#1A1A1A}
         .note-actions{position:absolute;top:10px;right:10px;display:flex;gap:2px;opacity:0;transition:var(--transition)}
         .note-card:hover .note-actions{opacity:1}
         .note-actions .icon-btn{color:rgba(0,0,0,0.35);width:26px;height:26px}
@@ -1212,14 +1216,7 @@ function NoteCard({ note, updateNote, deleteNote, onTagClick, allTags, isHighlig
           </span>
         ))}
         {editingTags ? (
-          <div style={{ display: 'inline-block' }}>
-            <input
-              placeholder="Tag"
-              style={{ width: 50, padding: '3px 5px', fontSize: 10, border: '1px solid rgba(0,0,0,0.2)', borderRadius: 4, background: 'rgba(255,255,255,0.8)' }}
-              onKeyDown={e => { if (e.key === 'Enter' && e.target.value.trim()) { addTag(e.target.value.trim()); e.target.value = ''; } if (e.key === 'Escape') setEditingTags(false); }}
-              autoFocus
-            />
-          </div>
+          <TagInput onAdd={addTag} allTags={allTags} existingTags={note.tags} small />
         ) : (
           <span className="note-tag" onClick={() => setEditingTags(true)} style={{ cursor: 'pointer' }}><Plus size={8} /></span>
         )}
