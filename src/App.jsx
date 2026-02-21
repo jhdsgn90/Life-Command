@@ -1,9 +1,8 @@
-
 import { useState, useEffect, useRef } from 'react';
 import { 
   List, Link2, FileText, Tag, Image, Plus, Trash2, Save, X, 
   ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Moon, Sun, 
-  Download, Upload, Check, Copy, Filter, User, Search, Edit2, Settings
+  Download, Upload, Check, Copy, User, Search, Edit2, Settings
 } from 'lucide-react';
 
 // ============================================================================
@@ -764,10 +763,9 @@ function SearchBar({ searchQuery, setSearchQuery, results, navigateToItem }) {
 // ============================================================================
 // TAG INPUT WITH AUTOCOMPLETE
 // ============================================================================
-function TagInput({ onAdd, allTags, existingTags, small, useFixedDropdown }) {
+function TagInput({ onAdd, allTags, existingTags, small }) {
   const [value, setValue] = useState('');
   const [showDropdown, setShowDropdown] = useState(false);
-  const [dropdownPos, setDropdownPos] = useState({ top: 0, left: 0 });
   const inputRef = useRef(null);
 
   const filteredTags = allTags.filter(t => 
@@ -789,21 +787,6 @@ function TagInput({ onAdd, allTags, existingTags, small, useFixedDropdown }) {
     }
   };
 
-  const handleFocus = () => {
-    if (useFixedDropdown && inputRef.current) {
-      const rect = inputRef.current.getBoundingClientRect();
-      setDropdownPos({ top: rect.bottom + 4, left: rect.left });
-    }
-    setShowDropdown(true);
-  };
-
-  const dropdownStyle = useFixedDropdown ? {
-    position: 'fixed',
-    top: dropdownPos.top,
-    left: dropdownPos.left,
-    minWidth: 150
-  } : {};
-
   return (
     <div className="tag-input-wrap">
       <input
@@ -811,14 +794,14 @@ function TagInput({ onAdd, allTags, existingTags, small, useFixedDropdown }) {
         className="form-input"
         value={value}
         onChange={e => { setValue(e.target.value); setShowDropdown(true); }}
-        onFocus={handleFocus}
+        onFocus={() => setShowDropdown(true)}
         onBlur={() => setTimeout(() => setShowDropdown(false), 150)}
         onKeyDown={handleKeyDown}
         placeholder="Add tag..."
         style={{ width: small ? 80 : 100, padding: small ? '3px 6px' : '4px 8px', fontSize: small ? 10 : 11 }}
       />
       {showDropdown && (value || filteredTags.length > 0) && (
-        <div className="tag-dropdown" style={dropdownStyle}>
+        <div className="tag-dropdown">
           {filteredTags.map(t => (
             <div key={t} className="tag-dropdown-item" onClick={() => handleAdd(t)}>{t}</div>
           ))}
@@ -837,7 +820,6 @@ function TagInput({ onAdd, allTags, existingTags, small, useFixedDropdown }) {
 // PROJECTS VIEW
 // ============================================================================
 function ProjectsView({ projects, addProject, updateProject, deleteProject, reorderProjects, onTagClick, allTags, highlightedItemId }) {
-  const [statusFilter, setStatusFilter] = useState('all');
   const [tagFilter, setTagFilter] = useState('all');
   const [dragIndex, setDragIndex] = useState(null);
   
@@ -845,16 +827,7 @@ function ProjectsView({ projects, addProject, updateProject, deleteProject, reor
   
   const projectTags = [...new Set(projects.flatMap(p => p.tags || []))];
   
-  let filtered = projects.filter(p => {
-    if (statusFilter !== 'all') {
-      const hasStatus = p.subItems?.some(i => i.status === statusFilter);
-      if (!hasStatus) return false;
-    }
-    if (tagFilter !== 'all') {
-      if (!p.tags?.includes(tagFilter)) return false;
-    }
-    return true;
-  });
+  const filtered = tagFilter === 'all' ? projects : projects.filter(p => p.tags?.includes(tagFilter));
 
   const handleDragStart = (index) => { setDragIndex(index); };
   const handleDragOver = (e, index) => { e.preventDefault(); if (dragIndex !== null && dragIndex !== index) { reorderProjects(dragIndex, index); setDragIndex(index); } };
@@ -864,15 +837,9 @@ function ProjectsView({ projects, addProject, updateProject, deleteProject, reor
     <div>
       <div className="content-toolbar">
         <div className="toolbar-left">
-          <span className="filter-label"><Filter size={12} /> Status</span>
-          <div className="filter-pills">
-            {['all', 'new', 'working', 'paused', 'stuck'].map(s => (
-              <button key={s} className={`filter-pill ${statusFilter === s ? 'active' : ''}`} onClick={() => setStatusFilter(s)}>{s.charAt(0).toUpperCase() + s.slice(1)}</button>
-            ))}
-          </div>
           {projectTags.length > 0 && (
             <>
-              <span className="filter-label" style={{ marginLeft: 12 }}><Tag size={12} /> Tag</span>
+              <span className="filter-label"><Tag size={12} /> Filter by Tag</span>
               <div className="filter-pills">
                 <button className={`filter-pill ${tagFilter === 'all' ? 'active' : ''}`} onClick={() => setTagFilter('all')}>All</button>
                 {projectTags.map(t => (
@@ -1416,16 +1383,27 @@ function InspoView({ inspirations, addInspiration, updateInspiration, deleteInsp
 
 function InspoCard({ inspo, updateInspiration, deleteInspiration, onTagClick, allTags, setLightbox, download, isHighlighted }) {
   const [editingTags, setEditingTags] = useState(false);
+  const [tagValue, setTagValue] = useState('');
 
   const addTag = (tag) => {
-    if (!inspo.tags?.includes(tag)) {
+    if (tag && !inspo.tags?.includes(tag)) {
       updateInspiration(inspo.id, { tags: [...(inspo.tags || []), tag] });
     }
+    setTagValue('');
     setEditingTags(false);
   };
 
   const removeTag = (tag) => {
     updateInspiration(inspo.id, { tags: inspo.tags.filter(t => t !== tag) });
+  };
+
+  const handleKeyDown = (e) => {
+    if (e.key === 'Enter' && tagValue.trim()) {
+      addTag(tagValue.trim());
+    } else if (e.key === 'Escape') {
+      setTagValue('');
+      setEditingTags(false);
+    }
   };
 
   return (
@@ -1441,7 +1419,16 @@ function InspoCard({ inspo, updateInspiration, deleteInspiration, onTagClick, al
             </span>
           ))}
           {editingTags ? (
-            <TagInput onAdd={addTag} allTags={allTags} existingTags={inspo.tags} small useFixedDropdown />
+            <input
+              className="form-input"
+              value={tagValue}
+              onChange={e => setTagValue(e.target.value)}
+              onKeyDown={handleKeyDown}
+              onBlur={() => { if (tagValue.trim()) addTag(tagValue.trim()); else setEditingTags(false); }}
+              placeholder="Type tag..."
+              autoFocus
+              style={{ width: 80, padding: '3px 6px', fontSize: 10 }}
+            />
           ) : (
             <span className="tag-pill" onClick={() => setEditingTags(true)} style={{ fontSize: 10, padding: '3px 6px', cursor: 'pointer' }}><Plus size={8} /></span>
           )}
