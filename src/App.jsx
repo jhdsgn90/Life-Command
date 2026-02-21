@@ -6,7 +6,7 @@ import {
 } from 'lucide-react';
 
 // ============================================================================
-// LIFE COMMAND v7.0.4 - Polished
+// LIFE COMMAND v7.0.5 - Final Polish
 // ============================================================================
 
 const CLOUDINARY_CLOUD_NAME = 'dccblqxuy';
@@ -32,7 +32,6 @@ export default function App() {
   const [activeView, setActiveView] = useState('projects');
   const [searchQuery, setSearchQuery] = useState('');
   const [showSearch, setShowSearch] = useState(false);
-  const [showSettings, setShowSettings] = useState(false);
   
   // User settings
   const [userName, setUserName] = useState(() => localStorage.getItem('lifeCommandUserName') || 'Jake');
@@ -127,12 +126,6 @@ export default function App() {
   };
   const updateNote = (id, updates) => setNotes(notes.map(n => n.id === id ? { ...n, ...updates } : n));
   const deleteNote = (id) => setNotes(notes.filter(n => n.id !== id));
-  const reorderNotes = (fromIndex, toIndex) => {
-    const newNotes = [...notes];
-    const [moved] = newNotes.splice(fromIndex, 1);
-    newNotes.splice(toIndex, 0, moved);
-    setNotes(newNotes);
-  };
 
   const addInspiration = async (file, name, tags) => {
     const formData = new FormData();
@@ -152,6 +145,7 @@ export default function App() {
       return newInspiration;
     } catch (error) { console.error('Upload failed:', error); return null; }
   };
+  const updateInspiration = (id, updates) => setInspirations(inspirations.map(i => i.id === id ? { ...i, ...updates } : i));
   const deleteInspiration = (id) => setInspirations(inspirations.filter(i => i.id !== id));
 
   // Navigation with scroll-to-item
@@ -189,7 +183,7 @@ export default function App() {
   };
 
   const exportData = () => {
-    const data = { version: '7.0.4', exportedAt: new Date().toISOString(), projects, links, notes, inspirations, settings: { userName, userGreeting } };
+    const data = { version: '7.0.5', exportedAt: new Date().toISOString(), projects, links, notes, inspirations, settings: { userName, userGreeting } };
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a'); a.href = url;
@@ -223,7 +217,8 @@ export default function App() {
     links: { title: 'Links', subtitle: `${links.length} Saved Links` },
     notes: { title: 'Notes', subtitle: `${notes.length} Notes` },
     tags: { title: 'Tags', subtitle: `${getAllTags().length} Tags` },
-    inspo: { title: 'Design Inspo', subtitle: `${inspirations.length} Images` }
+    inspo: { title: 'Design Inspo', subtitle: `${inspirations.length} Images` },
+    settings: { title: 'Settings', subtitle: 'Customize your experience' }
   };
 
   const current = viewConfig[activeView];
@@ -259,7 +254,7 @@ export default function App() {
         .collapse-btn{width:28px;height:28px;display:flex;align-items:center;justify-content:center;background:none;border:none;color:var(--text-3);cursor:pointer;border-radius:var(--radius);transition:var(--transition)}
         .collapse-btn:hover{background:var(--bg-card);color:var(--text-1)}
         
-        .sb-nav{flex:1;padding:8px;overflow-y:auto}
+        .sb-nav{flex:1;padding:8px;overflow-y:auto;display:flex;flex-direction:column}
         .nav-item{display:flex;align-items:center;gap:12px;padding:10px 12px;margin-bottom:2px;border-radius:var(--radius);cursor:pointer;color:var(--text-2);font-size:13px;font-weight:500;transition:var(--transition)}
         .sb.collapsed .nav-item{justify-content:center;padding:12px}
         .sb.collapsed .nav-label,.sb.collapsed .nav-count{display:none}
@@ -269,17 +264,14 @@ export default function App() {
         .nav-count{margin-left:auto;font-size:11px;font-weight:600;min-width:22px;height:22px;display:flex;align-items:center;justify-content:center;background:var(--bg-app);border-radius:11px;color:var(--text-2)}
         .nav-item.active .nav-count{background:rgba(255,255,255,0.2);color:#fff}
         
+        .nav-spacer{flex:1}
+        
         .sb-foot{padding:16px;border-top:1px solid var(--border)}
         .sb.collapsed .sb-foot{padding:12px 8px;text-align:center}
         .time{font-size:20px;font-weight:700;line-height:1}
         .sb.collapsed .time{font-size:11px}
         .date{font-size:11px;color:var(--text-2);margin-top:4px}
         .sb.collapsed .date{display:none}
-        
-        .settings-btn{display:flex;align-items:center;gap:8px;padding:10px 12px;margin-top:12px;border-radius:var(--radius);cursor:pointer;color:var(--text-2);font-size:13px;font-weight:500;transition:var(--transition);background:none;border:none;width:100%;text-align:left;font-family:var(--font)}
-        .settings-btn:hover{background:var(--bg-card);color:var(--text-1)}
-        .sb.collapsed .settings-btn span{display:none}
-        .sb.collapsed .settings-btn{justify-content:center}
         
         /* MAIN */
         .main{flex:1;display:flex;flex-direction:column;min-width:0}
@@ -376,8 +368,11 @@ export default function App() {
         .sub-list{margin-top:8px;display:flex;flex-direction:column;gap:6px}
         .sub-item{display:flex;align-items:center;gap:12px;padding:10px 12px;background:var(--bg-app);border-radius:var(--radius);transition:var(--transition)}
         .sub-item:hover{background:var(--bg-card-hover)}
-        .sub-checkbox{width:16px;height:16px;border:2px solid var(--border);border-radius:4px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:var(--transition)}
+        .sub-item:hover .sub-checkbox{border-color:var(--text-2)}
+        .sub-item:hover .sub-checkbox.checked{border-color:var(--accent)}
+        .sub-checkbox{width:16px;height:16px;border:2px solid var(--border);border-radius:4px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:var(--transition);color:transparent}
         .sub-checkbox.checked{background:var(--accent);border-color:var(--accent);color:#fff}
+        .sub-item:hover .sub-checkbox:not(.checked){color:var(--text-3)}
         .sub-text{flex:1;font-size:13px;cursor:text;user-select:text}
         .sub-text.done{text-decoration:line-through;color:var(--text-3)}
         .sub-text-input{flex:1;padding:4px 8px;background:var(--bg-input);border:1px solid var(--border);border-radius:4px;font-size:13px;color:var(--text-1);font-family:var(--font)}
@@ -431,7 +426,9 @@ export default function App() {
         .note-card.peach{background:#FECACA}
         .note-header{display:flex;justify-content:space-between;margin-bottom:8px}
         .note-title{font-size:14px;font-weight:600;color:#1A1A1A;cursor:pointer}
-        .note-content{font-size:12px;color:#1A1A1A;opacity:0.75;line-height:1.5;flex:1}
+        .note-content{font-size:12px;color:#1A1A1A;opacity:0.85;line-height:1.5;flex:1}
+        .note-content ul,.note-content ol{margin-left:16px;margin-top:4px;margin-bottom:4px}
+        .note-content li{margin-bottom:2px}
         .note-tags{display:flex;gap:4px;flex-wrap:wrap;margin-top:12px}
         .note-tag{padding:3px 6px;background:rgba(0,0,0,0.12);border-radius:4px;font-size:10px;font-weight:500;color:#1A1A1A;cursor:pointer;display:flex;align-items:center;gap:3px;transition:var(--transition)}
         .note-tag:hover{background:rgba(0,0,0,0.2)}
@@ -459,7 +456,7 @@ export default function App() {
         .inspo-image{width:100%;display:block;cursor:pointer}
         .inspo-info{padding:12px}
         .inspo-name{font-size:13px;font-weight:600;margin-bottom:6px}
-        .inspo-tags{display:flex;gap:4px;flex-wrap:wrap}
+        .inspo-tags{display:flex;gap:4px;flex-wrap:wrap;align-items:center}
         .inspo-actions{display:flex;gap:4px;padding:8px 12px;border-top:1px solid var(--border)}
         
         .upload-area{border:2px dashed var(--border);border-radius:var(--radius);padding:40px;text-align:center;cursor:pointer;transition:var(--transition);margin-bottom:20px;display:flex;flex-direction:column;align-items:center;justify-content:center}
@@ -484,6 +481,14 @@ export default function App() {
         .tagged-item-type{font-size:11px;color:var(--text-2);text-transform:uppercase;font-weight:500}
         .tagged-item-name{font-size:13px;font-weight:500}
         
+        /* SETTINGS VIEW */
+        .settings-section{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:20px;margin-bottom:16px}
+        .settings-section-title{font-size:14px;font-weight:600;margin-bottom:16px}
+        .settings-row{display:flex;align-items:center;gap:16px;margin-bottom:12px}
+        .settings-row:last-child{margin-bottom:0}
+        .settings-label{font-size:13px;color:var(--text-2);min-width:120px}
+        .settings-input{flex:1;max-width:300px}
+        
         /* EMPTY STATE */
         .empty{text-align:center;padding:80px 24px}
         .empty-icon{width:64px;height:64px;margin:0 auto 16px;background:var(--bg-card);border-radius:16px;display:flex;align-items:center;justify-content:center;color:var(--text-3)}
@@ -493,16 +498,6 @@ export default function App() {
         /* FORM */
         .form-input{width:100%;padding:8px 12px;background:var(--bg-input);border:1px solid var(--border);border-radius:var(--radius);font-size:13px;color:var(--text-1);font-family:var(--font);transition:var(--transition)}
         .form-input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
-        
-        /* SETTINGS MODAL */
-        .modal-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:1000;padding:20px}
-        .modal{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);width:100%;max-width:400px;box-shadow:0 20px 40px rgba(0,0,0,0.3)}
-        .modal-header{display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid var(--border)}
-        .modal-title{font-size:16px;font-weight:600}
-        .modal-body{padding:20px}
-        .modal-footer{display:flex;gap:8px;justify-content:flex-end;padding:16px 20px;border-top:1px solid var(--border)}
-        .form-group{margin-bottom:16px}
-        .form-label{display:block;font-size:12px;font-weight:500;color:var(--text-2);margin-bottom:6px}
         
         /* LIGHTBOX */
         .lightbox{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.95);display:flex;align-items:center;justify-content:center;z-index:2000;padding:40px}
@@ -548,14 +543,17 @@ export default function App() {
               <span className="nav-count">{item.count}</span>
             </div>
           ))}
+          
+          <div className="nav-spacer" />
+          
+          <div className={`nav-item ${activeView === 'settings' ? 'active' : ''}`} onClick={() => { setActiveView('settings'); setShowSearch(false); }}>
+            <Settings className="nav-icon" size={18} />
+            <span className="nav-label">Settings</span>
+          </div>
         </nav>
         <div className="sb-foot">
           <div className="time">{formatTime(currentTime)}</div>
           <div className="date">{formatDate(currentTime)}</div>
-          <button className="settings-btn" onClick={() => setShowSettings(true)}>
-            <Settings size={16} />
-            <span>Settings</span>
-          </button>
         </div>
       </aside>
 
@@ -596,69 +594,50 @@ export default function App() {
         <div className="content">
           {activeView === 'projects' && <ProjectsView projects={projects} addProject={addProject} updateProject={updateProject} deleteProject={deleteProject} reorderProjects={reorderProjects} onTagClick={handleTagClick} allTags={getAllTags()} highlightedItemId={highlightedItemId} />}
           {activeView === 'links' && <LinksView links={links} addLink={addLink} updateLink={updateLink} deleteLink={deleteLink} reorderLinks={reorderLinks} onTagClick={handleTagClick} allTags={getAllTags()} highlightedItemId={highlightedItemId} />}
-          {activeView === 'notes' && <NotesView notes={notes} addNote={addNote} updateNote={updateNote} deleteNote={deleteNote} reorderNotes={reorderNotes} onTagClick={handleTagClick} allTags={getAllTags()} highlightedItemId={highlightedItemId} />}
+          {activeView === 'notes' && <NotesView notes={notes} addNote={addNote} updateNote={updateNote} deleteNote={deleteNote} onTagClick={handleTagClick} allTags={getAllTags()} highlightedItemId={highlightedItemId} />}
           {activeView === 'tags' && <TagsView projects={projects} links={links} notes={notes} inspirations={inspirations} activeTagFilter={activeTagFilter} setActiveTagFilter={setActiveTagFilter} navigateToItem={navigateToItem} />}
-          {activeView === 'inspo' && <InspoView inspirations={inspirations} addInspiration={addInspiration} deleteInspiration={deleteInspiration} onTagClick={handleTagClick} allTags={getAllTags()} highlightedItemId={highlightedItemId} />}
+          {activeView === 'inspo' && <InspoView inspirations={inspirations} addInspiration={addInspiration} updateInspiration={updateInspiration} deleteInspiration={deleteInspiration} onTagClick={handleTagClick} allTags={getAllTags()} highlightedItemId={highlightedItemId} />}
+          {activeView === 'settings' && <SettingsView userName={userName} setUserName={setUserName} userGreeting={userGreeting} setUserGreeting={setUserGreeting} />}
         </div>
       </main>
-
-      {showSettings && (
-        <SettingsModal 
-          userName={userName}
-          setUserName={setUserName}
-          userGreeting={userGreeting}
-          setUserGreeting={setUserGreeting}
-          onClose={() => setShowSettings(false)}
-        />
-      )}
     </div>
   );
 }
 
 // ============================================================================
-// SETTINGS MODAL
+// SETTINGS VIEW
 // ============================================================================
-function SettingsModal({ userName, setUserName, userGreeting, setUserGreeting, onClose }) {
-  const [tempName, setTempName] = useState(userName);
-  const [tempGreeting, setTempGreeting] = useState(userGreeting);
-
-  const handleSave = () => {
-    setUserName(tempName);
-    setUserGreeting(tempGreeting);
-    onClose();
-  };
-
+function SettingsView({ userName, setUserName, userGreeting, setUserGreeting }) {
   return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal" onClick={e => e.stopPropagation()}>
-        <div className="modal-header">
-          <span className="modal-title">Settings</span>
-          <button className="icon-btn" onClick={onClose}><X size={18} /></button>
+    <div>
+      <div className="settings-section">
+        <div className="settings-section-title">User Profile</div>
+        <div className="settings-row">
+          <span className="settings-label">Your Name</span>
+          <input 
+            className="form-input settings-input" 
+            value={userName} 
+            onChange={e => setUserName(e.target.value)}
+            placeholder="Enter your name"
+          />
         </div>
-        <div className="modal-body">
-          <div className="form-group">
-            <label className="form-label">Your Name</label>
-            <input 
-              className="form-input" 
-              value={tempName} 
-              onChange={e => setTempName(e.target.value)}
-              placeholder="Enter your name"
-            />
-          </div>
-          <div className="form-group">
-            <label className="form-label">Greeting Message</label>
-            <input 
-              className="form-input" 
-              value={tempGreeting} 
-              onChange={e => setTempGreeting(e.target.value)}
-              placeholder="e.g., Let's work, Hello, Welcome back"
-            />
-          </div>
+        <div className="settings-row">
+          <span className="settings-label">Greeting Message</span>
+          <input 
+            className="form-input settings-input" 
+            value={userGreeting} 
+            onChange={e => setUserGreeting(e.target.value)}
+            placeholder="e.g., Let's work, Hello, Welcome back"
+          />
         </div>
-        <div className="modal-footer">
-          <button className="btn-secondary" onClick={onClose}>Cancel</button>
-          <button className="btn-primary" onClick={handleSave}><Save size={14} /> Save</button>
-        </div>
+      </div>
+      
+      <div className="settings-section">
+        <div className="settings-section-title">About</div>
+        <p style={{ color: 'var(--text-2)', fontSize: '13px', lineHeight: '1.6' }}>
+          Life Command v7.0.5<br />
+          A personal productivity dashboard for managing projects, links, notes, and design inspiration.
+        </p>
       </div>
     </div>
   );
@@ -743,7 +722,7 @@ function SearchBar({ searchQuery, setSearchQuery, results, navigateToItem }) {
 // ============================================================================
 // TAG INPUT WITH AUTOCOMPLETE
 // ============================================================================
-function TagInput({ onAdd, allTags, existingTags }) {
+function TagInput({ onAdd, allTags, existingTags, small }) {
   const [value, setValue] = useState('');
   const [showDropdown, setShowDropdown] = useState(false);
   const inputRef = useRef(null);
@@ -778,7 +757,7 @@ function TagInput({ onAdd, allTags, existingTags }) {
         onBlur={() => setTimeout(() => setShowDropdown(false), 150)}
         onKeyDown={handleKeyDown}
         placeholder="Add tag..."
-        style={{ width: 100, padding: '4px 8px', fontSize: 11 }}
+        style={{ width: small ? 80 : 100, padding: small ? '3px 6px' : '4px 8px', fontSize: small ? 10 : 11 }}
       />
       {showDropdown && (value || filteredTags.length > 0) && (
         <div className="tag-dropdown">
@@ -966,7 +945,7 @@ function SubItem({ item, updateSub, deleteSub }) {
   return (
     <div className="sub-item">
       <div className={`sub-checkbox ${item.completed ? 'checked' : ''}`} onClick={() => updateSub(item.id, { completed: !item.completed })}>
-        {item.completed && <Check size={10} />}
+        <Check size={10} />
       </div>
       {isEditing ? (
         <input
@@ -1110,7 +1089,7 @@ function LinkCard({ link, index, updateLink, deleteLink, onTagClick, allTags, on
 // ============================================================================
 // NOTES VIEW
 // ============================================================================
-function NotesView({ notes, addNote, updateNote, deleteNote, reorderNotes, onTagClick, allTags, highlightedItemId }) {
+function NotesView({ notes, addNote, updateNote, deleteNote, onTagClick, allTags, highlightedItemId }) {
   const [tagFilter, setTagFilter] = useState('all');
   
   const noteTags = [...new Set(notes.flatMap(n => n.tags || []))];
@@ -1153,7 +1132,6 @@ function NoteCard({ note, updateNote, deleteNote, onTagClick, allTags, isHighlig
   const save = () => { updateNote(note.id, { title: editedTitle, content: editedContent, color: editedColor }); setIsEditing(false); };
   const addTag = (tag) => { if (!note.tags?.includes(tag)) { updateNote(note.id, { tags: [...(note.tags || []), tag] }); } setEditingTags(false); };
   const removeTag = (tag) => updateNote(note.id, { tags: note.tags.filter(t => t !== tag) });
-  const getText = (html) => { const d = document.createElement('div'); d.innerHTML = html || ''; return d.textContent || ''; };
 
   const color = note.color || 'yellow';
 
@@ -1184,7 +1162,7 @@ function NoteCard({ note, updateNote, deleteNote, onTagClick, allTags, isHighlig
   return (
     <div id={note.id} className={`note-card ${color} ${isHighlighted ? 'highlighted' : ''}`}>
       <div className="note-header"><div className="note-title" onClick={() => setIsEditing(true)}>{note.title}</div></div>
-      <div className="note-content" onClick={() => setIsEditing(true)}>{getText(note.content) || 'Click to add content...'}</div>
+      <div className="note-content" onClick={() => setIsEditing(true)} dangerouslySetInnerHTML={{ __html: note.content || '<span style="opacity:0.5">Click to add content...</span>' }} />
       <div className="note-tags">
         {note.tags?.map(t => (
           <span key={t} className="note-tag" onClick={() => onTagClick(t)}>
@@ -1295,7 +1273,7 @@ function TagsView({ projects, links, notes, inspirations, activeTagFilter, setAc
 // ============================================================================
 // INSPO VIEW
 // ============================================================================
-function InspoView({ inspirations, addInspiration, deleteInspiration, onTagClick, allTags, highlightedItemId }) {
+function InspoView({ inspirations, addInspiration, updateInspiration, deleteInspiration, onTagClick, allTags, highlightedItemId }) {
   const [tagFilter, setTagFilter] = useState('all');
   const [lightbox, setLightbox] = useState(null);
   const [dragOver, setDragOver] = useState(false);
@@ -1357,17 +1335,17 @@ function InspoView({ inspirations, addInspiration, deleteInspiration, onTagClick
       ) : (
         <div className="inspo-grid">
           {filtered.map(i => (
-            <div key={i.id} id={i.id} className={`inspo-card ${highlightedItemId === i.id ? 'highlighted' : ''}`}>
-              <img src={i.thumbnail || i.url} alt={i.name} className="inspo-image" onClick={() => setLightbox(i)} />
-              <div className="inspo-info">
-                <div className="inspo-name">{i.name}</div>
-                <div className="inspo-tags">{i.tags?.map(t => <span key={t} className="tag-pill" onClick={() => onTagClick(t)} style={{ fontSize: 10, padding: '3px 6px' }}>{t}</span>)}</div>
-              </div>
-              <div className="inspo-actions">
-                <button className="icon-btn" onClick={() => download(i.originalUrl || i.url, i.name)}><Download size={12} /></button>
-                <button className="icon-btn danger" onClick={() => deleteInspiration(i.id)}><Trash2 size={12} /></button>
-              </div>
-            </div>
+            <InspoCard 
+              key={i.id} 
+              inspo={i} 
+              updateInspiration={updateInspiration}
+              deleteInspiration={deleteInspiration}
+              onTagClick={onTagClick}
+              allTags={allTags}
+              setLightbox={setLightbox}
+              download={download}
+              isHighlighted={highlightedItemId === i.id}
+            />
           ))}
         </div>
       )}
@@ -1381,6 +1359,47 @@ function InspoView({ inspirations, addInspiration, deleteInspiration, onTagClick
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+function InspoCard({ inspo, updateInspiration, deleteInspiration, onTagClick, allTags, setLightbox, download, isHighlighted }) {
+  const [editingTags, setEditingTags] = useState(false);
+
+  const addTag = (tag) => {
+    if (!inspo.tags?.includes(tag)) {
+      updateInspiration(inspo.id, { tags: [...(inspo.tags || []), tag] });
+    }
+    setEditingTags(false);
+  };
+
+  const removeTag = (tag) => {
+    updateInspiration(inspo.id, { tags: inspo.tags.filter(t => t !== tag) });
+  };
+
+  return (
+    <div id={inspo.id} className={`inspo-card ${isHighlighted ? 'highlighted' : ''}`}>
+      <img src={inspo.thumbnail || inspo.url} alt={inspo.name} className="inspo-image" onClick={() => setLightbox(inspo)} />
+      <div className="inspo-info">
+        <div className="inspo-name">{inspo.name}</div>
+        <div className="inspo-tags">
+          {inspo.tags?.map(t => (
+            <span key={t} className="tag-pill" onClick={() => onTagClick(t)} style={{ fontSize: 10, padding: '3px 6px' }}>
+              {t}
+              <X size={8} style={{ marginLeft: 2, cursor: 'pointer' }} onClick={e => { e.stopPropagation(); removeTag(t); }} />
+            </span>
+          ))}
+          {editingTags ? (
+            <TagInput onAdd={addTag} allTags={allTags} existingTags={inspo.tags} small />
+          ) : (
+            <span className="tag-pill" onClick={() => setEditingTags(true)} style={{ fontSize: 10, padding: '3px 6px', cursor: 'pointer' }}><Plus size={8} /></span>
+          )}
+        </div>
+      </div>
+      <div className="inspo-actions">
+        <button className="icon-btn" onClick={() => download(inspo.originalUrl || inspo.url, inspo.name)}><Download size={12} /></button>
+        <button className="icon-btn danger" onClick={() => deleteInspiration(inspo.id)}><Trash2 size={12} /></button>
+      </div>
     </div>
   );
 }
