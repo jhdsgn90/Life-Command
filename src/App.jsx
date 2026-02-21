@@ -3,7 +3,7 @@ import {
   List, Link2, FileText, Tag, Image, Plus, Trash2, Save, X, 
   ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Moon, Sun, 
   Download, Upload, Check, Copy, User, Search, Edit2, Settings,
-  LogOut, Mail, Lock, Loader, CloudUpload, AlertCircle
+  LogOut, Mail, Lock, Loader, UploadCloud, AlertCircle
 } from 'lucide-react';
 import { supabase } from './supabase';
 
@@ -900,7 +900,7 @@ function MigrationPrompt({ onMigrate, onSkip, migrating }) {
   return (
     <div className="migration-screen">
       <div className="migration-card">
-        <CloudUpload size={48} className="migration-icon" />
+        <UploadCloud size={48} className="migration-icon" />
         <h2>Local Data Found</h2>
         <p>You have existing data stored locally. Would you like to upload it to the cloud so you can access it from any device?</p>
         
