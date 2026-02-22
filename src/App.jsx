@@ -3,12 +3,13 @@ import {
   List, Link2, FileText, Tag, Image, Plus, Trash2, Save, X, 
   ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Moon, Sun, 
   Download, Upload, Check, Copy, User, Search, Edit2, Settings,
-  LogOut, Mail, Lock, Loader, UploadCloud, AlertCircle
+  LogOut, Mail, Lock, Loader, UploadCloud, AlertCircle, GripVertical,
+  ExternalLink
 } from 'lucide-react';
 import { supabase } from './supabase';
 
 // ============================================================================
-// LIFE COMMAND v7.1.1 - Password Reset & Auth Updates
+// LIFE COMMAND v7.1.2 - Fixed Drag & Edit Functionality
 // ============================================================================
 
 const CLOUDINARY_CLOUD_NAME = 'dccblqxuy';
@@ -361,7 +362,7 @@ export default function App() {
   };
 
   const exportData = () => {
-    const data = { version: '7.1.1', exportedAt: new Date().toISOString(), projects, links, notes, inspirations, settings: { userName, userGreeting } };
+    const data = { version: '7.1.2', exportedAt: new Date().toISOString(), projects, links, notes, inspirations, settings: { userName, userGreeting } };
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a'); a.href = url;
@@ -514,6 +515,9 @@ export default function App() {
   );
 }
 
+// ============================================================================
+// AUTH SCREEN
+// ============================================================================
 function AuthScreen() {
   const [mode, setMode] = useState('login');
   const [email, setEmail] = useState('');
@@ -610,6 +614,9 @@ function AuthScreen() {
   );
 }
 
+// ============================================================================
+// MIGRATION PROMPT
+// ============================================================================
 function MigrationPrompt({ onMigrate, onSkip, migrating }) {
   return (
     <div className="migration-screen">
@@ -629,6 +636,9 @@ function MigrationPrompt({ onMigrate, onSkip, migrating }) {
   );
 }
 
+// ============================================================================
+// STYLES
+// ============================================================================
 function Styles() {
   return (
     <style>{`
@@ -764,12 +774,20 @@ function Styles() {
       .btn-danger{display:flex;align-items:center;gap:6px;padding:8px 14px;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);border-radius:var(--radius);font-size:12px;font-weight:500;color:#EF4444;cursor:pointer;font-family:var(--font);transition:var(--transition)}
       .btn-danger:hover{background:rgba(239,68,68,0.2)}
       
+      /* DRAG HANDLE */
+      .drag-handle{display:flex;align-items:center;justify-content:center;width:24px;color:var(--text-3);cursor:grab;flex-shrink:0;opacity:0.5;transition:var(--transition)}
+      .drag-handle:hover{opacity:1;color:var(--text-2)}
+      .drag-handle:active{cursor:grabbing}
+      
+      /* PROJECT CARDS */
       .projects-list{display:flex;flex-direction:column;gap:12px}
-      .project-card{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:16px;transition:all 0.3s ease}
+      .project-card{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:16px;transition:all 0.3s ease;display:flex;gap:12px}
       .project-card:hover{border-color:var(--accent);box-shadow:0 2px 8px rgba(0,0,0,0.08)}
       .project-card.completed{border-color:#10B981;background:linear-gradient(135deg,var(--bg-card) 0%,rgba(16,185,129,0.08) 100%)}
       .project-card.highlighted{animation:highlight-pulse 2s ease-out}
       @keyframes highlight-pulse{0%,100%{box-shadow:0 0 0 0 transparent}50%{box-shadow:0 0 0 4px var(--accent-soft);border-color:var(--accent)}}
+      
+      .project-content{flex:1;min-width:0}
       
       .btn-archive{padding:6px 12px;background:#10B981;color:#fff;border:none;border-radius:var(--radius);font-size:11px;font-weight:600;cursor:pointer;font-family:var(--font);transition:var(--transition)}
       .btn-archive:hover{background:#059669}
@@ -785,10 +803,9 @@ function Styles() {
       .archive-item-title{font-size:13px;font-weight:500;color:var(--text-2)}
       .archive-item-actions{display:flex;align-items:center;gap:8px}
       
-      .project-header{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:12px;cursor:grab}
-      .project-header:active{cursor:grabbing}
-      .project-title{font-size:16px;font-weight:600;cursor:pointer;transition:var(--transition)}
-      .project-title:hover{color:var(--accent)}
+      .project-header{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:12px}
+      .project-title{font-size:16px;font-weight:600}
+      .project-title-input{font-size:16px;font-weight:600;flex:1;margin-right:12px}
       .project-actions{display:flex;gap:4px}
       
       .icon-btn{width:28px;height:28px;display:flex;align-items:center;justify-content:center;background:none;border:none;color:var(--text-3);cursor:pointer;border-radius:var(--radius);transition:var(--transition)}
@@ -817,7 +834,7 @@ function Styles() {
       .sub-item:hover{background:var(--bg-card-hover)}
       .sub-checkbox{width:16px;height:16px;border:2px solid var(--border);border-radius:4px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:var(--transition);color:transparent}
       .sub-checkbox.checked{background:var(--accent);border-color:var(--accent);color:#fff}
-      .sub-text{flex:1;font-size:13px;cursor:text}
+      .sub-text{flex:1;font-size:13px}
       .sub-text.done{text-decoration:line-through;color:var(--text-3)}
       .sub-text-input{flex:1;padding:4px 8px;background:var(--bg-input);border:1px solid var(--border);border-radius:4px;font-size:13px;color:var(--text-1);font-family:var(--font)}
       .sub-text-input:focus{outline:none;border-color:var(--accent)}
@@ -837,20 +854,31 @@ function Styles() {
       
       .sub-actions{display:flex;gap:2px}
       
+      /* LINK CARDS */
       .links-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
       @media(max-width:1100px){.links-grid{grid-template-columns:repeat(2,1fr)}}
       @media(max-width:700px){.links-grid{grid-template-columns:1fr}}
-      .link-card{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:16px;transition:all 0.3s ease;display:flex;flex-direction:column}
+      
+      .link-card{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);transition:all 0.3s ease;display:flex;overflow:hidden}
       .link-card:hover{border-color:var(--accent);box-shadow:0 2px 8px rgba(0,0,0,0.08)}
       .link-card.highlighted{animation:highlight-pulse 2s ease-out}
-      .link-header{display:flex;justify-content:space-between;margin-bottom:6px;cursor:grab}
-      .link-title{font-size:14px;font-weight:600;cursor:pointer;transition:var(--transition)}
-      .link-title:hover{color:var(--accent)}
-      .link-url{font-size:12px;color:var(--accent);text-decoration:none;display:block;margin-bottom:12px;word-break:break-all;transition:var(--transition)}
-      .link-url:hover{text-decoration:underline}
-      .link-footer{display:flex;justify-content:space-between;align-items:flex-end;margin-top:auto}
-      .link-tags{display:flex;gap:4px;flex-wrap:wrap}
+      .link-card.editing{flex-direction:column}
+      .link-card.editing .drag-handle{display:none}
       
+      .link-card .drag-handle{padding:12px 8px;border-right:1px solid var(--border);background:var(--bg-app)}
+      
+      .link-content{flex:1;padding:16px;display:flex;flex-direction:column;min-width:0}
+      .link-header{display:flex;align-items:flex-start;justify-content:space-between;gap:8px;margin-bottom:6px}
+      .link-title{font-size:14px;font-weight:600;flex:1;word-break:break-word}
+      .link-actions{display:flex;gap:2px;flex-shrink:0}
+      .link-url-display{font-size:12px;color:var(--accent);margin-bottom:12px;word-break:break-all;opacity:0.8}
+      .link-tags{display:flex;gap:4px;flex-wrap:wrap;margin-top:auto}
+      
+      .link-edit-form{padding:16px;display:flex;flex-direction:column;gap:12px}
+      .link-edit-form .form-input{font-size:13px}
+      .link-edit-actions{display:flex;gap:8px}
+      
+      /* NOTES */
       .notes-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:16px}
       .note-card{padding:16px;border-radius:var(--radius);position:relative;min-height:120px;display:flex;flex-direction:column;transition:all 0.3s ease}
       .note-card:focus-within{z-index:10}
@@ -887,6 +915,7 @@ function Styles() {
       .color-swatch:hover{transform:scale(1.1)}
       .color-swatch.active{border-color:#1A1A1A}
       
+      /* INSPO */
       .inspo-grid{column-count:4;column-gap:16px}
       @media(max-width:1200px){.inspo-grid{column-count:3}}
       @media(max-width:900px){.inspo-grid{column-count:2}}
@@ -909,6 +938,7 @@ function Styles() {
       .upload-text strong{color:var(--accent)}
       .upload-hint{font-size:12px;color:var(--text-3);margin-top:8px}
       
+      /* TAGS VIEW */
       .tags-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px}
       .tag-card{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:16px;cursor:pointer;transition:var(--transition)}
       .tag-card:hover{border-color:var(--accent);transform:translateY(-1px)}
@@ -922,6 +952,7 @@ function Styles() {
       .tagged-item-type{font-size:11px;color:var(--text-2);text-transform:uppercase;font-weight:500}
       .tagged-item-name{font-size:13px;font-weight:500}
       
+      /* SETTINGS */
       .settings-section{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:20px;margin-bottom:16px}
       .settings-section-title{font-size:14px;font-weight:600;margin-bottom:16px}
       .settings-row{display:flex;align-items:center;gap:16px;margin-bottom:12px}
@@ -930,14 +961,17 @@ function Styles() {
       .settings-input{flex:1;max-width:300px}
       .settings-value{font-size:13px;color:var(--text-1)}
       
+      /* EMPTY */
       .empty{text-align:center;padding:80px 24px}
       .empty-icon{width:64px;height:64px;margin:0 auto 16px;background:var(--bg-card);border-radius:16px;display:flex;align-items:center;justify-content:center;color:var(--text-3)}
       .empty-title{font-size:18px;font-weight:600;margin-bottom:8px}
       .empty-text{font-size:14px;color:var(--text-2);margin-bottom:20px}
       
+      /* FORM */
       .form-input{width:100%;padding:8px 12px;background:var(--bg-input);border:1px solid var(--border);border-radius:var(--radius);font-size:13px;color:var(--text-1);font-family:var(--font);transition:var(--transition)}
       .form-input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
       
+      /* LIGHTBOX */
       .lightbox{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.95);display:flex;align-items:center;justify-content:center;z-index:2000;padding:40px}
       .lightbox-image{max-width:90%;max-height:90%;object-fit:contain}
       .lightbox-close{position:absolute;top:16px;right:16px;width:40px;height:40px;background:rgba(255,255,255,0.1);border:none;border-radius:20px;color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:var(--transition)}
@@ -946,11 +980,13 @@ function Styles() {
       .lightbox-btn{display:flex;align-items:center;gap:6px;padding:10px 18px;background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);border-radius:var(--radius);color:#fff;font-size:13px;cursor:pointer;transition:var(--transition)}
       .lightbox-btn:hover{background:rgba(255,255,255,0.2)}
       
+      /* QUILL */
       .quill-wrapper{border:1px solid rgba(0,0,0,0.2);border-radius:var(--radius);overflow:hidden;background:rgba(255,255,255,0.95)}
       .quill-wrapper .ql-toolbar{background:rgba(0,0,0,0.05);border:none;border-bottom:1px solid rgba(0,0,0,0.1);padding:8px}
       .quill-wrapper .ql-container{border:none}
       .quill-wrapper .ql-editor{min-height:100px;font-family:var(--font);font-size:13px;color:#1A1A1A}
       
+      /* RESPONSIVE */
       @media(max-width:768px){
         .hd{padding:0 16px;gap:8px}.hd-title{font-size:16px}.hd-sub{display:none}.hd-btn span{display:none}.hd-btn{padding:8px}.content{padding:16px}.greeting{display:none}
         .content-toolbar{flex-direction:column;align-items:stretch;gap:12px}.toolbar-left{flex-wrap:wrap}.toolbar-right{justify-content:flex-end}.filter-label{display:none}
@@ -966,6 +1002,9 @@ function Styles() {
   );
 }
 
+// ============================================================================
+// SEARCH BAR
+// ============================================================================
 function SearchBar({ searchQuery, setSearchQuery, results, navigateToItem }) {
   const inputRef = useRef(null);
   const totalResults = results.projects.length + results.links.length + results.notes.length + results.inspirations.length;
@@ -993,6 +1032,9 @@ function SearchBar({ searchQuery, setSearchQuery, results, navigateToItem }) {
   );
 }
 
+// ============================================================================
+// TAG INPUT
+// ============================================================================
 function TagInput({ onAdd, allTags, existingTags, small }) {
   const [value, setValue] = useState('');
   const [showDropdown, setShowDropdown] = useState(false);
@@ -1014,6 +1056,9 @@ function TagInput({ onAdd, allTags, existingTags, small }) {
   );
 }
 
+// ============================================================================
+// SETTINGS VIEW
+// ============================================================================
 function SettingsView({ userName, userGreeting, updateUserSettings, userEmail, onLogout }) {
   const [tempName, setTempName] = useState(userName);
   const [tempGreeting, setTempGreeting] = useState(userGreeting);
@@ -1035,12 +1080,15 @@ function SettingsView({ userName, userGreeting, updateUserSettings, userEmail, o
       </div>
       <div className="settings-section">
         <div className="settings-section-title">About</div>
-        <p style={{ color: 'var(--text-2)', fontSize: '13px', lineHeight: '1.6' }}>Life Command v7.1.1<br />A personal productivity dashboard with cloud sync.</p>
+        <p style={{ color: 'var(--text-2)', fontSize: '13px', lineHeight: '1.6' }}>Life Command v7.1.2<br />A personal productivity dashboard with cloud sync.</p>
       </div>
     </div>
   );
 }
 
+// ============================================================================
+// PROJECTS VIEW
+// ============================================================================
 function ProjectsView({ projects, addProject, updateProject, deleteProject, reorderProjects, onTagClick, allTags, highlightedItemId }) {
   const [tagFilter, setTagFilter] = useState('all');
   const [dragIndex, setDragIndex] = useState(null);
@@ -1089,8 +1137,11 @@ function ProjectsView({ projects, addProject, updateProject, deleteProject, reor
   );
 }
 
+// ============================================================================
+// PROJECT CARD
+// ============================================================================
 function ProjectCard({ project, index, updateProject, deleteProject, onTagClick, getProgress, isComplete, onArchive, allTags, onDragStart, onDragOver, onDragEnd, isHighlighted }) {
-  const [isEditing, setIsEditing] = useState(false);
+  const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [editedTitle, setEditedTitle] = useState(project.title);
   const [showSub, setShowSub] = useState(true);
   const [newSub, setNewSub] = useState('');
@@ -1100,7 +1151,7 @@ function ProjectCard({ project, index, updateProject, deleteProject, onTagClick,
   const completed = project.subItems?.filter(i => i.completed).length || 0;
   const total = project.subItems?.length || 0;
 
-  const saveTitle = () => { if (editedTitle.trim()) updateProject(project.id, { title: editedTitle }); setIsEditing(false); };
+  const saveTitle = () => { if (editedTitle.trim()) updateProject(project.id, { title: editedTitle }); setIsEditingTitle(false); };
   const addSub = () => { if (newSub.trim()) { updateProject(project.id, { subItems: [...(project.subItems || []), { id: `sub_${Date.now()}`, text: newSub, completed: false, status: 'new', priority: 'medium' }] }); setNewSub(''); } };
   const updateSub = (subId, updates) => updateProject(project.id, { subItems: project.subItems.map(i => i.id === subId ? { ...i, ...updates } : i) });
   const deleteSub = (subId) => updateProject(project.id, { subItems: project.subItems.filter(i => i.id !== subId) });
@@ -1108,27 +1159,66 @@ function ProjectCard({ project, index, updateProject, deleteProject, onTagClick,
   const removeTag = (tag) => updateProject(project.id, { tags: project.tags.filter(t => t !== tag) });
 
   return (
-    <div id={project.id} className={`project-card ${isComplete ? 'completed' : ''} ${isHighlighted ? 'highlighted' : ''}`}>
-      <div className="project-header" draggable onDragStart={() => onDragStart(index)} onDragOver={e => onDragOver(e, index)} onDragEnd={onDragEnd}>
-        {isEditing ? <input className="form-input" value={editedTitle} onChange={e => setEditedTitle(e.target.value)} onBlur={saveTitle} onKeyDown={e => e.key === 'Enter' && saveTitle()} autoFocus style={{ flex: 1, marginRight: 12 }} /> : <div className="project-title" onClick={() => setIsEditing(true)}>{project.title}</div>}
-        <div className="project-actions">{isComplete && <button className="btn-archive" onClick={() => onArchive(project.id)}>Archive</button>}<button className="icon-btn danger" onClick={() => deleteProject(project.id)}><Trash2 size={14} /></button></div>
+    <div 
+      id={project.id} 
+      className={`project-card ${isComplete ? 'completed' : ''} ${isHighlighted ? 'highlighted' : ''}`}
+      onDragOver={e => onDragOver(e, index)}
+    >
+      <div 
+        className="drag-handle" 
+        draggable 
+        onDragStart={() => onDragStart(index)} 
+        onDragEnd={onDragEnd}
+      >
+        <GripVertical size={16} />
       </div>
-      <div className="project-progress"><span className="progress-text">{isComplete ? 'Complete!' : `Progress ${completed}/${total} (${progress}%)`}</span><div className="progress-bar"><div className={`progress-fill ${isComplete ? 'complete' : ''}`} style={{ width: `${progress}%` }} /></div></div>
-      <div className="project-tags">
-        {project.tags?.map(t => <span key={t} className="tag-pill" onClick={() => onTagClick(t)}><Tag size={10} />{t}<X size={10} style={{ marginLeft: 2, cursor: 'pointer' }} onClick={e => { e.stopPropagation(); removeTag(t); }} /></span>)}
-        {editingTags ? <TagInput onAdd={addTag} allTags={allTags} existingTags={project.tags} /> : <span className="tag-pill" onClick={() => setEditingTags(true)} style={{ cursor: 'pointer' }}><Plus size={10} /></span>}
-      </div>
-      <div className="sub-toggle" onClick={() => setShowSub(!showSub)}>{showSub ? <ChevronUp size={14} /> : <ChevronDown size={14} />} Sub Items ({total})</div>
-      {showSub && (
-        <div className="sub-list">
-          {project.subItems?.map(item => <SubItem key={item.id} item={item} updateSub={updateSub} deleteSub={deleteSub} />)}
-          <div style={{ display: 'flex', gap: 8, marginTop: 8 }}><input className="form-input" value={newSub} onChange={e => setNewSub(e.target.value)} onKeyDown={e => e.key === 'Enter' && addSub()} placeholder="Add sub-item..." style={{ flex: 1 }} /><button className="btn-secondary" onClick={addSub}><Plus size={12} /></button></div>
+      
+      <div className="project-content">
+        <div className="project-header">
+          {isEditingTitle ? (
+            <input 
+              className="form-input project-title-input" 
+              value={editedTitle} 
+              onChange={e => setEditedTitle(e.target.value)} 
+              onBlur={saveTitle} 
+              onKeyDown={e => { if (e.key === 'Enter') saveTitle(); if (e.key === 'Escape') { setEditedTitle(project.title); setIsEditingTitle(false); } }}
+              autoFocus 
+            />
+          ) : (
+            <div className="project-title">{project.title}</div>
+          )}
+          <div className="project-actions">
+            {!isEditingTitle && <button className="icon-btn" onClick={() => setIsEditingTitle(true)} title="Edit title"><Edit2 size={14} /></button>}
+            {isComplete && <button className="btn-archive" onClick={() => onArchive(project.id)}>Archive</button>}
+            <button className="icon-btn danger" onClick={() => deleteProject(project.id)} title="Delete"><Trash2 size={14} /></button>
+          </div>
         </div>
-      )}
+        
+        <div className="project-progress">
+          <span className="progress-text">{isComplete ? 'Complete!' : `Progress ${completed}/${total} (${progress}%)`}</span>
+          <div className="progress-bar"><div className={`progress-fill ${isComplete ? 'complete' : ''}`} style={{ width: `${progress}%` }} /></div>
+        </div>
+        
+        <div className="project-tags">
+          {project.tags?.map(t => <span key={t} className="tag-pill" onClick={() => onTagClick(t)}><Tag size={10} />{t}<X size={10} style={{ marginLeft: 2, cursor: 'pointer' }} onClick={e => { e.stopPropagation(); removeTag(t); }} /></span>)}
+          {editingTags ? <TagInput onAdd={addTag} allTags={allTags} existingTags={project.tags} /> : <span className="tag-pill" onClick={() => setEditingTags(true)} style={{ cursor: 'pointer' }}><Plus size={10} /></span>}
+        </div>
+        
+        <div className="sub-toggle" onClick={() => setShowSub(!showSub)}>{showSub ? <ChevronUp size={14} /> : <ChevronDown size={14} />} Sub Items ({total})</div>
+        {showSub && (
+          <div className="sub-list">
+            {project.subItems?.map(item => <SubItem key={item.id} item={item} updateSub={updateSub} deleteSub={deleteSub} />)}
+            <div style={{ display: 'flex', gap: 8, marginTop: 8 }}><input className="form-input" value={newSub} onChange={e => setNewSub(e.target.value)} onKeyDown={e => e.key === 'Enter' && addSub()} placeholder="Add sub-item..." style={{ flex: 1 }} /><button className="btn-secondary" onClick={addSub}><Plus size={12} /></button></div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
 
+// ============================================================================
+// SUB ITEM
+// ============================================================================
 function SubItem({ item, updateSub, deleteSub }) {
   const [isEditing, setIsEditing] = useState(false);
   const [editedText, setEditedText] = useState(item.text);
@@ -1137,16 +1227,34 @@ function SubItem({ item, updateSub, deleteSub }) {
   return (
     <div className="sub-item">
       <div className={`sub-checkbox ${item.completed ? 'checked' : ''}`} onClick={() => updateSub(item.id, { completed: !item.completed })}><Check size={10} /></div>
-      {isEditing ? <input className="sub-text-input" value={editedText} onChange={e => setEditedText(e.target.value)} onBlur={saveText} onKeyDown={e => { if (e.key === 'Enter') saveText(); if (e.key === 'Escape') { setEditedText(item.text); setIsEditing(false); } }} autoFocus /> : <span className={`sub-text ${item.completed ? 'done' : ''}`} onClick={() => setIsEditing(true)}>{item.text}</span>}
+      {isEditing ? (
+        <input 
+          className="sub-text-input" 
+          value={editedText} 
+          onChange={e => setEditedText(e.target.value)} 
+          onBlur={saveText} 
+          onKeyDown={e => { if (e.key === 'Enter') saveText(); if (e.key === 'Escape') { setEditedText(item.text); setIsEditing(false); } }} 
+          autoFocus 
+        />
+      ) : (
+        <span className={`sub-text ${item.completed ? 'done' : ''}`}>{item.text}</span>
+      )}
       <div className="sub-badges">
         <select className={`status-badge ${item.status}`} value={item.status} onChange={e => updateSub(item.id, { status: e.target.value })}><option value="new">New</option><option value="working">Working</option><option value="paused">Paused</option><option value="stuck">Stuck</option></select>
         <select className={`priority-badge ${item.priority}`} value={item.priority} onChange={e => updateSub(item.id, { priority: e.target.value })}><option value="low">Low</option><option value="medium">Medium</option><option value="high">High</option><option value="urgent">Urgent</option></select>
       </div>
-      <div className="sub-actions"><button className="icon-btn" onClick={() => setIsEditing(true)}><Edit2 size={12} /></button><button className="icon-btn" onClick={() => navigator.clipboard.writeText(item.text)}><Copy size={12} /></button><button className="icon-btn danger" onClick={() => deleteSub(item.id)}><X size={12} /></button></div>
+      <div className="sub-actions">
+        <button className="icon-btn" onClick={() => setIsEditing(true)} title="Edit"><Edit2 size={12} /></button>
+        <button className="icon-btn" onClick={() => navigator.clipboard.writeText(item.text)} title="Copy"><Copy size={12} /></button>
+        <button className="icon-btn danger" onClick={() => deleteSub(item.id)} title="Delete"><X size={12} /></button>
+      </div>
     </div>
   );
 }
 
+// ============================================================================
+// LINKS VIEW
+// ============================================================================
 function LinksView({ links, addLink, updateLink, deleteLink, reorderLinks, onTagClick, allTags, highlightedItemId }) {
   const [tagFilter, setTagFilter] = useState('all');
   const [dragIndex, setDragIndex] = useState(null);
@@ -1169,32 +1277,111 @@ function LinksView({ links, addLink, updateLink, deleteLink, reorderLinks, onTag
   );
 }
 
+// ============================================================================
+// LINK CARD - FIXED
+// ============================================================================
 function LinkCard({ link, index, updateLink, deleteLink, onTagClick, allTags, onDragStart, onDragOver, onDragEnd, isHighlighted }) {
   const [isEditing, setIsEditing] = useState(false);
   const [editedTitle, setEditedTitle] = useState(link.title);
   const [editedUrl, setEditedUrl] = useState(link.url);
   const [editingTags, setEditingTags] = useState(false);
-  const save = () => { updateLink(link.id, { title: editedTitle, url: editedUrl }); setIsEditing(false); };
+  
+  const save = () => { 
+    updateLink(link.id, { title: editedTitle, url: editedUrl }); 
+    setIsEditing(false); 
+  };
+  
+  const cancel = () => {
+    setEditedTitle(link.title);
+    setEditedUrl(link.url);
+    setIsEditing(false);
+  };
+  
+  const handleKeyDown = (e) => {
+    if (e.key === 'Enter') save();
+    if (e.key === 'Escape') cancel();
+  };
+  
   const addTag = (tag) => { if (!link.tags?.includes(tag)) updateLink(link.id, { tags: [...(link.tags || []), tag] }); setEditingTags(false); };
   const removeTag = (tag) => updateLink(link.id, { tags: link.tags.filter(t => t !== tag) });
 
-  return (
-    <div id={link.id} className={`link-card ${isHighlighted ? 'highlighted' : ''}`}>
-      <div className="link-header" draggable onDragStart={() => onDragStart(index)} onDragOver={e => onDragOver(e, index)} onDragEnd={onDragEnd}>
-        {isEditing ? <input className="form-input" value={editedTitle} onChange={e => setEditedTitle(e.target.value)} onBlur={save} style={{ fontSize: 14, fontWeight: 600 }} autoFocus /> : <div className="link-title" onClick={() => setIsEditing(true)}>{link.title}</div>}
-      </div>
-      {isEditing ? <input className="form-input" value={editedUrl} onChange={e => setEditedUrl(e.target.value)} onBlur={save} style={{ marginBottom: 12 }} /> : <a href={link.url} target="_blank" rel="noopener noreferrer" className="link-url">{link.url}</a>}
-      <div className="link-footer">
-        <div className="link-tags">
-          {link.tags?.map(t => <span key={t} className="tag-pill" onClick={() => onTagClick(t)}><Tag size={9} />{t}<X size={9} style={{ marginLeft: 2, cursor: 'pointer' }} onClick={e => { e.stopPropagation(); removeTag(t); }} /></span>)}
-          {editingTags ? <TagInput onAdd={addTag} allTags={allTags} existingTags={link.tags} /> : <span className="tag-pill" onClick={() => setEditingTags(true)} style={{ cursor: 'pointer' }}><Plus size={9} /></span>}
+  // Edit mode
+  if (isEditing) {
+    return (
+      <div id={link.id} className="link-card editing">
+        <div className="link-edit-form">
+          <input 
+            className="form-input" 
+            value={editedTitle} 
+            onChange={e => setEditedTitle(e.target.value)} 
+            onKeyDown={handleKeyDown}
+            placeholder="Link title"
+            autoFocus 
+            style={{ fontWeight: 600 }} 
+          />
+          <input 
+            className="form-input" 
+            value={editedUrl} 
+            onChange={e => setEditedUrl(e.target.value)} 
+            onKeyDown={handleKeyDown}
+            placeholder="https://example.com"
+          />
+          <div className="link-edit-actions">
+            <button className="btn-primary" onClick={save} style={{ padding: '6px 14px', fontSize: 12 }}><Check size={12} /> Save</button>
+            <button className="btn-secondary" onClick={cancel} style={{ padding: '6px 14px', fontSize: 12 }}>Cancel</button>
+          </div>
         </div>
-        <button className="icon-btn danger" onClick={() => deleteLink(link.id)}><Trash2 size={14} /></button>
+      </div>
+    );
+  }
+
+  // View mode
+  return (
+    <div 
+      id={link.id} 
+      className={`link-card ${isHighlighted ? 'highlighted' : ''}`}
+      onDragOver={e => onDragOver(e, index)}
+    >
+      <div 
+        className="drag-handle" 
+        draggable 
+        onDragStart={() => onDragStart(index)} 
+        onDragEnd={onDragEnd}
+      >
+        <GripVertical size={14} />
+      </div>
+      
+      <div className="link-content">
+        <div className="link-header">
+          <div className="link-title">{link.title}</div>
+          <div className="link-actions">
+            <a href={link.url} target="_blank" rel="noopener noreferrer" className="icon-btn" title="Open link"><ExternalLink size={14} /></a>
+            <button className="icon-btn" onClick={() => setIsEditing(true)} title="Edit"><Edit2 size={14} /></button>
+            <button className="icon-btn danger" onClick={() => deleteLink(link.id)} title="Delete"><Trash2 size={14} /></button>
+          </div>
+        </div>
+        <div className="link-url-display">{link.url}</div>
+        <div className="link-tags">
+          {link.tags?.map(t => (
+            <span key={t} className="tag-pill" onClick={() => onTagClick(t)}>
+              <Tag size={9} />{t}
+              <X size={9} style={{ marginLeft: 2, cursor: 'pointer' }} onClick={e => { e.stopPropagation(); removeTag(t); }} />
+            </span>
+          ))}
+          {editingTags ? (
+            <TagInput onAdd={addTag} allTags={allTags} existingTags={link.tags} />
+          ) : (
+            <span className="tag-pill" onClick={() => setEditingTags(true)} style={{ cursor: 'pointer' }}><Plus size={9} /></span>
+          )}
+        </div>
       </div>
     </div>
   );
 }
 
+// ============================================================================
+// NOTES VIEW
+// ============================================================================
 function NotesView({ notes, addNote, updateNote, deleteNote, onTagClick, allTags, highlightedItemId }) {
   const [tagFilter, setTagFilter] = useState('all');
   const noteTags = [...new Set(notes.flatMap(n => n.tags || []))];
@@ -1213,6 +1400,9 @@ function NotesView({ notes, addNote, updateNote, deleteNote, onTagClick, allTags
   );
 }
 
+// ============================================================================
+// NOTE CARD
+// ============================================================================
 function NoteCard({ note, updateNote, deleteNote, onTagClick, allTags, isHighlighted }) {
   const [isEditing, setIsEditing] = useState(false);
   const [editedTitle, setEditedTitle] = useState(note.title);
@@ -1249,6 +1439,9 @@ function NoteCard({ note, updateNote, deleteNote, onTagClick, allTags, isHighlig
   );
 }
 
+// ============================================================================
+// RICH TEXT EDITOR
+// ============================================================================
 function RichTextEditor({ value, onChange }) {
   const editorRef = useRef(null);
   const quillRef = useRef(null);
@@ -1263,6 +1456,9 @@ function RichTextEditor({ value, onChange }) {
   return <div className="quill-wrapper"><div ref={editorRef} style={{ minHeight: 100 }} /></div>;
 }
 
+// ============================================================================
+// TAGS VIEW
+// ============================================================================
 function TagsView({ projects, links, notes, inspirations, activeTagFilter, setActiveTagFilter, navigateToItem }) {
   const getCounts = () => { const c = {}; projects.forEach(p => p.tags?.forEach(t => c[t] = (c[t] || 0) + 1)); links.forEach(l => l.tags?.forEach(t => c[t] = (c[t] || 0) + 1)); notes.forEach(n => n.tags?.forEach(t => c[t] = (c[t] || 0) + 1)); inspirations.forEach(i => i.tags?.forEach(t => c[t] = (c[t] || 0) + 1)); return c; };
   const counts = getCounts();
@@ -1298,6 +1494,9 @@ function TagsView({ projects, links, notes, inspirations, activeTagFilter, setAc
   );
 }
 
+// ============================================================================
+// INSPO VIEW
+// ============================================================================
 function InspoView({ inspirations, addInspiration, updateInspiration, deleteInspiration, onTagClick, allTags, highlightedItemId }) {
   const [tagFilter, setTagFilter] = useState('all');
   const [lightbox, setLightbox] = useState(null);
@@ -1334,6 +1533,9 @@ function InspoView({ inspirations, addInspiration, updateInspiration, deleteInsp
   );
 }
 
+// ============================================================================
+// INSPO CARD
+// ============================================================================
 function InspoCard({ inspo, updateInspiration, deleteInspiration, onTagClick, allTags, setLightbox, download, isHighlighted }) {
   const [editingTags, setEditingTags] = useState(false);
   const [tagValue, setTagValue] = useState('');
