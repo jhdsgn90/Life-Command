@@ -3,13 +3,12 @@ import {
   List, Link2, FileText, Tag, Image, Plus, Trash2, Save, X, 
   ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Moon, Sun, 
   Download, Upload, Check, Copy, User, Search, Edit2, Settings,
-  LogOut, Mail, Lock, Loader, UploadCloud, AlertCircle, GripVertical,
-  ExternalLink
+  LogOut, Mail, Lock, Loader, UploadCloud, AlertCircle, ExternalLink
 } from 'lucide-react';
 import { supabase } from './supabase';
 
 // ============================================================================
-// LIFE COMMAND v7.1.2 - Fixed Drag & Edit Functionality
+// LIFE COMMAND v7.1.3 - Arrow Reordering & UX Improvements
 // ============================================================================
 
 const CLOUDINARY_CLOUD_NAME = 'dccblqxuy';
@@ -158,7 +157,7 @@ export default function App() {
         id: p.id, title: p.title, subItems: p.sub_items || [], tags: p.tags || [], archived: p.archived || false, createdAt: p.created_at
       })));
 
-      const { data: linksData } = await supabase.from('links').select('*').eq('user_id', user.id).order('created_at', { ascending: false });
+      const { data: linksData } = await supabase.from('links').select('*').eq('user_id', user.id).order('title', { ascending: true });
       setLinks((linksData || []).map(l => ({
         id: l.id, title: l.title, url: l.url, tags: l.tags || [], createdAt: l.created_at
       })));
@@ -230,33 +229,32 @@ export default function App() {
     setProjects(projects.filter(p => p.id !== id));
   };
 
-  const reorderProjects = (fromIndex, toIndex) => {
+  const moveProject = (index, direction) => {
+    const newIndex = index + direction;
+    if (newIndex < 0 || newIndex >= projects.length) return;
     const newProjects = [...projects];
-    const [moved] = newProjects.splice(fromIndex, 1);
-    newProjects.splice(toIndex, 0, moved);
+    const [moved] = newProjects.splice(index, 1);
+    newProjects.splice(newIndex, 0, moved);
     setProjects(newProjects);
   };
 
   const addLink = async () => {
     const { data } = await supabase.from('links').insert({ user_id: user.id, title: 'New Link', url: 'https://', tags: [] }).select().single();
-    if (data) setLinks([{ id: data.id, title: data.title, url: data.url, tags: [], createdAt: data.created_at }, ...links]);
+    if (data) {
+      const newLinks = [{ id: data.id, title: data.title, url: data.url, tags: [], createdAt: data.created_at }, ...links];
+      setLinks(newLinks.sort((a, b) => a.title.localeCompare(b.title)));
+    }
   };
 
   const updateLink = async (id, updates) => {
     await supabase.from('links').update(updates).eq('id', id);
-    setLinks(links.map(l => l.id === id ? { ...l, ...updates } : l));
+    const updatedLinks = links.map(l => l.id === id ? { ...l, ...updates } : l);
+    setLinks(updatedLinks.sort((a, b) => a.title.localeCompare(b.title)));
   };
 
   const deleteLink = async (id) => {
     await supabase.from('links').delete().eq('id', id);
     setLinks(links.filter(l => l.id !== id));
-  };
-
-  const reorderLinks = (fromIndex, toIndex) => {
-    const newLinks = [...links];
-    const [moved] = newLinks.splice(fromIndex, 1);
-    newLinks.splice(toIndex, 0, moved);
-    setLinks(newLinks);
   };
 
   const addNote = async () => {
@@ -362,7 +360,7 @@ export default function App() {
   };
 
   const exportData = () => {
-    const data = { version: '7.1.2', exportedAt: new Date().toISOString(), projects, links, notes, inspirations, settings: { userName, userGreeting } };
+    const data = { version: '7.1.3', exportedAt: new Date().toISOString(), projects, links, notes, inspirations, settings: { userName, userGreeting } };
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a'); a.href = url;
@@ -501,8 +499,8 @@ export default function App() {
             <div className="loading-data"><Loader className="spin" size={24} /><p>Loading your data...</p></div>
           ) : (
             <>
-              {activeView === 'projects' && <ProjectsView projects={projects} addProject={addProject} updateProject={updateProject} deleteProject={deleteProject} reorderProjects={reorderProjects} onTagClick={handleTagClick} allTags={getAllTags()} highlightedItemId={highlightedItemId} />}
-              {activeView === 'links' && <LinksView links={links} addLink={addLink} updateLink={updateLink} deleteLink={deleteLink} reorderLinks={reorderLinks} onTagClick={handleTagClick} allTags={getAllTags()} highlightedItemId={highlightedItemId} />}
+              {activeView === 'projects' && <ProjectsView projects={projects} addProject={addProject} updateProject={updateProject} deleteProject={deleteProject} moveProject={moveProject} onTagClick={handleTagClick} allTags={getAllTags()} highlightedItemId={highlightedItemId} />}
+              {activeView === 'links' && <LinksView links={links} addLink={addLink} updateLink={updateLink} deleteLink={deleteLink} onTagClick={handleTagClick} allTags={getAllTags()} highlightedItemId={highlightedItemId} />}
               {activeView === 'notes' && <NotesView notes={notes} addNote={addNote} updateNote={updateNote} deleteNote={deleteNote} onTagClick={handleTagClick} allTags={getAllTags()} highlightedItemId={highlightedItemId} />}
               {activeView === 'tags' && <TagsView projects={projects} links={links} notes={notes} inspirations={inspirations} activeTagFilter={activeTagFilter} setActiveTagFilter={setActiveTagFilter} navigateToItem={navigateToItem} />}
               {activeView === 'inspo' && <InspoView inspirations={inspirations} addInspiration={addInspiration} updateInspiration={updateInspiration} deleteInspiration={deleteInspiration} onTagClick={handleTagClick} allTags={getAllTags()} highlightedItemId={highlightedItemId} />}
@@ -774,11 +772,6 @@ function Styles() {
       .btn-danger{display:flex;align-items:center;gap:6px;padding:8px 14px;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);border-radius:var(--radius);font-size:12px;font-weight:500;color:#EF4444;cursor:pointer;font-family:var(--font);transition:var(--transition)}
       .btn-danger:hover{background:rgba(239,68,68,0.2)}
       
-      /* DRAG HANDLE */
-      .drag-handle{display:flex;align-items:center;justify-content:center;width:24px;color:var(--text-3);cursor:grab;flex-shrink:0;opacity:0.5;transition:var(--transition)}
-      .drag-handle:hover{opacity:1;color:var(--text-2)}
-      .drag-handle:active{cursor:grabbing}
-      
       /* PROJECT CARDS */
       .projects-list{display:flex;flex-direction:column;gap:12px}
       .project-card{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:16px;transition:all 0.3s ease;display:flex;gap:12px}
@@ -786,6 +779,11 @@ function Styles() {
       .project-card.completed{border-color:#10B981;background:linear-gradient(135deg,var(--bg-card) 0%,rgba(16,185,129,0.08) 100%)}
       .project-card.highlighted{animation:highlight-pulse 2s ease-out}
       @keyframes highlight-pulse{0%,100%{box-shadow:0 0 0 0 transparent}50%{box-shadow:0 0 0 4px var(--accent-soft);border-color:var(--accent)}}
+      
+      .reorder-buttons{display:flex;flex-direction:column;gap:2px;flex-shrink:0}
+      .reorder-btn{width:24px;height:24px;display:flex;align-items:center;justify-content:center;background:var(--bg-app);border:1px solid var(--border);border-radius:4px;color:var(--text-3);cursor:pointer;transition:var(--transition)}
+      .reorder-btn:hover:not(:disabled){background:var(--bg-card-hover);color:var(--text-1);border-color:var(--accent)}
+      .reorder-btn:disabled{opacity:0.3;cursor:not-allowed}
       
       .project-content{flex:1;min-width:0}
       
@@ -834,7 +832,7 @@ function Styles() {
       .sub-item:hover{background:var(--bg-card-hover)}
       .sub-checkbox{width:16px;height:16px;border:2px solid var(--border);border-radius:4px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:var(--transition);color:transparent}
       .sub-checkbox.checked{background:var(--accent);border-color:var(--accent);color:#fff}
-      .sub-text{flex:1;font-size:13px}
+      .sub-text{flex:1;font-size:13px;cursor:text}
       .sub-text.done{text-decoration:line-through;color:var(--text-3)}
       .sub-text-input{flex:1;padding:4px 8px;background:var(--bg-input);border:1px solid var(--border);border-radius:4px;font-size:13px;color:var(--text-1);font-family:var(--font)}
       .sub-text-input:focus{outline:none;border-color:var(--accent)}
@@ -859,22 +857,19 @@ function Styles() {
       @media(max-width:1100px){.links-grid{grid-template-columns:repeat(2,1fr)}}
       @media(max-width:700px){.links-grid{grid-template-columns:1fr}}
       
-      .link-card{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);transition:all 0.3s ease;display:flex;overflow:hidden}
+      .link-card{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:16px;transition:all 0.3s ease;display:flex;flex-direction:column}
       .link-card:hover{border-color:var(--accent);box-shadow:0 2px 8px rgba(0,0,0,0.08)}
       .link-card.highlighted{animation:highlight-pulse 2s ease-out}
-      .link-card.editing{flex-direction:column}
-      .link-card.editing .drag-handle{display:none}
       
-      .link-card .drag-handle{padding:12px 8px;border-right:1px solid var(--border);background:var(--bg-app)}
-      
-      .link-content{flex:1;padding:16px;display:flex;flex-direction:column;min-width:0}
       .link-header{display:flex;align-items:flex-start;justify-content:space-between;gap:8px;margin-bottom:6px}
       .link-title{font-size:14px;font-weight:600;flex:1;word-break:break-word}
+      .link-title-link{color:var(--text-1);text-decoration:none;transition:var(--transition)}
+      .link-title-link:hover{color:var(--accent)}
       .link-actions{display:flex;gap:2px;flex-shrink:0}
-      .link-url-display{font-size:12px;color:var(--accent);margin-bottom:12px;word-break:break-all;opacity:0.8}
+      .link-url-display{font-size:12px;color:var(--text-2);margin-bottom:12px;word-break:break-all}
       .link-tags{display:flex;gap:4px;flex-wrap:wrap;margin-top:auto}
       
-      .link-edit-form{padding:16px;display:flex;flex-direction:column;gap:12px}
+      .link-edit-form{display:flex;flex-direction:column;gap:12px}
       .link-edit-form .form-input{font-size:13px}
       .link-edit-actions{display:flex;gap:8px}
       
@@ -1080,7 +1075,7 @@ function SettingsView({ userName, userGreeting, updateUserSettings, userEmail, o
       </div>
       <div className="settings-section">
         <div className="settings-section-title">About</div>
-        <p style={{ color: 'var(--text-2)', fontSize: '13px', lineHeight: '1.6' }}>Life Command v7.1.2<br />A personal productivity dashboard with cloud sync.</p>
+        <p style={{ color: 'var(--text-2)', fontSize: '13px', lineHeight: '1.6' }}>Life Command v7.1.3<br />A personal productivity dashboard with cloud sync.</p>
       </div>
     </div>
   );
@@ -1089,9 +1084,8 @@ function SettingsView({ userName, userGreeting, updateUserSettings, userEmail, o
 // ============================================================================
 // PROJECTS VIEW
 // ============================================================================
-function ProjectsView({ projects, addProject, updateProject, deleteProject, reorderProjects, onTagClick, allTags, highlightedItemId }) {
+function ProjectsView({ projects, addProject, updateProject, deleteProject, moveProject, onTagClick, allTags, highlightedItemId }) {
   const [tagFilter, setTagFilter] = useState('all');
-  const [dragIndex, setDragIndex] = useState(null);
   const [showArchived, setShowArchived] = useState(false);
   
   const getProgress = (p) => { if (!p.subItems?.length) return 0; return Math.round((p.subItems.filter(i => i.completed).length / p.subItems.length) * 100); };
@@ -1101,11 +1095,11 @@ function ProjectsView({ projects, addProject, updateProject, deleteProject, reor
   const archivedProjects = projects.filter(p => p.archived);
   const filtered = tagFilter === 'all' ? activeProjects : activeProjects.filter(p => p.tags?.includes(tagFilter));
 
-  const handleDragStart = (index) => { setDragIndex(index); };
-  const handleDragOver = (e, index) => { e.preventDefault(); if (dragIndex !== null && dragIndex !== index) { reorderProjects(dragIndex, index); setDragIndex(index); } };
-  const handleDragEnd = () => { setDragIndex(null); };
   const archiveProject = (id) => updateProject(id, { archived: true });
   const restoreProject = (id) => updateProject(id, { archived: false });
+
+  // Get the actual index in the full projects array for move operations
+  const getProjectIndex = (projectId) => projects.findIndex(p => p.id === projectId);
 
   return (
     <div>
@@ -1122,7 +1116,27 @@ function ProjectsView({ projects, addProject, updateProject, deleteProject, reor
         <>
           {filtered.length === 0 ? <div className="empty" style={{ padding: '40px 24px' }}><div className="empty-title">No active projects</div><div className="empty-text">All projects are archived or filtered out</div></div> : (
             <div className="projects-list">
-              {filtered.map((p, index) => <ProjectCard key={p.id} project={p} index={index} updateProject={updateProject} deleteProject={deleteProject} onTagClick={onTagClick} getProgress={getProgress} isComplete={isProjectComplete(p)} onArchive={archiveProject} allTags={allTags} onDragStart={handleDragStart} onDragOver={handleDragOver} onDragEnd={handleDragEnd} isHighlighted={highlightedItemId === p.id} />)}
+              {filtered.map((p, displayIndex) => {
+                const actualIndex = getProjectIndex(p.id);
+                return (
+                  <ProjectCard 
+                    key={p.id} 
+                    project={p} 
+                    index={actualIndex}
+                    isFirst={actualIndex === 0}
+                    isLast={actualIndex === projects.length - 1}
+                    updateProject={updateProject} 
+                    deleteProject={deleteProject} 
+                    moveProject={moveProject}
+                    onTagClick={onTagClick} 
+                    getProgress={getProgress} 
+                    isComplete={isProjectComplete(p)} 
+                    onArchive={archiveProject} 
+                    allTags={allTags} 
+                    isHighlighted={highlightedItemId === p.id} 
+                  />
+                );
+              })}
             </div>
           )}
           {archivedProjects.length > 0 && (
@@ -1140,7 +1154,7 @@ function ProjectsView({ projects, addProject, updateProject, deleteProject, reor
 // ============================================================================
 // PROJECT CARD
 // ============================================================================
-function ProjectCard({ project, index, updateProject, deleteProject, onTagClick, getProgress, isComplete, onArchive, allTags, onDragStart, onDragOver, onDragEnd, isHighlighted }) {
+function ProjectCard({ project, index, isFirst, isLast, updateProject, deleteProject, moveProject, onTagClick, getProgress, isComplete, onArchive, allTags, isHighlighted }) {
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [editedTitle, setEditedTitle] = useState(project.title);
   const [showSub, setShowSub] = useState(true);
@@ -1159,18 +1173,14 @@ function ProjectCard({ project, index, updateProject, deleteProject, onTagClick,
   const removeTag = (tag) => updateProject(project.id, { tags: project.tags.filter(t => t !== tag) });
 
   return (
-    <div 
-      id={project.id} 
-      className={`project-card ${isComplete ? 'completed' : ''} ${isHighlighted ? 'highlighted' : ''}`}
-      onDragOver={e => onDragOver(e, index)}
-    >
-      <div 
-        className="drag-handle" 
-        draggable 
-        onDragStart={() => onDragStart(index)} 
-        onDragEnd={onDragEnd}
-      >
-        <GripVertical size={16} />
+    <div id={project.id} className={`project-card ${isComplete ? 'completed' : ''} ${isHighlighted ? 'highlighted' : ''}`}>
+      <div className="reorder-buttons">
+        <button className="reorder-btn" onClick={() => moveProject(index, -1)} disabled={isFirst} title="Move up">
+          <ChevronUp size={14} />
+        </button>
+        <button className="reorder-btn" onClick={() => moveProject(index, 1)} disabled={isLast} title="Move down">
+          <ChevronDown size={14} />
+        </button>
       </div>
       
       <div className="project-content">
@@ -1217,12 +1227,16 @@ function ProjectCard({ project, index, updateProject, deleteProject, onTagClick,
 }
 
 // ============================================================================
-// SUB ITEM
+// SUB ITEM - Click to edit text
 // ============================================================================
 function SubItem({ item, updateSub, deleteSub }) {
   const [isEditing, setIsEditing] = useState(false);
   const [editedText, setEditedText] = useState(item.text);
-  const saveText = () => { if (editedText.trim()) updateSub(item.id, { text: editedText }); setIsEditing(false); };
+  
+  const saveText = () => { 
+    if (editedText.trim()) updateSub(item.id, { text: editedText }); 
+    setIsEditing(false); 
+  };
 
   return (
     <div className="sub-item">
@@ -1237,14 +1251,13 @@ function SubItem({ item, updateSub, deleteSub }) {
           autoFocus 
         />
       ) : (
-        <span className={`sub-text ${item.completed ? 'done' : ''}`}>{item.text}</span>
+        <span className={`sub-text ${item.completed ? 'done' : ''}`} onClick={() => setIsEditing(true)}>{item.text}</span>
       )}
       <div className="sub-badges">
         <select className={`status-badge ${item.status}`} value={item.status} onChange={e => updateSub(item.id, { status: e.target.value })}><option value="new">New</option><option value="working">Working</option><option value="paused">Paused</option><option value="stuck">Stuck</option></select>
         <select className={`priority-badge ${item.priority}`} value={item.priority} onChange={e => updateSub(item.id, { priority: e.target.value })}><option value="low">Low</option><option value="medium">Medium</option><option value="high">High</option><option value="urgent">Urgent</option></select>
       </div>
       <div className="sub-actions">
-        <button className="icon-btn" onClick={() => setIsEditing(true)} title="Edit"><Edit2 size={12} /></button>
         <button className="icon-btn" onClick={() => navigator.clipboard.writeText(item.text)} title="Copy"><Copy size={12} /></button>
         <button className="icon-btn danger" onClick={() => deleteSub(item.id)} title="Delete"><X size={12} /></button>
       </div>
@@ -1253,16 +1266,12 @@ function SubItem({ item, updateSub, deleteSub }) {
 }
 
 // ============================================================================
-// LINKS VIEW
+// LINKS VIEW - Alphabetical order, no drag
 // ============================================================================
-function LinksView({ links, addLink, updateLink, deleteLink, reorderLinks, onTagClick, allTags, highlightedItemId }) {
+function LinksView({ links, addLink, updateLink, deleteLink, onTagClick, allTags, highlightedItemId }) {
   const [tagFilter, setTagFilter] = useState('all');
-  const [dragIndex, setDragIndex] = useState(null);
   const linkTags = [...new Set(links.flatMap(l => l.tags || []))];
   const filtered = tagFilter === 'all' ? links : links.filter(l => l.tags?.includes(tagFilter));
-  const handleDragStart = (index) => { setDragIndex(index); };
-  const handleDragOver = (e, index) => { e.preventDefault(); if (dragIndex !== null && dragIndex !== index) { reorderLinks(dragIndex, index); setDragIndex(index); } };
-  const handleDragEnd = () => { setDragIndex(null); };
 
   return (
     <div>
@@ -1271,16 +1280,16 @@ function LinksView({ links, addLink, updateLink, deleteLink, reorderLinks, onTag
         <div className="toolbar-right"><button className="btn-primary" onClick={addLink}><Plus size={14} /> New Link</button></div>
       </div>
       {filtered.length === 0 ? <div className="empty"><div className="empty-icon"><Link2 size={28} /></div><div className="empty-title">No links yet</div><div className="empty-text">Save useful links for quick access</div></div> : (
-        <div className="links-grid">{filtered.map((l, index) => <LinkCard key={l.id} link={l} index={index} updateLink={updateLink} deleteLink={deleteLink} onTagClick={onTagClick} allTags={allTags} onDragStart={handleDragStart} onDragOver={handleDragOver} onDragEnd={handleDragEnd} isHighlighted={highlightedItemId === l.id} />)}</div>
+        <div className="links-grid">{filtered.map(l => <LinkCard key={l.id} link={l} updateLink={updateLink} deleteLink={deleteLink} onTagClick={onTagClick} allTags={allTags} isHighlighted={highlightedItemId === l.id} />)}</div>
       )}
     </div>
   );
 }
 
 // ============================================================================
-// LINK CARD - FIXED
+// LINK CARD - Title clickable to open, pencil to edit
 // ============================================================================
-function LinkCard({ link, index, updateLink, deleteLink, onTagClick, allTags, onDragStart, onDragOver, onDragEnd, isHighlighted }) {
+function LinkCard({ link, updateLink, deleteLink, onTagClick, allTags, isHighlighted }) {
   const [isEditing, setIsEditing] = useState(false);
   const [editedTitle, setEditedTitle] = useState(link.title);
   const [editedUrl, setEditedUrl] = useState(link.url);
@@ -1308,7 +1317,7 @@ function LinkCard({ link, index, updateLink, deleteLink, onTagClick, allTags, on
   // Edit mode
   if (isEditing) {
     return (
-      <div id={link.id} className="link-card editing">
+      <div id={link.id} className="link-card">
         <div className="link-edit-form">
           <input 
             className="form-input" 
@@ -1337,43 +1346,29 @@ function LinkCard({ link, index, updateLink, deleteLink, onTagClick, allTags, on
 
   // View mode
   return (
-    <div 
-      id={link.id} 
-      className={`link-card ${isHighlighted ? 'highlighted' : ''}`}
-      onDragOver={e => onDragOver(e, index)}
-    >
-      <div 
-        className="drag-handle" 
-        draggable 
-        onDragStart={() => onDragStart(index)} 
-        onDragEnd={onDragEnd}
-      >
-        <GripVertical size={14} />
+    <div id={link.id} className={`link-card ${isHighlighted ? 'highlighted' : ''}`}>
+      <div className="link-header">
+        <div className="link-title">
+          <a href={link.url} target="_blank" rel="noopener noreferrer" className="link-title-link">{link.title}</a>
+        </div>
+        <div className="link-actions">
+          <button className="icon-btn" onClick={() => setIsEditing(true)} title="Edit"><Edit2 size={14} /></button>
+          <button className="icon-btn danger" onClick={() => deleteLink(link.id)} title="Delete"><Trash2 size={14} /></button>
+        </div>
       </div>
-      
-      <div className="link-content">
-        <div className="link-header">
-          <div className="link-title">{link.title}</div>
-          <div className="link-actions">
-            <a href={link.url} target="_blank" rel="noopener noreferrer" className="icon-btn" title="Open link"><ExternalLink size={14} /></a>
-            <button className="icon-btn" onClick={() => setIsEditing(true)} title="Edit"><Edit2 size={14} /></button>
-            <button className="icon-btn danger" onClick={() => deleteLink(link.id)} title="Delete"><Trash2 size={14} /></button>
-          </div>
-        </div>
-        <div className="link-url-display">{link.url}</div>
-        <div className="link-tags">
-          {link.tags?.map(t => (
-            <span key={t} className="tag-pill" onClick={() => onTagClick(t)}>
-              <Tag size={9} />{t}
-              <X size={9} style={{ marginLeft: 2, cursor: 'pointer' }} onClick={e => { e.stopPropagation(); removeTag(t); }} />
-            </span>
-          ))}
-          {editingTags ? (
-            <TagInput onAdd={addTag} allTags={allTags} existingTags={link.tags} />
-          ) : (
-            <span className="tag-pill" onClick={() => setEditingTags(true)} style={{ cursor: 'pointer' }}><Plus size={9} /></span>
-          )}
-        </div>
+      <div className="link-url-display">{link.url}</div>
+      <div className="link-tags">
+        {link.tags?.map(t => (
+          <span key={t} className="tag-pill" onClick={() => onTagClick(t)}>
+            <Tag size={9} />{t}
+            <X size={9} style={{ marginLeft: 2, cursor: 'pointer' }} onClick={e => { e.stopPropagation(); removeTag(t); }} />
+          </span>
+        ))}
+        {editingTags ? (
+          <TagInput onAdd={addTag} allTags={allTags} existingTags={link.tags} />
+        ) : (
+          <span className="tag-pill" onClick={() => setEditingTags(true)} style={{ cursor: 'pointer' }}><Plus size={9} /></span>
+        )}
       </div>
     </div>
   );
